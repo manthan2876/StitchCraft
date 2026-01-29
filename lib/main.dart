@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:stitchcraft/screens/dashboard/dashboard_screen.dart';
+import 'package:stitchcraft/screens/login/login_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    MaterialApp(
+      initialRoute: '/',
+      routes: {
+        '/': (context) => LoginScreen(),
+        '/dashboard': (context) => DashboardScreen(),
+      },
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
