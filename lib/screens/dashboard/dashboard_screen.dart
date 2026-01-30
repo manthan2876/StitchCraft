@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:stitchcraft/services/auth_service.dart';
 
 class DashboardScreen extends StatelessWidget {
+  const DashboardScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -8,6 +11,16 @@ class DashboardScreen extends StatelessWidget {
         title: Text("Dashboard"),
         actions: [
           IconButton(icon: Icon(Icons.notifications_none), onPressed: () {}),
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () async {
+              await AuthService().logout();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, '/login');
+              }
+            },
+            tooltip: 'Logout',
+          ),
         ],
       ),
       // The Hub: Central navigation to all core features

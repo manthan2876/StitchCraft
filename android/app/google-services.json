@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "97473591547",
+    "project_id": "stitchcraft-e62da",
+    "storage_bucket": "stitchcraft-e62da.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:97473591547:android:ab382ad9ab8fa9f37d585e",
+        "android_client_info": {
+          "package_name": "com.example.stitchcraft"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_kp5MfG_nIv62W45ji8L_fJ63dBG4qT8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
