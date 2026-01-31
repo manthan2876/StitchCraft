@@ -9,20 +9,39 @@ class AuthService {
   // Sign Up
   Future<User?> signUp(String email, String password) async {
     try {
+      // Validate input
+      if (email.isEmpty || password.isEmpty) {
+        throw Exception('Email and password cannot be empty');
+      }
+      if (password.length < 6) {
+        throw Exception('Password must be at least 6 characters');
+      }
+
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
       return result.user;
+    } on FirebaseAuthException catch (e) {
+      developer.log(
+        'Sign Up Error: ${e.code} - ${e.message}',
+        name: 'AuthService',
+      );
+      rethrow;
     } catch (e) {
-      developer.log('Sign Up Error: $e');
-      return null;
+      developer.log('Unexpected Sign Up Error: $e', name: 'AuthService');
+      rethrow;
     }
   }
 
   // Login & Save Session
   Future<User?> login(String email, String password) async {
     try {
+      // Validate input
+      if (email.isEmpty || password.isEmpty) {
+        throw Exception('Email and password cannot be empty');
+      }
+
       UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -33,16 +52,27 @@ class AuthService {
       await prefs.setBool('isLoggedIn', true);
 
       return result.user;
+    } on FirebaseAuthException catch (e) {
+      developer.log(
+        'Login Error: ${e.code} - ${e.message}',
+        name: 'AuthService',
+      );
+      rethrow;
     } catch (e) {
-      developer.log('Login Error: $e');
-      return null;
+      developer.log('Unexpected Login Error: $e', name: 'AuthService');
+      rethrow;
     }
   }
 
   // Logout
   Future<void> logout() async {
-    await _auth.signOut();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', false);
+    try {
+      await _auth.signOut();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', false);
+    } catch (e) {
+      developer.log('Logout Error: $e', name: 'AuthService');
+      rethrow;
+    }
   }
 }

@@ -64,6 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '97473591547',
     projectId: 'stitchcraft-e62da',
     storageBucket: 'stitchcraft-e62da.firebasestorage.app',
+    iosClientId: '97473591547-q9hes88dabujoql4hflk556a9trr8ps0.apps.googleusercontent.com',
     iosBundleId: 'com.example.stitchcraft',
   );
 
@@ -73,6 +74,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '97473591547',
     projectId: 'stitchcraft-e62da',
     storageBucket: 'stitchcraft-e62da.firebasestorage.app',
+    iosClientId: '97473591547-q9hes88dabujoql4hflk556a9trr8ps0.apps.googleusercontent.com',
     iosBundleId: 'com.example.stitchcraft',
   );
 
