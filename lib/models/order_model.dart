@@ -10,7 +10,9 @@ class Order {
   final double totalAmount;
   final String description;
   final List<String> itemTypes; // Types of items being stitched
-  final Map<String, dynamic> measurements; // Reference to measurement details
+  final Map<String, dynamic> measurements;
+  final bool isRush;
+  final String paymentMethod; // 'cash', 'online'
 
   Order({
     required this.id,
@@ -23,6 +25,8 @@ class Order {
     required this.description,
     required this.itemTypes,
     required this.measurements,
+    this.isRush = false,
+    this.paymentMethod = 'cash',
   });
 
   // Convert Firestore Document to Model (Read)
@@ -40,6 +44,8 @@ class Order {
       description: data['description'] ?? '',
       itemTypes: List<String>.from(data['itemTypes'] ?? []),
       measurements: data['measurements'] ?? {},
+      isRush: data['isRush'] ?? false,
+      paymentMethod: data['paymentMethod'] ?? 'cash',
     );
   }
 
@@ -55,6 +61,8 @@ class Order {
       'description': description,
       'itemTypes': itemTypes,
       'measurements': measurements,
+      'isRush': isRush,
+      'paymentMethod': paymentMethod,
     };
   }
 
@@ -70,6 +78,8 @@ class Order {
     String? description,
     List<String>? itemTypes,
     Map<String, dynamic>? measurements,
+    bool? isRush,
+    String? paymentMethod,
   }) {
     return Order(
       id: id ?? this.id,
@@ -82,6 +92,8 @@ class Order {
       description: description ?? this.description,
       itemTypes: itemTypes ?? this.itemTypes,
       measurements: measurements ?? this.measurements,
+      isRush: isRush ?? this.isRush,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
     );
   }
 

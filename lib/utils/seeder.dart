@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'dart:developer' as developer;
 import '../models/customer_model.dart';
 import '../models/order_model.dart' as order_model;
@@ -6,9 +7,9 @@ import '../models/measurement_model.dart';
 
 /// Firebase Seeder - Utility to populate Firestore with sample data
 class FirebaseSeeder {
-  // Avoid holding a Firestore instance at import time. Use
-  // `FirebaseFirestore.instance` inside methods to ensure Firebase
-  // is initialized first (prevents platform-threading issues on Windows).
+  // Use a getter to access the correct database instance
+  static FirebaseFirestore get _db =>
+      FirebaseFirestore.instanceFor(databaseId: 'stitchcraft', app: Firebase.app());
 
   /// Add sample customers to Firestore
   static Future<void> seedCustomers() async {
@@ -47,7 +48,7 @@ class FirebaseSeeder {
       ];
 
       for (var customer in customers) {
-        await FirebaseFirestore.instance
+        await _db
             .collection('customers')
             .add(customer.toMap());
       }
@@ -64,7 +65,7 @@ class FirebaseSeeder {
   /// Add sample orders
   static Future<void> seedOrders() async {
     try {
-      final customersSnapshot = await FirebaseFirestore.instance
+      final customersSnapshot = await _db
           .collection('customers')
           .limit(3)
           .get();
@@ -98,7 +99,7 @@ class FirebaseSeeder {
           measurements: {},
         );
 
-        await FirebaseFirestore.instance
+        await _db
             .collection('orders')
             .add(order.toMap());
         orderIndex++;
@@ -116,7 +117,7 @@ class FirebaseSeeder {
   /// Add sample measurements
   static Future<void> seedMeasurements() async {
     try {
-      final ordersSnapshot = await FirebaseFirestore.instance
+      final ordersSnapshot = await _db
           .collection('orders')
           .limit(3)
           .get();
@@ -167,7 +168,7 @@ class FirebaseSeeder {
               'Sample measurement ${measurementIndex + 1} - Standard fitting',
         );
 
-        await FirebaseFirestore.instance
+        await _db
             .collection('measurements')
             .add(measurement.toMap());
         measurementIndex++;
@@ -208,7 +209,7 @@ class FirebaseSeeder {
   /// Check if database already has data
   static Future<bool> hasData() async {
     try {
-      final customersCount = await FirebaseFirestore.instance
+      final customersCount = await _db
           .collection('customers')
           .count()
           .get();
@@ -228,7 +229,7 @@ class FirebaseSeeder {
       );
 
       // Delete customers
-      final customersSnapshot = await FirebaseFirestore.instance
+      final customersSnapshot = await _db
           .collection('customers')
           .get();
       for (var doc in customersSnapshot.docs) {
@@ -236,7 +237,7 @@ class FirebaseSeeder {
       }
 
       // Delete orders
-      final ordersSnapshot = await FirebaseFirestore.instance
+      final ordersSnapshot = await _db
           .collection('orders')
           .get();
       for (var doc in ordersSnapshot.docs) {
@@ -244,7 +245,7 @@ class FirebaseSeeder {
       }
 
       // Delete measurements
-      final measurementsSnapshot = await FirebaseFirestore.instance
+      final measurementsSnapshot = await _db
           .collection('measurements')
           .get();
       for (var doc in measurementsSnapshot.docs) {

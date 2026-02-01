@@ -7,10 +7,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/screens/login/login_screen.dart';
 import 'package:stitchcraft/screens/dashboard/dashboard_screen.dart';
 import 'package:stitchcraft/screens/login/register_screen.dart';
-import 'firebase_options.dart';
 import 'package:stitchcraft/screens/customers/customer_list_screen.dart';
 import 'package:stitchcraft/screens/orders/order_list_screen.dart';
 import 'package:stitchcraft/screens/measurements/measurement_screen.dart';
+import 'package:stitchcraft/firebase_options.dart';
+import 'package:stitchcraft/theme/app_theme.dart';
+import 'package:stitchcraft/screens/home_navigation_screen.dart';
+import 'package:stitchcraft/screens/login/forgot_password_screen.dart';
+import 'package:stitchcraft/screens/login/otp_verification_screen.dart';
+import 'package:stitchcraft/screens/login/new_password_screen.dart';
+import 'package:stitchcraft/screens/login/password_success_screen.dart';
+import 'package:stitchcraft/screens/onboarding/splash_screen.dart';
+import 'package:stitchcraft/screens/onboarding/language_screen.dart';
+import 'package:stitchcraft/screens/onboarding/shop_setup_screen.dart';
+import 'package:stitchcraft/screens/onboarding/role_selection_screen.dart';
+import 'package:stitchcraft/screens/dashboard/staff_dashboard_screen.dart';
+import 'package:stitchcraft/screens/customers/customer_list_screen.dart';
+import 'package:stitchcraft/screens/customers/client_profile_screen.dart';
+import 'package:stitchcraft/screens/customers/edit_client_screen.dart';
+import 'package:stitchcraft/screens/profile_screen.dart';
+import 'package:stitchcraft/screens/orders/order_list_screen.dart';
+import 'package:stitchcraft/screens/orders/order_wizard_screen.dart';
+import 'package:stitchcraft/screens/orders/garment_specs_screen.dart';
+import 'package:stitchcraft/screens/orders/fabric_capture_screen.dart';
+import 'package:stitchcraft/screens/measurements/measurement_screen.dart';
+import 'package:stitchcraft/screens/measurements/measurement_selector_screen.dart';
+import 'package:stitchcraft/screens/measurements/visual_measurement_screen.dart';
+import 'package:stitchcraft/screens/measurements/measurement_form_screen.dart';
+import 'package:stitchcraft/screens/financials/expense_screen.dart';
+import 'package:stitchcraft/screens/financials/invoice_screen.dart';
+import 'package:stitchcraft/screens/inventory/inventory_screen.dart';
 
 void main() async {
   // Ensure Flutter bindings are initialized before calling native code
@@ -20,34 +46,23 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Optionally route Firebase calls to local emulators when enabled at runtime.
-  // Enable by passing: --dart-define=USE_FIREBASE_EMULATOR=true when running the app.
-  // This will connect to Firestore database "stitchcraft" on the emulator.
   const bool useEmulator = bool.fromEnvironment(
     'USE_FIREBASE_EMULATOR',
     defaultValue: false,
   );
+
   if (useEmulator) {
-    // Firestore emulator defaults to localhost:8080 and Auth emulator to localhost:9099
-    // Database name: "stitchcraft"
     try {
       if (kDebugMode) {
-        // Only log in debug mode to avoid leaking info in production
-        // ignore: avoid_print
-        print(
-          'Using Firebase emulators (Firestore: localhost:8080, Auth: localhost:9099)',
-        );
+        debugPrint('Using Firebase emulators');
       }
-      // Use the named Firestore database instance. This targets the
-      // Firestore database you created named 'stitchcraft'.
       FirebaseFirestore.instanceFor(
         app: Firebase.app(),
         databaseId: 'stitchcraft',
       ).useFirestoreEmulator('localhost', 8080);
       FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
     } catch (e) {
-      // If emulator APIs are not available or fail, log and continue.
-      // ignore: avoid_print
-      print('Failed to configure Firebase emulators: $e');
+      debugPrint('Failed to configure Firebase emulators: $e');
     }
   }
 
@@ -56,24 +71,16 @@ void main() async {
     FirebaseFirestore.instanceFor(
       app: Firebase.app(),
       databaseId: 'stitchcraft',
-    ).settings = const Settings(
-      persistenceEnabled: true,
-    );
+    ).settings = const Settings(persistenceEnabled: true);
   } catch (_) {
     // Ignore errors for unsupported platforms
   }
 
-  // Check if user session already exists (Requirement: Step 7 of Pr5.pdf)
-  final prefs = await SharedPreferences.getInstance();
-  final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-  runApp(StitchCraftApp(isLoggedIn: isLoggedIn));
+  runApp(const StitchCraftApp());
 }
 
 class StitchCraftApp extends StatelessWidget {
-  final bool isLoggedIn;
-
-  const StitchCraftApp({super.key, required this.isLoggedIn});
+  const StitchCraftApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -81,30 +88,47 @@ class StitchCraftApp extends StatelessWidget {
       title: 'StitchCraft',
       debugShowCheckedModeBanner: false,
 
-      // Professional Theme Configuration (Material 3)
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6750A4), // Deep Purple / Tailor Theme
-          brightness: Brightness.light,
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-          filled: true,
-        ),
-      ),
+      // Apply the Custom App Theme
+      theme: AppTheme.lightTheme,
 
-      // Logic to skip Login screen if session exists
-      initialRoute: isLoggedIn ? '/dashboard' : '/login',
+      // Navigation Logic
+      initialRoute: '/',
 
-      // Centralized Route Management
       routes: {
+        '/': (context) => const SplashScreen(),
+        '/language': (context) => const LanguageScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
-        '/dashboard': (context) => const DashboardScreen(),
-        '/customers': (context) => CustomerListScreen(),
-        '/orders': (context) => OrderListScreen(),
-        '/measurements': (context) => MeasurementScreen(),
+        // Onboarding
+        '/shop_setup': (context) => const ShopSetupScreen(),
+        '/role_selection': (context) => const RoleSelectionScreen(),
+        
+        // Dashboards
+        '/home': (context) => const HomeNavigationScreen(), // Admin Nav
+        '/staff_dashboard': (context) => const StaffDashboardScreen(),
+        
+        // CRM
+        '/customers': (context) => const CustomerListScreen(),
+        '/client_profile': (context) => const ClientProfileScreen(),
+        '/edit_client': (context) => const EditClientScreen(),
+        '/profile': (context) => const ProfileScreen(), // App Profile
+        
+        // Measurements
+        '/measurements': (context) => const MeasurementListScreen(),
+        '/measurement_selector': (context) => const MeasurementSelectorScreen(),
+        '/visual_measurement': (context) => const VisualMeasurementScreen(),
+        '/measurement_form': (context) => const MeasurementFormScreen(),
+        
+        // Orders
+        '/orders': (context) => const OrderListScreen(),
+        '/order_wizard': (context) => const OrderWizardScreen(),
+        '/garment_specs': (context) => const GarmentSpecsScreen(),
+        '/fabric_capture': (context) => const FabricCaptureScreen(),
+        
+        // Financials & Inventory
+        '/expenses': (context) => const ExpenseScreen(),
+        '/invoices': (context) => const InvoiceScreen(),
+        '/inventory': (context) => const InventoryScreen(),
       },
     );
   }
