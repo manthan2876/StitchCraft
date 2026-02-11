@@ -15,6 +15,7 @@ import 'package:stitchcraft/features/onboarding/presentation/screens/role_select
 import 'package:stitchcraft/features/auth/presentation/screens/login_screen.dart';
 import 'package:stitchcraft/features/auth/presentation/screens/register_screen.dart';
 import 'package:stitchcraft/features/auth/presentation/auth_provider.dart' as app_auth;
+import 'package:stitchcraft/features/dashboard/presentation/screens/bento_dashboard_screen.dart';
 import 'package:stitchcraft/features/dashboard/presentation/screens/grid_dashboard_screen.dart';
 import 'package:stitchcraft/features/dashboard/presentation/screens/home_navigation_screen.dart';
 import 'package:stitchcraft/features/dashboard/presentation/screens/staff_dashboard_screen.dart';
@@ -22,10 +23,7 @@ import 'package:stitchcraft/features/customers/presentation/screens/customer_lis
 import 'package:stitchcraft/features/customers/presentation/screens/client_profile_screen.dart';
 import 'package:stitchcraft/features/customers/presentation/screens/edit_client_screen.dart';
 import 'package:stitchcraft/features/profile/presentation/screens/profile_screen.dart';
-import 'package:stitchcraft/features/measurements/presentation/screens/measurement_screen.dart';
-import 'package:stitchcraft/features/measurements/presentation/screens/measurement_selector_screen.dart';
-import 'package:stitchcraft/features/measurements/presentation/screens/visual_measurement_screen.dart';
-import 'package:stitchcraft/features/measurements/presentation/screens/measurement_form_screen.dart';
+import 'package:stitchcraft/features/measurements/presentation/screens/haptic_measurement_screen.dart';
 import 'package:stitchcraft/features/orders/presentation/screens/order_list_screen.dart';
 import 'package:stitchcraft/features/orders/presentation/screens/order_wizard_screen.dart';
 import 'package:stitchcraft/features/orders/presentation/screens/garment_specs_screen.dart';
@@ -84,17 +82,15 @@ class StitchCraftApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/shop_setup': (context) => const ShopSetupScreen(),
         '/role_selection': (context) => const RoleSelectionScreen(),
-        '/home': (context) => const GridDashboardScreen(),
+        '/home': (context) => const BentoDashboardScreen(),
+        '/grid_dashboard': (context) => const GridDashboardScreen(),
         '/home_nav': (context) => const HomeNavigationScreen(),
         '/staff_dashboard': (context) => const StaffDashboardScreen(),
         '/customers': (context) => const CustomerListScreen(),
         '/client_profile': (context) => const ClientProfileScreen(),
         '/edit_client': (context) => const EditClientScreen(),
         '/profile': (context) => const ProfileScreen(),
-        '/measurements': (context) => const MeasurementListScreen(),
-        '/measurement_selector': (context) => const MeasurementSelectorScreen(),
-        '/visual_measurement': (context) => const VisualMeasurementListScreen(),
-        '/measurement_form': (context) => const MeasurementFormScreen(),
+        '/measurements': (context) => const HapticMeasurementScreen(),
         '/orders': (context) => const OrderListScreen(),
         '/order_wizard': (context) => const OrderWizardScreen(),
         '/garment_specs': (context) => const GarmentSpecsScreen(),

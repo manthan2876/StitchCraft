@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stitchcraft/core/models/repair_job_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
-import 'package:stitchcraft/core/theme/app_theme.dart';
+import 'package:stitchcraft/core/widgets/neo_skeuomorphic_widgets.dart';
 
 class FastLaneRepairsScreen extends StatefulWidget {
   const FastLaneRepairsScreen({super.key});
@@ -17,141 +17,89 @@ class _FastLaneRepairsScreenState extends State<FastLaneRepairsScreen> {
   final TextEditingController _customerNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  // Quick service presets
   final List<QuickService> _quickServices = [
-    QuickService(
-      id: 'ZIPPER',
-      icon: Icons.vertical_align_center,
-      label: 'Chain Badlai',
-      labelHindi: 'चेन बदलाई',
-      price: 50,
-      color: const Color(0xFF6366F1),
-    ),
-    QuickService(
-      id: 'HEM',
-      icon: Icons.straighten,
-      label: 'Turpai',
-      labelHindi: 'तुरपाई',
-      price: 30,
-      color: const Color(0xFF10B981),
-    ),
-    QuickService(
-      id: 'PICO',
-      icon: Icons.checkroom,
-      label: 'Fall-Pico',
-      labelHindi: 'फॉल-पिको',
-      price: 100,
-      color: const Color(0xFFEC4899),
-    ),
-    QuickService(
-      id: 'FITTING',
-      icon: Icons.design_services,
-      label: 'Fitting',
-      labelHindi: 'फिटिंग',
-      price: 200,
-      color: const Color(0xFFF59E0B),
-    ),
-    QuickService(
-      id: 'PATCH',
-      icon: Icons.handyman,
-      label: 'Patch Work',
-      labelHindi: 'पैच वर्क',
-      price: 80,
-      color: const Color(0xFF8B5CF6),
-    ),
-    QuickService(
-      id: 'BUTTON',
-      icon: Icons.circle_outlined,
-      label: 'Button Fix',
-      labelHindi: 'बटन लगाना',
-      price: 20,
-      color: const Color(0xFF06B6D4),
-    ),
+    QuickService(id: 'ZIPPER', icon: Icons.vertical_align_center, label: 'Chain Badlai', labelHindi: 'चेन बदलाई', price: 50, color: const Color(0xFF6366F1)),
+    QuickService(id: 'HEM', icon: Icons.straighten, label: 'Turpai', labelHindi: 'तुरपाई', price: 30, color: const Color(0xFF10B981)),
+    QuickService(id: 'PICO', icon: Icons.checkroom, label: 'Fall-Pico', labelHindi: 'फॉल-पिको', price: 100, color: const Color(0xFFEC4899)),
+    QuickService(id: 'FITTING', icon: Icons.design_services, label: 'Fitting', labelHindi: 'फिटिंग', price: 200, color: const Color(0xFFF59E0B)),
+    QuickService(id: 'PATCH', icon: Icons.handyman, label: 'Patch Work', labelHindi: 'पैच वर्क', price: 80, color: const Color(0xFF8B5CF6)),
+    QuickService(id: 'BUTTON', icon: Icons.circle_outlined, label: 'Button Fix', labelHindi: 'बटन लगाना', price: 20, color: const Color(0xFF06B6D4)),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Fast Lane Repairs'),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      body: Column(
-        children: [
-          // Customer Info Section (Quick Entry)
-          _buildQuickCustomerInfo(),
-          
-          // Quick Service Grid
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 1.1,
+      backgroundColor: NeoColors.backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildQuickCustomerInfo(),
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(20),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 20,
+                  crossAxisSpacing: 20,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: _quickServices.length,
+                itemBuilder: (context, index) => _buildServiceCard(_quickServices[index]),
               ),
-              itemCount: _quickServices.length,
-              itemBuilder: (context, index) {
-                return _buildServiceCard(_quickServices[index]);
-              },
             ),
+            if (_cart.isNotEmpty) _buildCartSummary(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(color: NeoColors.surfaceColor),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              NeoButton(
+                width: 48,
+                height: 48,
+                onPressed: () => Navigator.pop(context),
+                child: const Icon(Icons.arrow_back, color: NeoColors.primary),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  "FAST LANE REPAIRS",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1),
+                ),
+              ),
+            ],
           ),
-          
-          // Cart Summary
-          if (_cart.isNotEmpty) _buildCartSummary(),
+          const Text("GUEST MODE", style: TextStyle(color: NeoColors.success, fontWeight: FontWeight.bold, fontSize: 10)),
         ],
       ),
     );
   }
 
   Widget _buildQuickCustomerInfo() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _customerNameController,
-                  decoration: InputDecoration(
-                    labelText: 'Customer Name',
-                    prefixIcon: const Icon(Icons.person),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                ),
+          Expanded(
+            child: NeoCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: TextField(
+                controller: _customerNameController,
+                decoration: const InputDecoration(hintText: "Customer Name (Optional)", border: InputBorder.none, icon: Icon(Icons.person, size: 18)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _phoneController,
-                  decoration: InputDecoration(
-                    labelText: 'Phone',
-                    prefixIcon: const Icon(Icons.phone),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  keyboardType: TextInputType.phone,
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -160,100 +108,34 @@ class _FastLaneRepairsScreenState extends State<FastLaneRepairsScreen> {
 
   Widget _buildServiceCard(QuickService service) {
     final isInCart = _cart.any((item) => item.serviceId == service.id);
-    final cartItem = isInCart ? _cart.firstWhere((item) => item.serviceId == service.id) : null;
-    
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      elevation: isInCart ? 8 : 4,
-      shadowColor: service.color.withValues(alpha: 0.3),
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          _addToCart(service);
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                service.color.withValues(alpha: isInCart ? 0.2 : 0.1),
-                service.color.withValues(alpha: 0.05),
-              ],
-            ),
-            border: isInCart
-                ? Border.all(color: service.color, width: 2)
-                : null,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Icon
+    final count = isInCart ? _cart.firstWhere((item) => item.serviceId == service.id).quantity : 0;
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        _addToCart(service);
+      },
+      child: NeoCard(
+        padding: const EdgeInsets.all(12),
+        color: isInCart ? service.color.withValues(alpha: 0.05) : Colors.white,
+        borderColor: isInCart ? service.color : null,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(service.icon, color: service.color, size: 36),
+            const SizedBox(height: 8),
+            Text(service.label, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            Text(service.labelHindi, style: const TextStyle(fontSize: 10, color: NeoColors.textSecondary)),
+            const SizedBox(height: 8),
+            Text("₹${service.price}", style: TextStyle(fontWeight: FontWeight.bold, color: service.color)),
+            if (isInCart)
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: service.color.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  service.icon,
-                  size: 32,
-                  color: service.color,
-                ),
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(color: service.color, shape: BoxShape.circle),
+                child: Text("$count", style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 8),
-              
-              // Label
-              Text(
-                service.label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-              ),
-              Text(
-                service.labelHindi,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              
-              // Price
-              Text(
-                '₹${service.price}',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: service.color,
-                    ),
-              ),
-              
-              // Quantity badge if in cart
-              if (isInCart && cartItem != null)
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: service.color,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'x${cartItem.quantity}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -263,120 +145,74 @@ class _FastLaneRepairsScreenState extends State<FastLaneRepairsScreen> {
     final total = _cart.fold<double>(0, (sum, item) => sum + (item.price * item.quantity));
     
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        color: NeoColors.surfaceColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -10))],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("${_cart.length} SERVICES", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: NeoColors.textSecondary)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text("₹${total.toStringAsFixed(0)}", style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: NeoColors.textPrimary)),
+              ),
+            ],
+          ),
+          NeoButton(
+            width: 160,
+            height: 60,
+            color: NeoColors.primary,
+            onPressed: _checkout,
+            child: const Text("ADD TO GALLA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${_cart.length} item(s)',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                  Text(
-                    '₹${total.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: _checkout,
-              icon: const Icon(Icons.check),
-              label: const Text('Checkout'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppTheme.primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
   void _addToCart(QuickService service) {
     setState(() {
-      final existingIndex = _cart.indexWhere((item) => item.serviceId == service.id);
-      if (existingIndex >= 0) {
-        _cart[existingIndex].quantity++;
-      } else {
-        _cart.add(RepairCartItem(
-          serviceId: service.id,
-          serviceName: service.label,
-          price: service.price.toDouble(),
-          quantity: 1,
-        ));
-      }
+      final idx = _cart.indexWhere((item) => item.serviceId == service.id);
+      if (idx >= 0) _cart[idx].quantity++;
+      else _cart.add(RepairCartItem(serviceId: service.id, serviceName: service.label, price: service.price.toDouble(), quantity: 1));
     });
   }
 
   Future<void> _checkout() async {
-    if (_customerNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter customer name'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    HapticFeedback.mediumImpact();
 
-    // Create repair jobs for each cart item
+    final name = _customerNameController.text.isEmpty ? "GUEST" : _customerNameController.text;
+    
+    // Create repair jobs
     for (var item in _cart) {
       final repairJob = RepairJob(
         id: '',
-        customerId: '',
-        customerName: _customerNameController.text,
-        customerPhone: _phoneController.text,
+        customerId: 'GUEST_ID',
+        customerName: name,
+        customerPhone: '',
         serviceType: item.serviceId,
-        complexity: 'MEDIUM',
+        complexity: 'LOW',
         price: item.price * item.quantity,
-        status: 'pending',
-        notes: 'Fast Lane - ${item.serviceName} x${item.quantity}',
+        status: 'Delivered', // Fast lane is immediate
+        notes: 'Fast Lane Transaction',
         createdDate: DateTime.now(),
-        dueDate: DateTime.now().add(const Duration(days: 2)),
-        completedDate: null,
+        dueDate: DateTime.now(),
+        completedDate: DateTime.now(),
         syncStatus: 1,
         updatedAt: DateTime.now(),
       );
-      
       await _dbService.addRepairJob(repairJob);
     }
 
-    // Show success feedback
-    HapticFeedback.mediumImpact();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Repair jobs created successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-      // Clear cart and customer info
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ ADDED TO GALLA. SCREEN RESET."), backgroundColor: NeoColors.success));
       setState(() {
         _cart.clear();
         _customerNameController.clear();

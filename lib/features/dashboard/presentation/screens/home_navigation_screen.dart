@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:stitchcraft/features/dashboard/presentation/screens/dashboard_bento_screen.dart';
+import 'package:stitchcraft/features/dashboard/presentation/screens/bento_dashboard_screen.dart';
 import 'package:stitchcraft/features/customers/presentation/screens/customer_list_screen.dart';
 import 'package:stitchcraft/features/orders/presentation/screens/order_list_screen.dart';
-import 'package:stitchcraft/features/finances/presentation/screens/financial_screen.dart';
+import 'package:stitchcraft/features/finances/presentation/screens/enhanced_khata_screen.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/app_drawer.dart';
 
@@ -30,10 +30,10 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
     if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     final List<Widget> _screens = [
-      const DashboardBentoScreen(),
+      const BentoDashboardScreen(),
       const CustomerListScreen(),
       const OrderListScreen(),
-      const FinancialScreen(),
+      const EnhancedKhataScreen(),
     ];
 
     final List<String> _titles = [

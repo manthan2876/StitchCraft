@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:stitchcraft/core/models/order_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
-import 'package:stitchcraft/features/orders/presentation/screens/add_edit_order_screen.dart';
+import 'package:stitchcraft/features/orders/presentation/screens/order_wizard_screen.dart';
 import 'package:stitchcraft/core/widgets/main_layout.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 
@@ -102,7 +102,7 @@ class OrderListScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => AddEditOrderScreen(order: order),
+                        builder: (_) => OrderWizardScreen(existingOrder: order),
                       ),
                     );
                   },
@@ -209,7 +209,7 @@ class OrderListScreen extends StatelessWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => AddEditOrderScreen(order: order),
+                                    builder: (_) => OrderWizardScreen(existingOrder: order),
                                   ),
                                 );
                               },

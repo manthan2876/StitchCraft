@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
-import 'package:stitchcraft/features/inventory/presentation/screens/inventory_scanner_screen.dart';
+
 
 import 'package:stitchcraft/core/widgets/dashboard_action_card.dart';
 
@@ -44,30 +44,24 @@ class InventoryScreen extends StatelessWidget {
                        const SizedBox(height: 8),
                        const Text("₹ 45,200", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
                        const SizedBox(height: 16),
-                       ElevatedButton.icon(
-                         onPressed: () async {
-                           final result = await Navigator.push(
-                             context,
-                             MaterialPageRoute(builder: (context) => const InventoryScannerScreen()),
-                           );
-                           if (result != null) {
-                             ScaffoldMessenger.of(context).showSnackBar(
-                               SnackBar(content: Text('Scanned: $result')),
-                             );
-                           }
-                         },
-                         icon: const Icon(Icons.qr_code_scanner, size: 18),
-                         label: const Text("Scan Item"),
-                         style: ElevatedButton.styleFrom(
-                           backgroundColor: Colors.white,
-                           foregroundColor: AppTheme.primaryColor,
-                           elevation: 0,
-                           shape: RoundedRectangleBorder(
-                             borderRadius: BorderRadius.circular(12),
-                           ),
-                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                         ),
-                       ),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Scanner feature coming soon')),
+                            );
+                          },
+                          icon: const Icon(Icons.qr_code_scanner, size: 18),
+                          label: const Text("Scan Item"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppTheme.primaryColor,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                        ),
                     ],
                   ),
                   Container(

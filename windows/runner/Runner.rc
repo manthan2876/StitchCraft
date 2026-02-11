@@ -95,7 +95,7 @@ BEGIN
             VALUE "InternalName", "stitchcraft" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "stitchcraft.exe" "\0"
-            VALUE "ProductName", "stitchcraft" "\0"
+            VALUE "ProductName", "StitchCraft" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

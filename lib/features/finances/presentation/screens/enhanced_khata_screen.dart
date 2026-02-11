@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stitchcraft/core/models/order_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
-import 'package:stitchcraft/core/theme/app_theme.dart';
+import 'package:stitchcraft/core/widgets/neo_skeuomorphic_widgets.dart';
 
 class EnhancedKhataScreen extends StatefulWidget {
   const EnhancedKhataScreen({super.key});
@@ -10,179 +11,124 @@ class EnhancedKhataScreen extends StatefulWidget {
   State<EnhancedKhataScreen> createState() => _EnhancedKhataScreenState();
 }
 
-class _EnhancedKhataScreenState extends State<EnhancedKhataScreen> {
+class _EnhancedKhataScreenState extends State<EnhancedKhataScreen> with SingleTickerProviderStateMixin {
   final DatabaseService _dbService = DatabaseService();
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Khata (Ledger)'),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      body: StreamBuilder<List<Order>>(
-        stream: _dbService.getOrders(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final orders = snapshot.data ?? [];
-          final today = DateTime.now();
-
-          // Calculate "Big Three" metrics
-          final galla = _calculateGalla(orders, today);
-          final udhaar = _calculateUdhaar(orders);
-          final ordersDueTomorrow = _calculateOrdersDueTomorrow(orders, today);
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Big Three Metrics
-                _buildBigThreeMetrics(context, galla, udhaar, ordersDueTomorrow),
-                
-                const SizedBox(height: 24),
-                
-                // Outstanding Customers List
-                _buildOutstandingList(context, orders),
-              ],
+      backgroundColor: NeoColors.backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: StreamBuilder<List<Order>>(
+                stream: _dbService.getOrders(),
+                builder: (context, snapshot) {
+                  final orders = snapshot.data ?? [];
+                  final galla = _calculateGalla(orders);
+                  final udhaar = _calculateUdhaar(orders);
+                  
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildSummaryMetrics(galla, udhaar),
+                        const SizedBox(height: 24),
+                        _buildDebtRadar(orders),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBigThreeMetrics(
-    BuildContext context,
-    double galla,
-    double udhaar,
-    int ordersDueTomorrow,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(color: NeoColors.surfaceColor),
+      child: Row(
+        children: [
+          NeoButton(
+            width: 48,
+            height: 48,
+            onPressed: () => Navigator.pop(context),
+            child: const Icon(Icons.arrow_back, color: NeoColors.primary),
+          ),
+          const SizedBox(width: 16),
+          const Text(
+            "KHATA RECOVERY",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryMetrics(double galla, double udhaar) {
+    return Row(
       children: [
-        Text(
-          'Today\'s Summary',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
+        Expanded(
+          child: NeoCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("CASH (GALLA)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: NeoColors.textSecondary)),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text("₹${galla.toStringAsFixed(0)}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: NeoColors.success)),
+                ),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 16),
-        
-        // Galla (Cash Box)
-        _buildMetricCard(
-          context,
-          icon: Icons.account_balance_wallet,
-          iconColor: Colors.green,
-          label: 'Galla (Cash Box)',
-          value: '₹${galla.toStringAsFixed(0)}',
-          subtitle: 'Cash collected today',
-        ),
-        
-        const SizedBox(height: 12),
-        
-        // Udhaar (Credit)
-        _buildMetricCard(
-          context,
-          icon: Icons.credit_card,
-          iconColor: Colors.orange,
-          label: 'Udhaar (Credit)',
-          value: '₹${udhaar.toStringAsFixed(0)}',
-          subtitle: 'Total pending payments',
-        ),
-        
-        const SizedBox(height: 12),
-        
-        // Orders Due Tomorrow
-        _buildMetricCard(
-          context,
-          icon: Icons.event,
-          iconColor: Colors.blue,
-          label: 'Orders Due Tomorrow',
-          value: ordersDueTomorrow.toString(),
-          subtitle: 'Orders to deliver',
+        const SizedBox(width: 16),
+        Expanded(
+          child: NeoCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("PENDING (KHATA)", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: NeoColors.textSecondary)),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text("₹${udhaar.toStringAsFixed(0)}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.red)),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildMetricCard(
-    BuildContext context, {
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required String value,
-    required String subtitle,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Icon
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: iconColor, size: 32),
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // Text
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                ),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOutstandingList(BuildContext context, List<Order> orders) {
-    // Get customers with outstanding balances
+  Widget _buildDebtRadar(List<Order> orders) {
     final Map<String, CustomerBalance> customerBalances = {};
-    
     for (var order in orders) {
       if (order.balanceDue > 0 && order.status != 'Cancelled') {
         if (!customerBalances.containsKey(order.customerId)) {
@@ -200,150 +146,113 @@ class _EnhancedKhataScreenState extends State<EnhancedKhataScreen> {
       }
     }
 
-    final sortedCustomers = customerBalances.values.toList()
-      ..sort((a, b) => b.daysOverdue.compareTo(a.daysOverdue));
-
-    if (sortedCustomers.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 32),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                'No outstanding payments! 🎉',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.green.shade700,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    final sortedCustomers = customerBalances.values.toList()..sort((a, b) => b.daysOverdue.compareTo(a.daysOverdue));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Outstanding Payments',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text("DEBT RADAR", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            Text("${sortedCustomers.length} Outstandings", style: const TextStyle(fontSize: 12, color: NeoColors.textSecondary)),
+          ],
         ),
         const SizedBox(height: 16),
-        
-        ...sortedCustomers.map((customer) => _buildCustomerCard(context, customer)),
+        ...sortedCustomers.map((c) => _buildRecoveryCard(c)),
       ],
     );
   }
 
-  Widget _buildCustomerCard(BuildContext context, CustomerBalance customer) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: customer.daysOverdue > 7
-              ? Colors.red.withValues(alpha: 0.3)
-              : Colors.orange.withValues(alpha: 0.3),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+  Widget _buildRecoveryCard(CustomerBalance customer) {
+    final isCritical = customer.daysOverdue >= 30;
+    final isWarning = customer.daysOverdue >= 15;
+    
+    Color severityColor = NeoColors.success;
+    if (isCritical) severityColor = Colors.red;
+    else if (isWarning) severityColor = Colors.orange;
+
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: isCritical ? [
+              BoxShadow(
+                color: Colors.red.withValues(alpha: 0.1 * _pulseController.value),
+                blurRadius: 10 * _pulseController.value,
+                spreadRadius: 5 * _pulseController.value,
+              )
+            ] : null,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: NeoCard(
+            padding: const EdgeInsets.all(16),
+            borderColor: isCritical ? Colors.red.withValues(alpha: 0.5 + 0.5 * _pulseController.value) : null,
+            child: Row(
               children: [
-                Text(
-                  customer.customerName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: severityColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      "${customer.daysOverdue}d",
+                      style: TextStyle(fontWeight: FontWeight.bold, color: severityColor),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '₹${customer.totalDue.toStringAsFixed(0)} pending',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(customer.customerName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      const SizedBox(height: 4),
+                      Text("Udhaar: ₹${customer.totalDue.toStringAsFixed(0)}", style: const TextStyle(color: NeoColors.textSecondary, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
-                Text(
-                  '${customer.daysOverdue} days overdue',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
+                NeoButton(
+                  width: 50,
+                  height: 50,
+                  color: NeoColors.success.withValues(alpha: 0.1),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _sendWhatsApp(customer);
+                  },
+                  child: const Icon(Icons.message, color: NeoColors.success),
                 ),
               ],
             ),
           ),
-          
-          // WhatsApp Reminder Button (placeholder)
-          IconButton(
-            icon: const Icon(Icons.message, color: Colors.green),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('WhatsApp reminder for ${customer.customerName}'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            tooltip: 'Send WhatsApp Reminder',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  double _calculateGalla(List<Order> orders, DateTime today) {
+  void _sendWhatsApp(CustomerBalance customer) {
+    // Simulate WhatsApp Message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Ram Ram ${customer.customerName} ji, aapka ₹${customer.totalDue.toStringAsFixed(0)} baki hai..."),
+        backgroundColor: NeoColors.success,
+      )
+    );
+  }
+
+  double _calculateGalla(List<Order> orders) {
+    final today = DateTime.now();
     final todayStart = DateTime(today.year, today.month, today.day);
-    final todayEnd = todayStart.add(const Duration(days: 1));
-    
-    return orders
-        .where((o) =>
-            o.orderDate.isAfter(todayStart) &&
-            o.orderDate.isBefore(todayEnd) &&
-            o.status != 'Cancelled')
-        .fold(0.0, (sum, o) => sum + o.advanceAmount);
+    return orders.where((o) => o.orderDate.isAfter(todayStart)).fold(0.0, (sum, o) => sum + o.advanceAmount);
   }
 
   double _calculateUdhaar(List<Order> orders) {
-    return orders
-        .where((o) => o.status != 'Cancelled' && o.status != 'Delivered')
-        .fold(0.0, (sum, o) => sum + o.balanceDue);
-  }
-
-  int _calculateOrdersDueTomorrow(List<Order> orders, DateTime today) {
-    final tomorrow = DateTime(today.year, today.month, today.day).add(const Duration(days: 1));
-    final tomorrowEnd = tomorrow.add(const Duration(days: 1));
-    
-    return orders
-        .where((o) =>
-            o.dueDate != null &&
-            o.dueDate!.isAfter(tomorrow) &&
-            o.dueDate!.isBefore(tomorrowEnd) &&
-            o.status != 'Delivered' &&
-            o.status != 'Cancelled')
-        .length;
+    return orders.where((o) => o.status != 'Delivered').fold(0.0, (sum, o) => sum + o.balanceDue);
   }
 }
 
