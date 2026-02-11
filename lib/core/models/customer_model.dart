@@ -6,13 +6,14 @@ class Customer {
   final String name;
   final String phone;
   final String email;
+  final String gender; // Added
   final String? photoUri;
   final Map<String, dynamic> physicalAttributes;
   final Map<String, dynamic> softPreferences;
   final double rating;
   final int loyaltyPoints;
-  final double ltv; // Added for FUNC-002
-  final int syncStatus; // 0: synced, 1: pending, 2: deleted
+  final double ltv;
+  final int syncStatus;
   final DateTime updatedAt;
 
   Customer({
@@ -20,6 +21,7 @@ class Customer {
     required this.name,
     required this.phone,
     required this.email,
+    this.gender = 'Male', // Default
     this.photoUri,
     this.physicalAttributes = const <String, dynamic>{},
     this.softPreferences = const <String, dynamic>{},
@@ -49,6 +51,7 @@ class Customer {
       name: data['name'] ?? '',
       phone: data['phone'] ?? '',
       email: data['email'] ?? '',
+      gender: data['gender'] ?? 'Male',
       photoUri: data['photo_uri'],
       physicalAttributes: parseJsonMap(data['physical_attributes']),
       softPreferences: parseJsonMap(data['soft_preferences']),
@@ -73,6 +76,7 @@ class Customer {
       'name': name,
       'phone': phone,
       'email': email,
+      'gender': gender,
       'photo_uri': photoUri,
       'physical_attributes': json.encode(physicalAttributes),
       'soft_preferences': json.encode(softPreferences),
@@ -89,6 +93,7 @@ class Customer {
     String? name,
     String? phone,
     String? email,
+    String? gender,
     String? photoUri,
     Map<String, dynamic>? physicalAttributes,
     Map<String, dynamic>? softPreferences,
@@ -103,6 +108,7 @@ class Customer {
       name: name ?? this.name,
       phone: phone ?? this.phone,
       email: email ?? this.email,
+      gender: gender ?? this.gender,
       photoUri: photoUri ?? this.photoUri,
       physicalAttributes: physicalAttributes ?? this.physicalAttributes,
       softPreferences: softPreferences ?? this.softPreferences,

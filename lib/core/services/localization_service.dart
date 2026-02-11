@@ -24,28 +24,28 @@ class LocalizationService {
   final Map<String, Map<String, String>> _translations = {
     // Dashboard & Navigation
     'dashboard': {
-      'en': 'Dashboard',
-      'hi': 'डैशबोर्ड',
-      'gu': 'ડેશબોર્ડ',
-      'mr': 'डॅशबोर्ड',
+      'en': 'Galla & Orders',
+      'hi': 'गल्ला और ऑर्डर',
+      'gu': 'ગલ્લા અને ઓર્ડર',
+      'mr': 'गल्ला आणि ऑर्डर',
     },
-    'orders': {
-      'en': 'Orders',
-      'hi': 'ऑर्डर',
-      'gu': 'ઓર્ડર',
-      'mr': 'ऑर्डर',
+    'new_order': {
+      'en': 'New Silai',
+      'hi': 'नई सिलाई',
+      'gu': 'નવી સિલાઈ',
+      'mr': 'नवीन शिलाई',
     },
     'customers': {
       'en': 'Customers',
-      'hi': 'ग्राहक',
+      'hi': 'ग्राहक (Customers)',
       'gu': 'ગ્રાહકો',
       'mr': 'ग्राहक',
     },
     'measurements': {
-      'en': 'Measurements',
-      'hi': 'नाप',
-      'gu': 'માપ',
-      'mr': 'मोजमाप',
+      'en': 'Measurements (Naap)',
+      'hi': 'नाप (Measurements)',
+      'gu': 'માપ (Naap)',
+      'mr': 'मोजमाप (Naap)',
     },
     
     // Tailoring Terms
@@ -276,6 +276,26 @@ class LocalizationService {
       'hi': 'फोन नंबर',
       'gu': 'ફોન નંબર',
       'mr': 'फोन नंबर',
+    },
+    
+    // Antigravity UI Terms
+    'measurement_fit': {
+      'en': 'Fit Type',
+      'hi': 'फिटिंग कैसी चाहिए?',
+      'gu': 'ફિટિંગ કેવી જોઈએ?',
+      'mr': 'फिटिंग कशी पाहिजे?',
+    },
+    'tight': {
+      'en': 'Skin Tight',
+      'hi': 'चिपक के (Tight)',
+      'gu': 'એકદમ ફિટ',
+      'mr': 'घट्ट (Tight)',
+    },
+    'loose': {
+      'en': 'Comfortable',
+      'hi': 'खुला-खुला (Loose)',
+      'gu': 'ઢીલું',
+      'mr': 'सैल (Loose)',
     },
   };
 
