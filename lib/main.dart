@@ -15,6 +15,7 @@ import 'package:stitchcraft/features/onboarding/presentation/screens/role_select
 import 'package:stitchcraft/features/auth/presentation/screens/login_screen.dart';
 import 'package:stitchcraft/features/auth/presentation/screens/register_screen.dart';
 import 'package:stitchcraft/features/auth/presentation/auth_provider.dart' as app_auth;
+import 'package:stitchcraft/features/dashboard/presentation/screens/grid_dashboard_screen.dart';
 import 'package:stitchcraft/features/dashboard/presentation/screens/home_navigation_screen.dart';
 import 'package:stitchcraft/features/dashboard/presentation/screens/staff_dashboard_screen.dart';
 import 'package:stitchcraft/features/customers/presentation/screens/customer_list_screen.dart';
@@ -29,25 +30,17 @@ import 'package:stitchcraft/features/orders/presentation/screens/order_list_scre
 import 'package:stitchcraft/features/orders/presentation/screens/order_wizard_screen.dart';
 import 'package:stitchcraft/features/orders/presentation/screens/garment_specs_screen.dart';
 import 'package:stitchcraft/features/orders/presentation/screens/fabric_capture_screen.dart';
-import 'package:stitchcraft/features/financials/presentation/screens/expense_screen.dart';
-import 'package:stitchcraft/features/financials/presentation/screens/invoice_screen.dart';
 import 'package:stitchcraft/features/inventory/presentation/screens/inventory_screen.dart';
-import 'package:stitchcraft/features/gallery/presentation/screens/gallery_screen.dart';
-import 'package:stitchcraft/features/notifications/presentation/screens/notification_screen.dart';
+import 'package:stitchcraft/features/finances/presentation/screens/enhanced_khata_screen.dart';
+import 'package:stitchcraft/features/repairs/presentation/screens/fast_lane_repairs_screen.dart';
 import 'package:stitchcraft/features/auth/presentation/screens/settings_screen.dart';
-import 'package:stitchcraft/core/services/sync_worker.dart';
-import 'package:stitchcraft/core/services/local_db_service.dart';
-import 'package:stitchcraft/core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   
   // Initialize Offline-First Infrastructure
-  await LocalDatabaseService().database;
-  await SyncWorker.initialize();
-  await SyncWorker.schedulePeriodicSync();
-  await NotificationService().initialize();
+  // Core services are now initialized in SplashScreen to show UI immediately
   
   const bool useEmulator = bool.fromEnvironment('USE_FIREBASE_EMULATOR', defaultValue: false);
   if (useEmulator) {
@@ -91,7 +84,8 @@ class StitchCraftApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/shop_setup': (context) => const ShopSetupScreen(),
         '/role_selection': (context) => const RoleSelectionScreen(),
-        '/home': (context) => const HomeNavigationScreen(),
+        '/home': (context) => const GridDashboardScreen(),
+        '/home_nav': (context) => const HomeNavigationScreen(),
         '/staff_dashboard': (context) => const StaffDashboardScreen(),
         '/customers': (context) => const CustomerListScreen(),
         '/client_profile': (context) => const ClientProfileScreen(),
@@ -105,11 +99,13 @@ class StitchCraftApp extends StatelessWidget {
         '/order_wizard': (context) => const OrderWizardScreen(),
         '/garment_specs': (context) => const GarmentSpecsScreen(),
         '/fabric_capture': (context) => const FabricCaptureScreen(),
-        '/expenses': (context) => const ExpenseScreen(),
-        '/invoices': (context) => const InvoiceScreen(),
         '/inventory': (context) => const InventoryScreen(),
-        '/gallery': (context) => const GalleryScreen(),
-        '/notifications': (context) => const NotificationScreen(),
+        '/khata': (context) => const EnhancedKhataScreen(),
+        '/repairs': (context) => const FastLaneRepairsScreen(),
+        '/portfolio': (context) => Scaffold(
+          appBar: AppBar(title: const Text('Portfolio')),
+          body: const Center(child: Text('Portfolio feature coming soon')),
+        ),
         '/settings': (context) => const SettingsScreen(),
       },
     );

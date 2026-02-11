@@ -7,20 +7,31 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authService = AuthService();
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          UserAccountsDrawerHeader(
-            accountName: const Text('Master Tailor', style: TextStyle(fontWeight: FontWeight.bold)),
-            accountEmail: const Text('tailor@stitchcraft.com'),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 40, color: AppTheme.primaryColor),
-            ),
-            decoration: const BoxDecoration(
-              color: AppTheme.primaryColor,
-            ),
+          FutureBuilder<Map<String, dynamic>?>(
+            future: authService.getCurrentUserData(),
+            builder: (context, snapshot) {
+              final userData = snapshot.data;
+              return UserAccountsDrawerHeader(
+                accountName: Text(
+                  userData?['shopName'] ?? 'StitchCraft',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                accountEmail: Text(userData?['email'] ?? ''),
+                currentAccountPicture: const CircleAvatar(
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.store, size: 40, color: AppTheme.primaryColor),
+                ),
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryColor,
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.dashboard_outlined),
@@ -54,12 +65,20 @@ class AppDrawer extends StatelessWidget {
               Navigator.pushNamed(context, '/orders');
             },
           ),
-           ListTile(
+          ListTile(
             leading: const Icon(Icons.inventory_2_outlined),
             title: const Text('Inventory'),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/inventory');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.build_outlined),
+            title: const Text('Repairs & Alterations'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/repairs');
             },
           ),
           const Divider(),
@@ -71,12 +90,12 @@ class AppDrawer extends StatelessWidget {
               Navigator.pushNamed(context, '/profile'); // Needs route
             },
           ),
-           ListTile(
+          ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const Text('Settings'),
             onTap: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings coming soon')));
+              Navigator.pushNamed(context, '/settings');
             },
           ),
           const Divider(),

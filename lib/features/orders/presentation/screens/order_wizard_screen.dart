@@ -125,31 +125,29 @@ class _OrderWizardScreenState extends State<OrderWizardScreen> {
               title: const Text('Client'),
               content: Column(
                 children: [
-                   if (_selectedCustomer == null)
+                    if (_selectedCustomer == null)
                     InkWell(
                       onTap: _selectClient,
+                      borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.grey.shade300, width: 1),
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white,
                         ),
                         child: Row(
                           children: const [
-                            Icon(Icons.person_search, color: Colors.grey),
+                            Icon(Icons.person_search, color: AppTheme.primaryColor),
                             SizedBox(width: 12),
-                            Text('Tap to Select Client', style: TextStyle(color: Colors.black87)),
+                            Text('Tap to Select Client', style: TextStyle(fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
                     )
                   else
                     Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: AppTheme.primaryColor),
-                      ),
+                      margin: EdgeInsets.zero,
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: ListTile(

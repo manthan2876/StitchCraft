@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:stitchcraft/core/models/order_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
 import 'package:stitchcraft/features/orders/presentation/screens/add_edit_order_screen.dart';
 import 'package:stitchcraft/core/widgets/main_layout.dart';
+import 'package:stitchcraft/core/theme/app_theme.dart';
 
 class OrderListScreen extends StatelessWidget {
   const OrderListScreen({super.key});
@@ -92,12 +94,9 @@ class OrderListScreen extends StatelessWidget {
             itemCount: orders.length,
             itemBuilder: (context, index) {
               final order = orders[index];
+
               return Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey.shade200),
-                ),
+                margin: const EdgeInsets.only(bottom: 16),
                 child: InkWell(
                   onTap: () {
                     Navigator.push(
@@ -107,20 +106,24 @@ class OrderListScreen extends StatelessWidget {
                       ),
                     );
                   },
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   child: Padding(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                          child: Icon(
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
                             Icons.checkroom,
-                            color: Theme.of(context).primaryColor,
+                            color: AppTheme.primaryColor,
+                            size: 24,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,40 +139,40 @@ class OrderListScreen extends StatelessWidget {
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade600),
+                                  Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
                                   const SizedBox(width: 4),
                                   Text(
                                     'Due: ${order.dueDate != null ? DateFormat('MMM dd').format(order.dueDate!) : 'None'}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 8),
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: (order.status.toLowerCase() == 'pending' ? Colors.orange : Colors.green).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
+                                      color: order.status.toLowerCase() == 'pending' ? AppTheme.warning.withValues(alpha: 0.2) : AppTheme.success.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
                                       order.status.toUpperCase(),
                                       style: TextStyle(
-                                        color: order.status.toLowerCase() == 'pending' ? Colors.orange.shade800 : Colors.green.shade800,
+                                        color: order.status.toLowerCase() == 'pending' ? AppTheme.warning : AppTheme.success,
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 12),
                                   Flexible(
                                     child: Text(
-                                      'Profit: ₹${order.profit.toStringAsFixed(2)}',
+                                      'Profit: ₹${order.profit.toStringAsFixed(0)}',
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.bold,
-                                        color: order.profit >= 0 ? Colors.blue.shade700 : Colors.red.shade700,
+                                        color: order.profit >= 0 ? AppTheme.success : AppTheme.error,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -180,14 +183,29 @@ class OrderListScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-                        Row(
+                        Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.blue),
+                              icon: const Icon(Icons.receipt, size: 20, color: Colors.blueGrey),
+                              tooltip: 'Generate Invoice',
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () {
+                                HapticFeedback.mediumImpact();
+                                // PdfService.generateInvoice(order); // Uncomment when PdfService is ready
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Invoice generation (PDF) implementation pending')),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20, color: Colors.grey),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -196,12 +214,15 @@ class OrderListScreen extends StatelessWidget {
                                 );
                               },
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(height: 12),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                              icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.error),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
-                              onPressed: () => _confirmDelete(context, order.id),
+                              onPressed: () {
+                                HapticFeedback.mediumImpact();
+                                _confirmDelete(context, order.id);
+                              },
                             ),
                           ],
                         ),

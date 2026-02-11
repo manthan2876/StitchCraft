@@ -11,6 +11,11 @@ class Measurement {
   final String notes;
   final int syncStatus;
   final DateTime updatedAt;
+  
+  // SRS Phase 3: Dual-Mode Measurements
+  final String measurementMode; // BIOMETRIC, REFERENCE_GARMENT
+  final String? garmentType; // MEN, WOMEN, CHILDREN
+  final double? stretchFactor; // For reference garment mode
 
   Measurement({
     required this.id,
@@ -22,6 +27,9 @@ class Measurement {
     required this.notes,
     this.syncStatus = 1,
     required this.updatedAt,
+    this.measurementMode = 'BIOMETRIC',
+    this.garmentType,
+    this.stretchFactor,
   });
 
   factory Measurement.fromMap(Map<String, dynamic> data, String documentId) {
@@ -67,6 +75,11 @@ class Measurement {
                   ? DateTime.fromMillisecondsSinceEpoch(data['updatedAt']) 
                   : (data['updatedAt'] as Timestamp).toDate())
               : DateTime.now()),
+      measurementMode: data['measurement_mode'] ?? data['measurementMode'] ?? 'BIOMETRIC',
+      garmentType: data['garment_type'] ?? data['garmentType'],
+      stretchFactor: data['stretch_factor'] != null 
+          ? (data['stretch_factor'] as num).toDouble()
+          : (data['stretchFactor'] != null ? (data['stretchFactor'] as num).toDouble() : null),
     );
   }
 
@@ -80,6 +93,9 @@ class Measurement {
       'notes': notes,
       'sync_status': syncStatus,
       'updated_at': updatedAt.millisecondsSinceEpoch,
+      'measurement_mode': measurementMode,
+      'garment_type': garmentType,
+      'stretch_factor': stretchFactor,
     };
   }
 
@@ -93,6 +109,9 @@ class Measurement {
     String? notes,
     int? syncStatus,
     DateTime? updatedAt,
+    String? measurementMode,
+    String? garmentType,
+    double? stretchFactor,
   }) {
     return Measurement(
       id: id ?? this.id,
@@ -104,6 +123,9 @@ class Measurement {
       notes: notes ?? this.notes,
       syncStatus: syncStatus ?? this.syncStatus,
       updatedAt: updatedAt ?? this.updatedAt,
+      measurementMode: measurementMode ?? this.measurementMode,
+      garmentType: garmentType ?? this.garmentType,
+      stretchFactor: stretchFactor ?? this.stretchFactor,
     );
   }
 }

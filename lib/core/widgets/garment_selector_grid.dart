@@ -38,43 +38,43 @@ class GarmentSelectorGrid extends StatelessWidget {
         
         return GestureDetector(
           onTap: () => onSelected(item['label']),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isSelected ? AppTheme.primaryColor : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected ? AppTheme.primaryColor : Colors.grey.shade300,
-                width: 2,
-              ),
-              boxShadow: [
-                if (!isSelected)
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200,
+                  width: isSelected ? 2 : 1,
+                ),
+                boxShadow: isSelected ? [
                   BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ] : [],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    item['icon'],
+                    color: isSelected ? AppTheme.primaryColor : Colors.grey.shade700,
+                    size: 32,
                   ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  item['icon'],
-                  color: isSelected ? Colors.white : AppTheme.primaryColor,
-                  size: 32,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item['label'],
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                  const SizedBox(height: 8),
+                  Text(
+                    item['label'],
+                    style: TextStyle(
+                      color: isSelected ? AppTheme.primaryColor : Colors.grey.shade700,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         );
       },
     );

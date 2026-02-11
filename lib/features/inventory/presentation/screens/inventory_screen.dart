@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
+import 'package:stitchcraft/features/inventory/presentation/screens/inventory_scanner_screen.dart';
 
 import 'package:stitchcraft/core/widgets/dashboard_action_card.dart';
 
@@ -19,24 +20,63 @@ class InventoryScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
-                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                    offset: const Offset(0, 8),
+                    blurRadius: 20, 
+                  )
+                ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                       Text("Total Stock Value", style: TextStyle(color: Colors.white70)),
-                       SizedBox(height: 8),
-                       Text("₹ 45,200", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    children: [
+                       const Text("Total Stock Value", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
+                       const SizedBox(height: 8),
+                       const Text("₹ 45,200", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                       const SizedBox(height: 16),
+                       ElevatedButton.icon(
+                         onPressed: () async {
+                           final result = await Navigator.push(
+                             context,
+                             MaterialPageRoute(builder: (context) => const InventoryScannerScreen()),
+                           );
+                           if (result != null) {
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               SnackBar(content: Text('Scanned: $result')),
+                             );
+                           }
+                         },
+                         icon: const Icon(Icons.qr_code_scanner, size: 18),
+                         label: const Text("Scan Item"),
+                         style: ElevatedButton.styleFrom(
+                           backgroundColor: Colors.white,
+                           foregroundColor: AppTheme.primaryColor,
+                           elevation: 0,
+                           shape: RoundedRectangleBorder(
+                             borderRadius: BorderRadius.circular(12),
+                           ),
+                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                         ),
+                       ),
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-                    child: const Icon(Icons.inventory, color: Colors.white, size: 32),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15), 
+                        borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.inventory, color: Colors.white, size: 36),
                   )
                 ],
               ),

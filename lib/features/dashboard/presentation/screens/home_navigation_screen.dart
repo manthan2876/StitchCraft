@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:stitchcraft/features/dashboard/presentation/screens/admin_dashboard_screen.dart';
-
-import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:flutter/services.dart';
+import 'package:stitchcraft/features/dashboard/presentation/screens/dashboard_bento_screen.dart';
+import 'package:stitchcraft/features/customers/presentation/screens/customer_list_screen.dart';
+import 'package:stitchcraft/features/orders/presentation/screens/order_list_screen.dart';
+import 'package:stitchcraft/features/finances/presentation/screens/financial_screen.dart';
+import 'package:stitchcraft/core/theme/app_theme.dart';
+import 'package:stitchcraft/core/widgets/app_drawer.dart';
 
 class HomeNavigationScreen extends StatefulWidget {
   const HomeNavigationScreen({super.key});
@@ -12,23 +16,13 @@ class HomeNavigationScreen extends StatefulWidget {
 
 class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
   int _currentIndex = 0;
-  String _userRole = 'staff'; // Default to restricted
-  bool _isLoading = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUserRole();
-  }
-
-  Future<void> _loadUserRole() async {
-    final role = await AuthService().getUserRole();
-    if (mounted) {
-      setState(() {
-        _userRole = role;
-        _isLoading = false;
-      });
-    }
+    // Simulate loading if needed, or remove completely. 
+    // For now, we removed role check so no need to load it.
   }
 
   @override
@@ -36,39 +30,84 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
     if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     final List<Widget> _screens = [
-      AdminDashboardScreen(userRole: _userRole), // Pass role
-      const Placeholder(),     // Gallery Placeholder
+      const DashboardBentoScreen(),
+      const CustomerListScreen(),
+      const OrderListScreen(),
+      const FinancialScreen(),
+    ];
+
+    final List<String> _titles = [
+      'Dashboard',
+      'Customers',
+      'Orders',
+      'Finances',
     ];
 
     return Scaffold(
-      body: _screens[_currentIndex],
-      floatingActionButton: _userRole == 'admin' ? FloatingActionButton(
+      appBar: AppBar(
+        title: Text(_titles[_currentIndex]),
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      drawer: const AppDrawer(),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) {
+            HapticFeedback.lightImpact();
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          backgroundColor: Colors.white,
+          indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people),
+              label: 'Clients',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Orders',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.attach_money_outlined),
+              selectedIcon: Icon(Icons.attach_money),
+              label: 'Finances',
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: _currentIndex == 0 ? FloatingActionButton(
         onPressed: () {
+          HapticFeedback.mediumImpact();
           Navigator.pushNamed(context, '/order_wizard');
         },
-        child: const Icon(Icons.add),
+        tooltip: 'New Order',
+        backgroundColor: AppTheme.primaryColor,
+        child: const Icon(Icons.add, size: 32, color: Colors.white),
       ) : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.photo_library_outlined),
-            activeIcon: Icon(Icons.photo_library),
-            label: 'Gallery',
-          ),
-        ],
-      ),
     );
   }
 }

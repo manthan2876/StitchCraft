@@ -25,13 +25,13 @@ class PasswordSuccessScreen extends StatelessWidget {
                Container(
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: AppTheme.successColor.withValues(alpha: 0.1),
+                    color: AppTheme.success.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.check_circle_outline_rounded,
                     size: 100,
-                    color: AppTheme.successColor,
+                    color: AppTheme.success,
                   ),
                 ).animate().scale(curve: Curves.elasticOut),
                 const SizedBox(height: 32),

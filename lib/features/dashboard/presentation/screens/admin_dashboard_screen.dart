@@ -59,13 +59,20 @@ class AdminDashboardScreen extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 24),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: AppTheme.warning.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.red.shade200),
+                        border: Border.all(color: AppTheme.warning.withValues(alpha: 0.5)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 32),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.warning,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.warning, color: Colors.white, size: 24),
+                          ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
@@ -73,13 +80,13 @@ class AdminDashboardScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   "${urgentOrders.length} Urgent Deliveries",
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
-                                const Text("Tap to view details", style: TextStyle(color: Colors.redAccent)),
+                                const Text("Tap to view details", style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w500)),
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, color: Colors.red, size: 16),
+                          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                         ],
                       ),
                     ),
@@ -90,40 +97,40 @@ class AdminDashboardScreen extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisCount: 2,
-                  childAspectRatio: 1.1,
+                  childAspectRatio: 1.1, // Slightly wider for modern look
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                   children: [
                    if (isAdmin)
                     DashboardActionCard(
                       label: "New Order",
-                      icon: Icons.add_circle_outline,
+                      icon: Icons.add,
                       color: AppTheme.primaryColor,
                       onTap: () => Navigator.pushNamed(context, '/order_wizard'),
                     ),
                     DashboardActionCard(
                       label: "Measurements",
                       icon: Icons.straighten,
-                      color: Colors.purple,
+                      color: Colors.deepPurple,
                       onTap: () => Navigator.pushNamed(context, '/measurements'),
                     ),
                     DashboardActionCard(
                       label: "Pending Orders",
-                      icon: Icons.content_cut,
+                      icon: Icons.timer,
                       color: Colors.orange,
                       badgeText: pendingCount > 0 ? "$pendingCount" : null,
                       onTap: () => Navigator.pushNamed(context, '/orders'),
                     ),
                     DashboardActionCard(
                       label: "In Progress",
-                      icon: Icons.architecture,
-                      color: Colors.blue, 
+                      icon: Icons.cut,
+                      color: Colors.blue,
                       badgeText: inProgressCount > 0 ? "$inProgressCount" : null,
                       onTap: () => Navigator.pushNamed(context, '/orders'),
                     ),
                     DashboardActionCard(
-                      label: "Ready to Deliver",
-                      icon: Icons.check_circle_outline,
+                      label: "Ready",
+                      icon: Icons.check,
                       color: Colors.green,
                       badgeText: readyCount > 0 ? "$readyCount" : null,
                       onTap: () => Navigator.pushNamed(context, '/orders'),
@@ -131,7 +138,7 @@ class AdminDashboardScreen extends StatelessWidget {
                    if (isAdmin)
                     DashboardActionCard(
                       label: "Inventory",
-                      icon: Icons.inventory_2_outlined,
+                      icon: Icons.inventory_2,
                       color: Colors.teal,
                       onTap: () => Navigator.pushNamed(context, '/inventory'),
                     ),
@@ -149,7 +156,7 @@ class AdminDashboardScreen extends StatelessWidget {
                       Expanded(
                         child: _UtilityCard(
                           label: "Clients", 
-                          icon: Icons.people_outline, 
+                          icon: Icons.people, 
                           onTap: () => Navigator.pushNamed(context, '/customers')
                         )
                       ),
@@ -157,7 +164,7 @@ class AdminDashboardScreen extends StatelessWidget {
                       Expanded(
                         child: _UtilityCard(
                           label: "Invoices", 
-                          icon: Icons.receipt_long_outlined, 
+                          icon: Icons.receipt, 
                           onTap: () => Navigator.pushNamed(context, '/invoices')
                         )
                       ),
@@ -165,7 +172,7 @@ class AdminDashboardScreen extends StatelessWidget {
                       Expanded(
                         child: _UtilityCard(
                           label: "Profile", 
-                          icon: Icons.store_outlined, 
+                          icon: Icons.store, 
                           onTap: () => Navigator.pushNamed(context, '/profile')
                         )
                       ),
@@ -178,15 +185,17 @@ class AdminDashboardScreen extends StatelessWidget {
                     future: db.getFinancialSummary(),
                     builder: (context, snap) {
                        final data = snap.data ?? {'gross_profit': 0.0};
-                       return Container(
-                         padding: const EdgeInsets.all(16),
-                         decoration: BoxDecoration(color: Colors.indigo.shade50, borderRadius: BorderRadius.circular(12)),
-                         child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                               const Text("Total Gross Profit", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-                               Text("₹${data['gross_profit']?.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.indigo)),
-                            ],
+                       return Card(
+                         color: AppTheme.success,
+                         child: Padding(
+                           padding: const EdgeInsets.all(20),
+                           child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                 const Text("Total Gross Profit", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                                 Text("₹${data['gross_profit']?.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.white)),
+                              ],
+                           ),
                          ),
                        );
                     }
@@ -211,24 +220,16 @@ class _UtilityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-             topLeft: const Radius.circular(12),
-             topRight: const Radius.circular(12),
-             bottomLeft: const Radius.circular(12),
-             bottomRight: const Radius.circular(12), // full border rad
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            children: [
+              Icon(icon, color: AppTheme.primaryColor, size: 28),
+              const SizedBox(height: 4),
+              Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
           ),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.grey.shade700),
-            const SizedBox(height: 4),
-            Text(label, style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
-          ],
         ),
       ),
     );

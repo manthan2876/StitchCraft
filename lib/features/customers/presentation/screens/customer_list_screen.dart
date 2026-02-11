@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
 import 'package:stitchcraft/core/models/customer_model.dart';
 import 'package:stitchcraft/core/widgets/main_layout.dart';
@@ -19,7 +20,10 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     return MainLayout(
       title: 'Customers',
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.pushNamed(context, '/edit_client'),
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          Navigator.pushNamed(context, '/edit_client');
+        },
         tooltip: 'Add Customer',
         child: const Icon(Icons.add),
       ),
@@ -88,16 +92,23 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       IconButton(
                         icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.blue),
                         tooltip: 'Edit Customer',
-                        onPressed: () => Navigator.pushNamed(context, '/edit_client', arguments: customer),
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.pushNamed(context, '/edit_client', arguments: customer);
+                        },
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
                          tooltip: 'Delete Customer',
-                        onPressed: () => _confirmDelete(context, customer),
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          _confirmDelete(context, customer);
+                        },
                       ),
                     ],
                   ),
                   onTap: () {
+                    HapticFeedback.lightImpact();
                     // Navigate to Client Profile
                     Navigator.pushNamed(context, '/client_profile', arguments: customer);
                   },
@@ -125,6 +136,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
           ),
           TextButton(
             onPressed: () async {
+              HapticFeedback.mediumImpact();
               try {
                 await _dbService.deleteCustomerAndRelatedData(customer.id);
                 if (context.mounted) {

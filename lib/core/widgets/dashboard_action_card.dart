@@ -1,37 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:stitchcraft/core/theme/app_theme.dart';
 
 class DashboardActionCard extends StatelessWidget {
   final String label;
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
   final String? badgeText;
+  final VoidCallback onTap;
 
   const DashboardActionCard({
     super.key,
     required this.label,
     required this.icon,
     required this.color,
-    required this.onTap,
     this.badgeText,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+      child: Card(
+        // CardTheme handles elevation, shape, shadow
         child: Stack(
           children: [
             Padding(
@@ -39,26 +30,29 @@ class DashboardActionCard extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
+                   Container(
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
+                      color: color.withValues(alpha: 0.1), 
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       icon,
-                      size: 32,
-                      color: color,
+                      size: 28,
+                      color: color, 
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                  SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      )
                     ),
                   ),
                 ],
@@ -69,10 +63,10 @@ class DashboardActionCard extends StatelessWidget {
                 top: 8,
                 right: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppTheme.error,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     badgeText!,

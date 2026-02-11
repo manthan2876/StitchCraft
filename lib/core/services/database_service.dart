@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'package:stitchcraft/core/models/customer_model.dart';
 import 'package:stitchcraft/core/models/order_model.dart' as order_model;
 import 'package:stitchcraft/core/models/measurement_model.dart';
+import 'package:stitchcraft/core/models/user_model.dart';
+import 'package:stitchcraft/core/models/repair_job_model.dart' as repair_job_model;
+import 'package:stitchcraft/core/models/lining_item_model.dart' as lining_item_model;
+import 'package:stitchcraft/core/models/gallery_item_model.dart' as gallery_item_model;
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/notification_service.dart';
 import 'package:uuid/uuid.dart';
@@ -15,6 +20,35 @@ class DatabaseService {
   static final _customerSignal = StreamController<void>.broadcast();
   static final _orderSignal = StreamController<void>.broadcast();
   static final _measurementSignal = StreamController<void>.broadcast();
+  static final _userSignal = StreamController<void>.broadcast();
+
+  // ============== USER CRUD ==============
+
+  Future<void> addUser(User user) async {
+    // Check if user exists first? For now, just insert/replace
+    await _localDb.insertUser(user.toMap());
+    _userSignal.add(null);
+  }
+
+  Future<User?> getUser(String id) async {
+    final map = await _localDb.getUser(id);
+    return map != null ? User.fromMap(map) : null;
+  }
+  
+  // Helper to get user by phone (acting as ID or unique for login lookup locally if needed)
+  Future<User?> getUserByPhone(String phone) async {
+    final map = await _localDb.getUserByPhone(phone);
+    return map != null ? User.fromMap(map) : null;
+  }
+
+  Future<void> updateUser(User user) async {
+    final updatedUser = user.copyWith(
+      syncStatus: 1,
+      updatedAt: DateTime.now(),
+    );
+    await _localDb.insertUser(updatedUser.toMap());
+    _userSignal.add(null);
+  }
 
   // ============== CUSTOMER CRUD ==============
 
@@ -99,14 +133,19 @@ class DatabaseService {
     
     // Schedule notification for due date (1 day before)
     if (updatedOrder.dueDate != null) {
-      final reminderDate = updatedOrder.dueDate!.subtract(const Duration(days: 1));
-      if (reminderDate.isAfter(DateTime.now())) {
-        await NotificationService().scheduleOrderReminder(
-          id: id.hashCode,
-          title: 'Order Due Soon',
-          body: 'Order for ${updatedOrder.customerName} is due tomorrow!',
-          scheduledDate: reminderDate,
-        );
+      try {
+        final reminderDate = updatedOrder.dueDate!.subtract(const Duration(days: 1));
+        if (reminderDate.isAfter(DateTime.now())) {
+          await NotificationService().scheduleOrderReminder(
+            id: id.hashCode,
+            title: 'Order Due Soon',
+            body: 'Order for ${updatedOrder.customerName} is due tomorrow!',
+            scheduledDate: reminderDate,
+          );
+        }
+      } catch (e) {
+        // Log error but don't fail the order creation
+        developer.log('Failed to schedule notification: $e', name: 'DatabaseService');
       }
     }
 
@@ -178,14 +217,18 @@ class DatabaseService {
 
     // Update notification for due date
     if (updatedOrder.dueDate != null) {
-      final reminderDate = updatedOrder.dueDate!.subtract(const Duration(days: 1));
-      if (reminderDate.isAfter(DateTime.now())) {
-        await NotificationService().scheduleOrderReminder(
-          id: order.id.hashCode,
-          title: 'Order Due Soon',
-          body: 'Order for ${updatedOrder.customerName} is due tomorrow!',
-          scheduledDate: reminderDate,
-        );
+      try {
+        final reminderDate = updatedOrder.dueDate!.subtract(const Duration(days: 1));
+        if (reminderDate.isAfter(DateTime.now())) {
+          await NotificationService().scheduleOrderReminder(
+            id: order.id.hashCode,
+            title: 'Order Due Soon',
+            body: 'Order for ${updatedOrder.customerName} is due tomorrow!',
+            scheduledDate: reminderDate,
+          );
+        }
+      } catch (e) {
+        developer.log('Failed to schedule notification: $e', name: 'DatabaseService');
       }
     }
 
@@ -298,6 +341,7 @@ class DatabaseService {
     _measurementSignal.add(null);
   }
 
+  Future<List<Measurement>> getMeasurementsListByCustomer(String customerId) async {
     final maps = await _localDb.getMeasurementsByCustomer(customerId);
     return maps.map((m) => Measurement.fromMap(m, m['id'] as String)).toList();
   }
@@ -365,5 +409,109 @@ class DatabaseService {
       'expenses': totalExpenses,
       'net_profit': totalRevenue - totalCOGS - totalExpenses - totalOverhead
     };
+  }
+
+  // ============== REPAIR JOBS CRUD ==============
+  
+  static final _repairJobSignal = StreamController<void>.broadcast();
+
+  Future<void> addRepairJob(repair_job_model.RepairJob job) async {
+    final id = job.id.isEmpty ? _uuid.v4() : job.id;
+    final updatedJob = job.copyWith(
+      id: id,
+      syncStatus: 1,
+      updatedAt: DateTime.now(),
+    );
+
+    await _localDb.insertRepairJob(updatedJob.toMap());
+    _repairJobSignal.add(null);
+  }
+
+  Future<void> updateRepairJob(repair_job_model.RepairJob job) async {
+    final updatedJob = job.copyWith(
+      syncStatus: 1,
+      updatedAt: DateTime.now(),
+    );
+
+    await _localDb.insertRepairJob(updatedJob.toMap());
+    _repairJobSignal.add(null);
+  }
+
+  Future<List<repair_job_model.RepairJob>> getRepairJobsList() async {
+    final maps = await _localDb.getAllRepairJobs();
+    return maps.map((m) {
+      final data = Map<String, dynamic>.from(m);
+      data['id'] = m['id'];
+      return repair_job_model.RepairJob.fromMap(data, m['id'] as String);
+    }).toList();
+  }
+
+  Stream<List<repair_job_model.RepairJob>> getRepairJobsStream() {
+    return _repairJobSignal.stream.asyncMap((_) => getRepairJobsList());
+  }
+
+  Future<void> deleteRepairJob(String id) async {
+    await _localDb.deleteRepairJob(id);
+    _repairJobSignal.add(null);
+  }
+
+  // ============== LINING ITEMS CRUD ==============
+
+  Future<void> addLiningItem(lining_item_model.LiningItem item) async {
+    final id = item.id.isEmpty ? _uuid.v4() : item.id;
+    final updatedItem = item.copyWith(
+      id: id,
+      syncStatus: 1,
+      updatedAt: DateTime.now(),
+    );
+
+    await _localDb.insertLiningItem(updatedItem.toMap());
+  }
+
+  Future<List<lining_item_model.LiningItem>> getLiningItemsByOrder(String orderId) async {
+    final maps = await _localDb.getLiningItemsByOrder(orderId);
+    return maps.map((m) {
+      final data = Map<String, dynamic>.from(m);
+      data['id'] = m['id'];
+      return lining_item_model.LiningItem.fromMap(data, m['id'] as String);
+    }).toList();
+  }
+
+  Future<void> deleteLiningItem(String id) async {
+    await _localDb.deleteLiningItem(id);
+  }
+
+  // ============== GALLERY ITEMS CRUD ==============
+
+  static final _gallerySignal = StreamController<void>.broadcast();
+
+  Future<void> addGalleryItem(gallery_item_model.GalleryItem item) async {
+    final id = item.id.isEmpty ? _uuid.v4() : item.id;
+    final updatedItem = item.copyWith(
+      id: id,
+      syncStatus: 1,
+      updatedAt: DateTime.now(),
+    );
+
+    await _localDb.insertGalleryItem(updatedItem.toMap());
+    _gallerySignal.add(null);
+  }
+
+  Future<List<gallery_item_model.GalleryItem>> getGalleryItems() async {
+    final maps = await _localDb.getAllGalleryItems();
+    return maps.map((m) {
+      final data = Map<String, dynamic>.from(m);
+      data['id'] = m['id'];
+      return gallery_item_model.GalleryItem.fromMap(data, m['id'] as String);
+    }).toList();
+  }
+
+  Stream<List<gallery_item_model.GalleryItem>> getGalleryItemsStream() {
+    return _gallerySignal.stream.asyncMap((_) => getGalleryItems());
+  }
+
+  Future<void> deleteGalleryItem(String id) async {
+    await _localDb.deleteGalleryItem(id);
+    _gallerySignal.add(null);
   }
 }

@@ -19,6 +19,11 @@ class Order {
   final double overheadCost;
   final double advanceAmount; // Added for FUNC-005
   final Map<String, String> styleAttributes;
+  // SRS Phase 4: Material Economics
+  final String? fabricPhotoUrl;
+  final bool astarRequired;
+  final String? astarSource; // CLIENT_PROVIDED, SHOP_PROVIDED
+  final double astarCost;
   final int syncStatus;
   final DateTime updatedAt;
 
@@ -38,14 +43,19 @@ class Order {
     this.laborCost = 0.0,
     this.materialCost = 0.0,
     this.overheadCost = 0.0,
-    this.advanceAmount = 0.0, // Added for FUNC-005 advance management
+    this.advanceAmount = 0.0,
     this.styleAttributes = const <String, String>{},
+    this.fabricPhotoUrl,
+    this.astarRequired = false,
+    this.astarSource,
+    this.astarCost = 0.0,
     this.syncStatus = 1,
     required this.updatedAt,
   });
 
-  double get profit => totalAmount - (laborCost + materialCost + overheadCost);
+  double get profit => totalAmount - (laborCost + materialCost + overheadCost + astarCost);
   double get balanceDue => totalAmount - advanceAmount;
+  double get totalCost => laborCost + materialCost + overheadCost + astarCost;
 
   factory Order.fromMap(Map<String, dynamic> data, String documentId) {
     List<String> parseItemTypes(dynamic value) {
@@ -111,6 +121,10 @@ class Order {
       overheadCost: ((data['overhead_cost'] ?? data['overheadCost']) as num?)?.toDouble() ?? 0.0,
       advanceAmount: ((data['advance_amount'] ?? data['advanceAmount']) as num?)?.toDouble() ?? 0.0,
       styleAttributes: parseStyleAttributes(data['style_attributes_json'] ?? data['styleAttributes']),
+      fabricPhotoUrl: data['fabric_photo_url'] ?? data['fabricPhotoUrl'],
+      astarRequired: (data['astar_required'] ?? data['astarRequired'] ?? 0) == 1,
+      astarSource: data['astar_source'] ?? data['astarSource'],
+      astarCost: ((data['astar_cost'] ?? data['astarCost']) as num?)?.toDouble() ?? 0.0,
       syncStatus: (data['sync_status'] ?? data['syncStatus'] as num?)?.toInt() ?? 0,
       updatedAt: data['updated_at'] != null 
           ? (data['updated_at'] is int 
@@ -142,6 +156,10 @@ class Order {
       'overhead_cost': overheadCost,
       'advance_amount': advanceAmount,
       'style_attributes_json': json.encode(styleAttributes),
+      'fabric_photo_url': fabricPhotoUrl,
+      'astar_required': astarRequired ? 1 : 0,
+      'astar_source': astarSource,
+      'astar_cost': astarCost,
       'sync_status': syncStatus,
       'updated_at': updatedAt.millisecondsSinceEpoch,
     };
@@ -165,6 +183,10 @@ class Order {
     double? overheadCost,
     double? advanceAmount,
     Map<String, String>? styleAttributes,
+    String? fabricPhotoUrl,
+    bool? astarRequired,
+    String? astarSource,
+    double? astarCost,
     int? syncStatus,
     DateTime? updatedAt,
   }) {
@@ -186,8 +208,13 @@ class Order {
       overheadCost: overheadCost ?? this.overheadCost,
       advanceAmount: advanceAmount ?? this.advanceAmount,
       styleAttributes: styleAttributes ?? this.styleAttributes,
+      fabricPhotoUrl: fabricPhotoUrl ?? this.fabricPhotoUrl,
+      astarRequired: astarRequired ?? this.astarRequired,
+      astarSource: astarSource ?? this.astarSource,
+      astarCost: astarCost ?? this.astarCost,
       syncStatus: syncStatus ?? this.syncStatus,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
+
