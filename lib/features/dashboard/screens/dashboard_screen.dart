@@ -33,24 +33,24 @@ class DashboardScreen extends StatelessWidget {
                   context,
                   'New Order',
                   'નવો ઓર્ડર',
-                  Icons.post_add,
-                  AppTheme.marigold,
+                  Icons.content_cut, // Scissors for Cutting
+                  AppTheme.deepBronze.withValues(alpha: 0.1),
                   () => Navigator.pushNamed(context, '/create_order_step1'),
                 ),
                 _buildDashboardItem(
                   context,
                   'Measurements',
                   'માપ',
-                  Icons.straighten,
-                  Colors.blue.shade100,
+                  Icons.straighten, // Tape
+                  AppTheme.bronzeTint.withValues(alpha: 0.2),
                   () {},
                 ),
                 _buildDashboardItem(
                   context,
                   'Customers',
                   'ગ્રાહકો',
-                  Icons.people,
-                  AppTheme.emerald.withValues(alpha: 0.3),
+                  Icons.people_outline,
+                  AppTheme.trustGreen.withValues(alpha: 0.1),
                   () {},
                 ),
                 _buildDashboardItem(
@@ -58,24 +58,32 @@ class DashboardScreen extends StatelessWidget {
                   'Pending',
                   'બાકી ઓર્ડર',
                   Icons.pending_actions,
-                  Colors.orange.shade100,
+                  AppTheme.safetyOrange.withValues(alpha: 0.1),
                   () => Navigator.pushNamed(context, '/orders_pending'),
                 ),
                 _buildDashboardItem(
                   context,
                   'Repairs',
                   'સમારકામ',
-                  Icons.build,
-                  Colors.pink.shade100,
+                  Icons.build_circle_outlined,
+                  AppTheme.alertRed.withValues(alpha: 0.1),
                   () => Navigator.pushNamed(context, '/repairs'),
                 ),
                 _buildDashboardItem(
                   context,
                   'Khata',
                   'ખાતાવહી',
-                  Icons.account_balance_wallet,
-                  Colors.purple.shade100,
+                  Icons.menu_book, // Ledger book
+                  AppTheme.deepBronze.withValues(alpha: 0.1),
                   () {},
+                ),
+                _buildDashboardItem(
+                  context,
+                  'Lab 9 - API',
+                  'ડિજિટલ લેજર', // Digital Ledger
+                  Icons.cloud_sync, // Sync icon
+                  AppTheme.trustGreen.withValues(alpha: 0.2),
+                  () => Navigator.pushNamed(context, '/posts'),
                 ),
               ],
             ),

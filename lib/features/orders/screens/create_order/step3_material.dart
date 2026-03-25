@@ -7,7 +7,8 @@ class MaterialSelectionScreen extends StatefulWidget {
   const MaterialSelectionScreen({super.key});
 
   @override
-  State<MaterialSelectionScreen> createState() => _MaterialSelectionScreenState();
+  State<MaterialSelectionScreen> createState() =>
+      _MaterialSelectionScreenState();
 }
 
 class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
@@ -28,7 +29,10 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
             NeoCard(
               child: Column(
                 children: [
-                  Text('Main Fabric', style: AppTheme.masterjiTheme.textTheme.titleMedium),
+                  Text(
+                    'Main Fabric',
+                    style: AppTheme.masterjiTheme.textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 16),
                   Container(
                     height: 150,
@@ -36,14 +40,24 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                      border: Border.all(
+                        color: Colors.grey.shade300,
+                        style: BorderStyle.solid,
+                      ),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.camera_alt, size: 40, color: Colors.grey),
+                        const Icon(
+                          Icons.camera_alt,
+                          size: 40,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(height: 8),
-                         Text('Take Photo of Cloth', style: TextStyle(color: Colors.grey[600])),
+                        Text(
+                          'Take Photo of Cloth',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
                       ],
                     ),
                   ),
@@ -55,7 +69,8 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                           title: const Text('Customer'),
                           value: 'Customer',
                           groupValue: _fabricSource,
-                          onChanged: (val) => setState(() => _fabricSource = val.toString()),
+                          onChanged: (val) =>
+                              setState(() => _fabricSource = val.toString()),
                           activeColor: AppTheme.navyBlue,
                         ),
                       ),
@@ -64,7 +79,8 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                           title: const Text('Shop'),
                           value: 'Shop',
                           groupValue: _fabricSource,
-                          onChanged: (val) => setState(() => _fabricSource = val.toString()),
+                          onChanged: (val) =>
+                              setState(() => _fabricSource = val.toString()),
                           activeColor: AppTheme.navyBlue,
                         ),
                       ),
@@ -73,9 +89,9 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Astar Section
             NeoCard(
               child: Column(
@@ -83,11 +99,14 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Needs Astar (Lining)?', style: AppTheme.masterjiTheme.textTheme.titleMedium),
+                      Text(
+                        'Needs Astar (Lining)?',
+                        style: AppTheme.masterjiTheme.textTheme.titleMedium,
+                      ),
                       Switch(
                         value: _needsAstar,
                         onChanged: (val) => setState(() => _needsAstar = val),
-                        activeColor: AppTheme.marigold,
+                        activeThumbColor: AppTheme.marigold,
                       ),
                     ],
                   ),
@@ -105,17 +124,21 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                             divisions: 9,
                             label: '${_astarLength}m',
                             activeColor: AppTheme.navyBlue,
-                            onChanged: (val) => setState(() => _astarLength = val),
+                            onChanged: (val) =>
+                                setState(() => _astarLength = val),
                           ),
                         ),
-                        Text('${_astarLength}m', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          '${_astarLength}m',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ],
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 48),
             PrimaryButton(
               text: 'Confirm Order (ઓર્ડર અને બનાવો)',

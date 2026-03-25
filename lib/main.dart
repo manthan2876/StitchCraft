@@ -23,6 +23,7 @@ import 'package:stitchcraft/features/orders/screens/order_list_screen.dart';
 // Modules
 import 'package:stitchcraft/features/repairs/screens/repair_dashboard.dart';
 import 'package:stitchcraft/features/khata/screens/khata_screen.dart';
+import 'package:stitchcraft/features/posts/presentation/pages/posts_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +59,7 @@ class StitchCraftApp extends StatelessWidget {
         '/repairs': (context) => const RepairDashboard(),
         '/khata': (context) => const KhataScreen(),
         '/orders_pending': (context) => const OrderListScreen(title: 'Pending Orders', statusFilter: 'pending'),
+        '/posts': (context) => const PostsScreen(),
       },
     );
   }
