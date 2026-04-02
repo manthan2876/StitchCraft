@@ -20,6 +20,9 @@ import 'package:stitchcraft/features/orders/screens/create_order/step2_measureme
 import 'package:stitchcraft/features/orders/screens/create_order/step3_material.dart';
 import 'package:stitchcraft/features/orders/screens/order_list_screen.dart';
 
+import 'package:stitchcraft/core/services/notification_service.dart';
+import 'package:stitchcraft/features/labs/screens/notification_lab_screen.dart';
+
 // Modules
 import 'package:stitchcraft/features/repairs/screens/repair_dashboard.dart';
 import 'package:stitchcraft/features/khata/screens/khata_screen.dart';
@@ -28,6 +31,11 @@ import 'package:stitchcraft/features/posts/presentation/pages/posts_screen.dart'
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  // Initialize Notifications
+  final notificationService = NotificationService();
+  await notificationService.init();
+
   runApp(const StitchCraftApp());
 }
 
@@ -60,6 +68,7 @@ class StitchCraftApp extends StatelessWidget {
         '/khata': (context) => const KhataScreen(),
         '/orders_pending': (context) => const OrderListScreen(title: 'Pending Orders', statusFilter: 'pending'),
         '/posts': (context) => const PostsScreen(),
+        '/notifications_lab': (context) => const NotificationLabScreen(),
       },
     );
   }

@@ -85,6 +85,14 @@ class DashboardScreen extends StatelessWidget {
                   AppTheme.trustGreen.withValues(alpha: 0.2),
                   () => Navigator.pushNamed(context, '/posts'),
                 ),
+                _buildDashboardItem(
+                  context,
+                  'Lab 10 - Alerts',
+                  'નોટિફિકેશન', // Notifications
+                  Icons.notifications_active,
+                  AppTheme.brickRed.withValues(alpha: 0.1),
+                  () => Navigator.pushNamed(context, '/notifications_lab'),
+                ),
               ],
             ),
           ),
