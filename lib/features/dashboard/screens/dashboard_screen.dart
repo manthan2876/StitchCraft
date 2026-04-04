@@ -93,6 +93,14 @@ class DashboardScreen extends StatelessWidget {
                   AppTheme.brickRed.withValues(alpha: 0.1),
                   () => Navigator.pushNamed(context, '/notifications_lab'),
                 ),
+                _buildDashboardItem(
+                  context,
+                  'Lab 11 - Advanced',
+                  'એડવાન્સ ફીચર્સ', // Advanced Features
+                  Icons.auto_awesome,
+                  AppTheme.emerald.withValues(alpha: 0.1),
+                  () => Navigator.pushNamed(context, '/lab11_advanced'),
+                ),
               ],
             ),
           ),

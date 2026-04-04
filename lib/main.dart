@@ -22,6 +22,7 @@ import 'package:stitchcraft/features/orders/screens/order_list_screen.dart';
 
 import 'package:stitchcraft/core/services/notification_service.dart';
 import 'package:stitchcraft/features/labs/screens/notification_lab_screen.dart';
+import 'package:stitchcraft/features/labs/screens/lab11_advanced_screen.dart';
 
 // Modules
 import 'package:stitchcraft/features/repairs/screens/repair_dashboard.dart';
@@ -69,6 +70,7 @@ class StitchCraftApp extends StatelessWidget {
         '/orders_pending': (context) => const OrderListScreen(title: 'Pending Orders', statusFilter: 'pending'),
         '/posts': (context) => const PostsScreen(),
         '/notifications_lab': (context) => const NotificationLabScreen(),
+        '/lab11_advanced': (context) => const Lab11AdvancedScreen(),
       },
     );
   }
