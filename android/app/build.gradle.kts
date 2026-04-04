@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -9,6 +11,21 @@ android {
     namespace = "com.example.stitchcraft"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    val keystoreProperties = Properties()
+    val keystorePropertiesFile = rootProject.projectDir.resolve("key.properties")
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(keystorePropertiesFile.inputStream())
+    }
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = keystoreProperties["storeFile"]?.let { rootProject.projectDir.resolve(it as String) }
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
+    }
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -35,7 +52,11 @@ android {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
