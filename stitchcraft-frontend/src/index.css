@@ -1,0 +1,414 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+@import "./styles/variables.css";
+@import "./styles/skeuomorphic.css";
+
+/* 1. Map design tokens to Tailwind v4 utilities */
+@theme {
+  --color-bg-primary: var(--color-bg-primary);
+  --color-bg-secondary: var(--color-bg-secondary);
+  --color-secondary: var(--color-bg-secondary);
+  --color-bg-sidebar: var(--color-bg-sidebar);
+  --color-bg-card: var(--color-bg-card);
+  --color-bg-card-hover: var(--color-bg-card-hover);
+  --color-bg-input: var(--color-bg-input);
+  --color-bg-modal: var(--color-bg-modal);
+  --color-bg-hover: var(--color-bg-hover);
+
+  --color-text-main: var(--color-text-main);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-inverse: var(--color-text-inverse);
+  --color-text-dark: var(--color-text-dark);
+
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-medium: var(--color-border-medium);
+  --color-border-strong: var(--color-border-strong);
+
+  --color-accent-purple: var(--color-accent-purple);
+  --color-accent-purple-hover: var(--color-accent-purple-hover);
+  --color-accent-pink: var(--color-accent-pink);
+  --color-accent-blue: var(--color-accent-blue);
+  --color-accent-cyan: var(--color-accent-cyan);
+  --color-accent-emerald: var(--color-accent-emerald);
+  --color-accent-amber: var(--color-accent-amber);
+
+  --color-color-accent-purple: var(--color-color-accent-purple);
+  --color-color-accent-pink: var(--color-color-accent-pink);
+  --color-color-accent-blue: var(--color-color-accent-blue);
+  --color-color-accent-cyan: var(--color-color-accent-cyan);
+  --color-color-accent-emerald: var(--color-color-accent-emerald);
+  --color-color-accent-amber: var(--color-color-accent-amber);
+
+  --shadow-card: var(--shadow-card);
+  --font-sans: "Outfit", "Inter", sans-serif;
+}
+
+
+:root {
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-main);
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Custom styled scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-primary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-bg-card);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent-purple);
+  }
+
+  /* 8. Global Select Styling (Default Dark Chevron) */
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b8a9f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 0.85rem !important;
+    padding-right: 2.25rem !important;
+    cursor: pointer;
+  }
+
+  /* Specific overrides for smaller selects, status selects, or language selects to prevent chevron overlap and keep layout tight */
+  select.px-2,
+  select.px-3,
+  select.px-4,
+  select.py-0\.5,
+  select.py-1,
+  select.py-1\.5,
+  select.text-\[10px\],
+  select.text-xs,
+  select.status-select {
+    padding-right: 1.5rem !important;
+    background-position: right 0.4rem center !important;
+    background-size: 0.7rem !important;
+  }
+
+  /* 7. Global Option styling for dropdown overlays - inherit font styles to match premium layout and keep menus clean */
+  select option {
+    font-family: inherit !important;
+    font-size: inherit !important;
+  }
+
+  /* Premium tactile transitions, hover, and focus ring styling for all select dropdowns */
+  select {
+    transition: all 0.2s ease-in-out !important;
+  }
+
+  select:hover {
+    border-color: rgba(122, 96, 255, 0.4) !important;
+    background-color: var(--color-bg-hover) !important;
+  }
+
+  select:focus {
+    border-color: var(--color-accent-purple) !important;
+    box-shadow: 0 0 0 3px rgba(122, 96, 255, 0.15) !important;
+    outline: none !important;
+  }
+
+  /* Mobile-specific size reductions (width < 640px) */
+  @media (max-width: 639px) {
+    /* Scale down standard form selects */
+    select {
+      font-size: 0.75rem !important;
+      padding-top: 0.45rem !important;
+      padding-bottom: 0.45rem !important;
+      padding-right: 1.75rem !important;
+      background-position: right 0.5rem center !important;
+      background-size: 0.7rem !important;
+      border-radius: 8px !important;
+    }
+
+    /* Scale down compact selects (status tags, language switcher, table selects) even further on mobile */
+    select.px-2,
+    select.px-3,
+    select.px-4,
+    select.py-0\.5,
+    select.py-1,
+    select.py-1\.5,
+    select.text-\[10px\],
+    select.text-xs,
+    select.status-select,
+    .topbar-icon-btn select {
+      font-size: 9px !important;
+      padding-left: 0.35rem !important;
+      padding-right: 1.15rem !important;
+      padding-top: 0.25rem !important;
+      padding-bottom: 0.25rem !important;
+      background-position: right 0.25rem center !important;
+      background-size: 0.6rem !important;
+      border-radius: 6px !important;
+    }
+  }
+}
+
+/* Color Scheme support */
+.light-theme {
+  color-scheme: light;
+}
+
+/* 2, 3, & 4. Define missing utility classes */
+@layer utilities {
+  .bg-grad-purple {
+    background: var(--grad-purple);
+  }
+
+  .bg-grad-pink {
+    background: var(--grad-pink);
+  }
+
+  .bg-grad-card-blue {
+    background: var(--grad-card-blue);
+  }
+
+  .bg-secondary {
+    background-color: var(--color-bg-secondary);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .text-muted {
+    color: var(--color-text-muted);
+  }
+
+  /* 9. Filter tab inactive utility */
+  .filter-tab-inactive {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--color-text-muted);
+  }
+
+  .light-theme .filter-tab-inactive {
+    background-color: rgba(122, 96, 255, 0.05);
+    border: 1px solid rgba(122, 96, 255, 0.12);
+  }
+
+  /* 5. Narrowed Semantic Text Overrides */
+  .text-on-surface {
+    color: var(--color-text-main);
+  }
+}
+
+/* Global Form Elements Theme Mapping */
+input,
+select,
+textarea {
+  background-color: var(--color-bg-primary);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-main);
+}
+
+.light-theme input,
+.light-theme select,
+.light-theme textarea {
+  background-color: #ffffff;
+  border-color: rgba(122, 96, 255, 0.2);
+  color: #151329;
+}
+
+/* 8. Light theme chevron with adjusted stroke color */
+.light-theme select {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23625f82' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+}
+
+.light-theme select:hover {
+  border-color: rgba(122, 96, 255, 0.5) !important;
+  background-color: rgba(122, 96, 255, 0.03) !important;
+}
+
+.light-theme select:focus {
+  border-color: var(--color-accent-purple) !important;
+  box-shadow: 0 0 0 3px rgba(122, 96, 255, 0.12) !important;
+}
+
+/* Global Placeholder Override */
+::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.light-theme ::placeholder {
+  color: #625f82;
+  opacity: 0.65;
+}
+
+.delivery-active-tab {
+  background-color: rgba(70, 95, 255, 0.15) !important;
+  border-color: var(--color-accent-purple) !important;
+  color: #7592ff !important;
+}
+
+/* ─── Light Theme Overrides ─── */
+.light-theme {
+
+  /* Prevent secondary / cancel / action buttons from blending in light theme */
+  .btn-tactile-secondary,
+  button.bg-bg-secondary,
+  button.bg-secondary,
+  button.bg-bg-card,
+  button.bg-bg-primary,
+  a.bg-bg-secondary,
+  a.bg-secondary,
+  a.bg-bg-card,
+  a.bg-bg-primary {
+    background-color: #f4f3ff !important;
+    border: 1px solid #dcd7ff !important;
+    color: #3b3880 !important;
+  }
+
+  .btn-tactile-secondary:hover,
+  button.bg-bg-secondary:hover,
+  button.bg-secondary:hover,
+  button.bg-bg-card:hover,
+  button.bg-bg-primary:hover,
+  a.bg-bg-secondary:hover,
+  a.bg-secondary:hover,
+  a.bg-bg-card:hover,
+  a.bg-bg-primary:hover {
+    background-color: #ebe9ff !important;
+    border-color: #7a60ff !important;
+    color: #1e1a5a !important;
+  }
+
+  /* 6. Light Theme overrides for missing hex targets */
+  .bg-\[\#17152d\] {
+    background-color: #f0eeff !important;
+  }
+
+  .hover\:bg-\[\#2e2c56\]:hover {
+    background-color: #fcfcff !important;
+  }
+
+  .bg-white\/5,
+  .bg-white\/10 {
+    background-color: rgba(122, 96, 255, 0.05) !important;
+  }
+
+  .hover\:bg-white\/5:hover,
+  .hover\:bg-white\/10:hover {
+    background-color: rgba(122, 96, 255, 0.08) !important;
+  }
+
+  /* Keep high contrast on text inside colored buttons and badges */
+  .text-white-forced,
+  .text-white-forced * {
+    color: #ffffff !important;
+  }
+
+
+  .border-white\/5,
+  .border-white\/10,
+  .border-white\/20,
+  .border-white\/30,
+  .border-b.border-white\/5,
+  .border-r.border-white\/5,
+  .divide-white\/5>*+* {
+    border-color: rgba(122, 96, 255, 0.12) !important;
+  }
+
+  .bg-\[\#1e1c36\],
+  .bg-\[\#1e1c3a\],
+  .bg-bg-primary\/30 {
+    background-color: #f0eeff !important;
+    border-color: rgba(122, 96, 255, 0.12) !important;
+  }
+
+  .bg-secondary {
+    background-color: #ffffff !important;
+    border-color: rgba(122, 96, 255, 0.1) !important;
+  }
+
+  .delivery-active-tab {
+    background-color: #ede9ff !important;
+    border-color: var(--color-accent-purple) !important;
+    color: var(--color-accent-purple) !important;
+  }
+
+  .chart-grid-line {
+    stroke: rgba(122, 96, 255, 0.08) !important;
+  }
+
+  .calendar-inrange-text {
+    color: #312a6e !important;
+  }
+
+  .topbar-icon-btn {
+    background-color: #ede9ff !important;
+    border-color: rgba(122, 96, 255, 0.15) !important;
+  }
+
+  .topbar-icon-btn:hover {
+    background-color: #ddd8f7 !important;
+  }
+
+  .topbar-icon-btn .text-text-muted {
+    color: #625f82 !important;
+  }
+
+  .sidebar-active-tab::before {
+    box-shadow: 12px 12px 0 12px var(--color-bg-sidebar) !important;
+  }
+
+  .sidebar-active-tab::after {
+    box-shadow: 12px -12px 0 12px var(--color-bg-sidebar) !important;
+  }
+
+  .sidebar-active-tab {
+    background: linear-gradient(90deg, rgba(122, 96, 255, 0.12), transparent) !important;
+    color: var(--color-accent-purple) !important;
+  }
+
+  .btn-tactile-dark {
+    background-color: #ede9ff !important;
+    border-color: rgba(122, 96, 255, 0.15) !important;
+    color: #3b3880 !important;
+  }
+
+  .btn-tactile-dark:hover {
+    background-color: #ddd8f7 !important;
+    color: #1e1a5a !important;
+  }
+}
+
+.shop-active-card {
+  background: var(--shop-active-grad) !important;
+  border-color: var(--color-accent-purple) !important;
+}
+
+/* Native datepicker indicator theme color invert */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1);
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.light-theme input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+  opacity: 0.6;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.9;
+}

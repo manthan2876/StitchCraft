@@ -1,0 +1,96 @@
+/* src/styles/variables.css */
+:root {
+  /* Color Palette (Deep dark theme matching TailAdmin colors) */
+  --color-bg-primary: #101828;      /* Page body bg (Dark) */
+  --color-bg-secondary: #1a2231;    /* Header/Card bg (Dark) */
+  --color-secondary: #1a2231;
+  --color-bg-sidebar: #101828;      /* Sidebar bg (Dark) */
+  --color-bg-card: #1a2231;
+  --color-bg-card-hover: #1e293b;
+  --color-bg-input: #1a2231;
+  --color-bg-modal: #1a2231;
+  --color-bg-hover: rgba(255, 255, 255, 0.05);
+
+  /* Text Colors */
+  --color-text-main: #ffffff;
+  --color-text-muted: #98a2b3;      /* Muted text (Dark) */
+  --color-text-inverse: #101828;
+
+  /* Accent Colors */
+  --color-accent-purple: #465fff;    /* brand-500 */
+  --color-accent-purple-hover: #3641f5; /* brand-600 */
+  --color-accent-pink: #f43f5e;     /* rose-500 */
+  --color-accent-blue: #3b82f6;     /* blue-500 */
+  --color-accent-cyan: #06b6d4;     /* cyan-500 */
+  --color-accent-emerald: #10b981;  /* emerald-500 */
+  --color-accent-amber: #f59e0b;    /* amber-500 */
+
+  /* Tailwind CSS v4 color mappings for double-prefix accent classes */
+  --color-color-accent-purple: #465fff;
+  --color-color-accent-pink: #f43f5e;
+  --color-color-accent-blue: #3b82f6;
+  --color-color-accent-cyan: #06b6d4;
+  --color-color-accent-emerald: #10b981;
+  --color-color-accent-amber: #f59e0b;
+
+  /* Skeuomorphic Color Mappings */
+  --color-leather-brown: #334155;    /* Outer shadow color */
+  --color-leather-dark: #1e293b;
+  --color-gold: #3b82f6;
+
+  /* Gradients (Flat or subtle gradients matching TailAdmin) */
+  --grad-purple: linear-gradient(135deg, #465fff, #3641f5);
+  --grad-pink: linear-gradient(135deg, #f43f5e, #e11d48);
+  --grad-card-blue: linear-gradient(135deg, #3b82f6, #2563eb);
+  --grad-dark-leather: linear-gradient(180deg, #1e293b, #0f172a);
+  --grad-metallic: linear-gradient(135deg, #f3f4f6, #e5e7eb, #f3f4f6);
+
+  /* Shadows (Subtle theme-xs matching TailAdmin) */
+  --shadow-skeuo-button: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
+  --shadow-skeuo-button-pressed: inset 0px 1px 2px 0px rgba(16, 24, 40, 0.1);
+  --shadow-neon-purple: 0 0 10px rgba(70, 95, 255, 0.15);
+  --shadow-card: 0px 1px 3px 0px rgba(16, 24, 40, 0.1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06);
+
+  /* Borders */
+  --border-neon: 1px solid #1d2939;
+  --border-radius-card: 16px;       /* rounded-2xl */
+  --border-radius-pill: 9999px;     /* rounded-full */
+  --color-border-subtle: #1d2939;   /* gray-800 */
+  --color-border-medium: #344054;   /* gray-700 */
+  --color-border-strong: #475467;   /* gray-600 */
+
+  /* Theme-specific Range and Card variables */
+  --calendar-range-bg: rgba(70, 95, 255, 0.12);
+  --calendar-range-color: rgba(70, 95, 255, 0.12);
+  --shop-active-grad: linear-gradient(135deg, #1e293b, #101828);
+}
+
+/* Premium Light Theme Variables Overrides */
+.light-theme {
+  --color-bg-primary: #f9fafb;      /* Page body bg (Light) */
+  --color-bg-secondary: #ffffff;    /* Header/Card bg (Light) */
+  --color-secondary: #ffffff;
+  --color-bg-sidebar: #ffffff;      /* Sidebar bg (Light) */
+  --color-bg-card: #ffffff;
+  --color-bg-card-hover: #f2f4f7;   /* gray-100 */
+  --color-bg-input: #ffffff;
+  --color-bg-modal: #ffffff;
+  --color-bg-hover: rgba(70, 95, 255, 0.05);
+
+  --color-text-main: #344054;       /* Main text (Light) */
+  --color-text-muted: #667085;      /* Muted text (Light) */
+  --color-text-inverse: #ffffff;
+  --color-text-dark: #101828;
+
+  --color-border-subtle: #e4e7ec;   /* gray-200 */
+  --color-border-medium: #d0d5dd;   /* gray-300 */
+  --color-border-strong: #98a2b3;   /* gray-400 */
+
+  --border-neon: 1px solid #e4e7ec;
+  --shadow-card: 0px 1px 3px 0px rgba(16, 24, 40, 0.1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06);
+
+  /* Light Theme overrides for range and active shop cards */
+  --calendar-range-bg: #ecf3ff;     /* brand-50 */
+  --calendar-range-color: #ecf3ff;
+  --shop-active-grad: linear-gradient(135deg, #f9fafb, #ffffff);
+}
