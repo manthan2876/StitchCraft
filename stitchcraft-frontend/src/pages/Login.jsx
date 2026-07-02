@@ -101,9 +101,6 @@ export const Login = () => {
                 Sign Up
               </Link>
             </span>
-            <span className="text-[10px] text-text-muted/50 font-semibold tracking-wider">
-              Demo: <strong className="text-text-muted/70">ramesh@stitchcraft.com</strong> / <strong className="text-text-muted/70">1234</strong>
-            </span>
           </div>
         </form>
       </div>

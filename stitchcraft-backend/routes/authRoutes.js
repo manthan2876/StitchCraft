@@ -3,17 +3,21 @@ const router = express.Router();
 import {
   registerUser,
   loginUser,
+  updatePassword,
+  verifyPasswordOnly,
+} from '../controllers/authController.js';
+import {
   getUserProfile,
   updateUserProfile,
   switchActiveShop,
-  updatePassword,
+} from '../controllers/profileController.js';
+import {
   downloadAllData,
   deleteAllData,
   deleteAccountRequest,
-  verifyPasswordOnly,
   importAllData,
   checkImportConflicts,
-} from '../controllers/authController.js';
+} from '../controllers/accountController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 router.post('/register', registerUser);

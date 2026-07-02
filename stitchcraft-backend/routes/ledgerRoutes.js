@@ -3,11 +3,13 @@ const router = express.Router();
 import {
   getLedgerSummary,
   getTransactions,
+  getJournalEntries,
+} from '../controllers/ledgerController.js';
+import {
   getExpenses,
   createExpense,
   deleteExpense,
-  getJournalEntries,
-} from '../controllers/ledgerController.js';
+} from '../controllers/expenseController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 router.use(protect); // Secure all routes in this module

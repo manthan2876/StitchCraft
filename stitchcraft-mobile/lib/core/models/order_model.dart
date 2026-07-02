@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/parsing_helpers.dart';
 
 class Order {
   final String id;
@@ -58,62 +58,17 @@ class Order {
   double get totalCost => laborCost + materialCost + overheadCost + astarCost;
 
   factory Order.fromMap(Map<String, dynamic> data, String documentId) {
-    List<String> parseItemTypes(dynamic value) {
-      if (value == null) return [];
-      if (value is List) return List<String>.from(value);
-      if (value is String) {
-        if (value.startsWith('[') && value.endsWith(']')) {
-          try {
-            return List<String>.from(json.decode(value));
-          } catch (e) {
-            return value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-          }
-        }
-        return value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-      }
-      return [];
-    }
-
-    Map<String, String> parseStyleAttributes(dynamic value) {
-      if (value == null) return <String, String>{};
-      if (value is Map) return Map<String, String>.from(value);
-      if (value is String && value.isNotEmpty) {
-        try {
-          return Map<String, String>.from(json.decode(value));
-        } catch (e) {
-          return <String, String>{};
-        }
-      }
-      return <String, String>{};
-    }
-
     return Order(
       id: documentId,
       customerId: data['customer_id'] ?? data['customerId'] ?? '',
       customerName: data['customer_name'] ?? data['customerName'] ?? '',
-      orderDate: data['order_date'] != null 
-          ? (data['order_date'] is int 
-              ? DateTime.fromMillisecondsSinceEpoch(data['order_date']) 
-              : (data['order_date'] as Timestamp).toDate())
-          : (data['orderDate'] != null 
-              ? (data['orderDate'] is int 
-                  ? DateTime.fromMillisecondsSinceEpoch(data['orderDate']) 
-                  : (data['orderDate'] as Timestamp).toDate())
-              : DateTime.now()),
-      dueDate: data['due_date'] != null 
-          ? (data['due_date'] is int 
-              ? DateTime.fromMillisecondsSinceEpoch(data['due_date']) 
-              : (data['due_date'] as Timestamp).toDate())
-          : (data['dueDate'] != null 
-              ? (data['dueDate'] is int 
-                  ? DateTime.fromMillisecondsSinceEpoch(data['dueDate']) 
-                  : (data['dueDate'] as Timestamp).toDate())
-              : null),
+      orderDate: parseDateTime(data['order_date'] ?? data['orderDate']),
+      dueDate: parseNullableDateTime(data['due_date'] ?? data['dueDate']),
       status: data['status'] ?? 'pending',
       totalAmount: ((data['total_amount'] ?? data['totalAmount']) as num?)?.toDouble() ?? 0.0,
       description: data['description'] ?? '',
       itemTypes: parseItemTypes(data['item_types'] ?? data['itemTypes']),
-      measurements: data['measurements'] != null ? Map<String, dynamic>.from(data['measurements']) : <String, dynamic>{}, // Usually updated separately or handled in getOrdersList
+      measurements: data['measurements'] != null ? Map<String, dynamic>.from(data['measurements']) : <String, dynamic>{},
       isRush: (data['is_rush'] ?? data['isRush']) == 1 || (data['isRush'] == true),
       paymentMethod: data['payment_method'] ?? data['paymentMethod'] ?? 'cash',
       laborCost: ((data['labor_cost'] ?? data['laborCost']) as num?)?.toDouble() ?? 0.0,
@@ -126,15 +81,7 @@ class Order {
       astarSource: data['astar_source'] ?? data['astarSource'],
       astarCost: ((data['astar_cost'] ?? data['astarCost']) as num?)?.toDouble() ?? 0.0,
       syncStatus: (data['sync_status'] ?? data['syncStatus'] as num?)?.toInt() ?? 0,
-      updatedAt: data['updated_at'] != null 
-          ? (data['updated_at'] is int 
-              ? DateTime.fromMillisecondsSinceEpoch(data['updated_at']) 
-              : (data['updated_at'] as Timestamp).toDate())
-          : (data['updatedAt'] != null 
-              ? (data['updatedAt'] is int 
-                  ? DateTime.fromMillisecondsSinceEpoch(data['updatedAt']) 
-                  : (data['updatedAt'] as Timestamp).toDate())
-              : DateTime.now()),
+      updatedAt: parseDateTime(data['updated_at'] ?? data['updatedAt']),
     );
   }
 
@@ -217,4 +164,3 @@ class Order {
     );
   }
 }
-

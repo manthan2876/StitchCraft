@@ -1,55 +1,18 @@
+/* controllers/orderController.js */
 import Order from '../models/Order.js';
 import Customer from '../models/Customer.js';
 import Payment from '../models/Payment.js';
 import Delivery from '../models/Delivery.js';
 import Notification from '../models/Notification.js';
 import Measurement from '../models/Measurement.js';
-import Inventory from '../models/Inventory.js';
 import Transaction from '../models/Transaction.js';
-import mongoose from 'mongoose';
-
-// Statuses at which astar/lining is considered consumed (Stitching onwards)
-const ASTAR_DEDUCT_STATUSES = ['Stitching', 'Checking', 'Ready', 'Delivered'];
-
-// Helper to find order by ID or custom orderId, scoped to shopId
-const findOrderScoped = async (id, shopId) => {
-  const query = mongoose.Types.ObjectId.isValid(id)
-    ? { _id: id, shopId }
-    : { orderId: id, shopId };
-  return await Order.findOne(query)
-    .populate('assignedKarigar')
-    .populate('assignedMachine')
-    .populate('asterInventoryItem');
-};
-
-const syncPaymentFromTransactions = async (orderId, shopId) => {
-  const order = await Order.findById(orderId);
-  if (!order) return null;
-
-  const asterPrice = order.needsAster ? (order.asterSellingPrice * order.asterQuantity) : 0;
-  const totalOrderValue = order.price + asterPrice;
-
-  const transactions = await Transaction.find({ orderId, shopId });
-  const totalPaid = transactions.reduce((sum, tx) => {
-    if (tx.type === 'Payment') return sum + tx.amount;
-    if (tx.type === 'Refund') return sum - tx.amount;
-    return sum;
-  }, 0);
-
-  let payment = await Payment.findOne({ orderId, shopId });
-  if (!payment) {
-    payment = new Payment({ orderId, shopId, totalAmount: totalOrderValue });
-  } else {
-    payment.totalAmount = totalOrderValue;
-  }
-
-  payment.paidAmount = totalPaid;
-  payment.balanceAmount = Math.max(0, payment.totalAmount - totalPaid);
-  payment.status = payment.balanceAmount === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Pending');
-
-  await payment.save();
-  return payment;
-};
+import {
+  findOrderScoped,
+  syncPaymentFromTransactions,
+  resolveCustomer,
+  updateCustomerMeasurements,
+  handleAstarStockAdjustment,
+} from '../services/orderService.js';
 
 // @desc    Create a new order
 // @route   POST /api/orders
@@ -82,64 +45,11 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Please provide customerName, apparelType, deliveryDate, and price' });
     }
 
-    // Resolve Customer
-    let customerObj = null;
-    if (customerId) {
-      const custQuery = mongoose.Types.ObjectId.isValid(customerId)
-        ? { _id: customerId, shopId: req.user.shopId }
-        : { customerId, shopId: req.user.shopId };
-      customerObj = await Customer.findOne(custQuery);
-    }
-
-    if (!customerObj) {
-      // Look up by name + phone or just name scoped to shopId
-      const nameQuery = customerPhone
-        ? { name: customerName, phone: customerPhone, shopId: req.user.shopId }
-        : { name: customerName, shopId: req.user.shopId };
-      customerObj = await Customer.findOne(nameQuery);
-    }
-
-    // If still no customer found, create a new customer profile automatically to keep CRM healthy
-    if (!customerObj) {
-      customerObj = await Customer.create({
-        name: customerName,
-        phone: customerPhone || '0000000000',
-        email: '',
-        address: customerAddress || '',
-        shopId: req.user.shopId,
-        ordersCount: 1,
-      });
-    } else {
-      customerObj.ordersCount = (customerObj.ordersCount || 0) + 1;
-      await customerObj.save();
-    }
+    const customerObj = await resolveCustomer(req.body, req.user.shopId);
 
     // Save/update customer measurements only if measurementType is 'Measurements'
     if (measurementType !== 'Maap' && measurements) {
-      let measurementRecord = await Measurement.findOne({ customerId: customerObj._id });
-      if (!measurementRecord) {
-        measurementRecord = new Measurement({
-          shopId: req.user.shopId,
-          customerId: customerObj._id,
-        });
-      }
-
-      if (measurements.shirt) {
-        measurementRecord.shirt = {
-          ...measurementRecord.shirt.toObject(),
-          ...measurements.shirt,
-        };
-      }
-      if (measurements.pant) {
-        measurementRecord.pant = {
-          ...measurementRecord.pant.toObject(),
-          ...measurements.pant,
-        };
-      }
-      if (measurements.others !== undefined) {
-        measurementRecord.others = measurements.others;
-      }
-      await measurementRecord.save();
+      await updateCustomerMeasurements(customerObj._id, measurements, req.user.shopId);
     }
 
     // Prepare measurements snapshot
@@ -219,7 +129,6 @@ export const createOrder = async (req, res) => {
       message: `New order ${order.orderId} created for ${customerObj.name}. Delivery due on ${new Date(deliveryDate).toLocaleDateString()}.`,
     });
 
-    // Return order with payment/delivery attached
     const result = order.toJSON();
     result.payment = payment;
     result.delivery = delivery;
@@ -237,7 +146,6 @@ export const createOrder = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const { status, urgency } = req.query;
-
     const filter = { shopId: req.user.shopId };
 
     if (status) {
@@ -257,7 +165,6 @@ export const getOrders = async (req, res) => {
       .populate('asterInventoryItem')
       .sort({ deliveryDate: 1 });
 
-    // Populate payment details
     const populatedOrders = [];
     for (let o of orders) {
       const payment = await Payment.findOne({ orderId: o._id });
@@ -286,7 +193,6 @@ export const getOrderById = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Populate customer details on the retrieved order
     await order.populate('customer');
 
     const payment = await Payment.findOne({ orderId: order._id });
@@ -399,45 +305,15 @@ export const updateOrder = async (req, res) => {
     const newStatus = status;
 
     if (newStatus && newStatus !== order.status) {
-      // --- Astar inventory auto-deduction logic ---
-      const willDeduct = ASTAR_DEDUCT_STATUSES.includes(newStatus);
-      const wasDeducted = order.asterDeducted;
-
-      if (order.needsAster && order.asterQuantity > 0 && order.asterInventoryItem) {
-        if (willDeduct && !wasDeducted) {
-          // Deduct from inventory
-          const invItem = await Inventory.findOne({ _id: order.asterInventoryItem, shopId: req.user.shopId });
-          if (invItem) {
-            invItem.quantity = Math.max(0, invItem.quantity - order.asterQuantity);
-            await invItem.save();
-            order.asterDeducted = true;
-            await Notification.create({
-              shopId: req.user.shopId,
-              orderId: order._id,
-              message: `Astar stock reduced by ${order.asterQuantity} ${invItem.unit} for order ${order.orderId} (${invItem.itemName}).`,
-            });
-          }
-        } else if (!willDeduct && wasDeducted) {
-          // Re-add to inventory (status moved back)
-          const invItem = await Inventory.findOne({ _id: order.asterInventoryItem, shopId: req.user.shopId });
-          if (invItem) {
-            invItem.quantity = invItem.quantity + order.asterQuantity;
-            await invItem.save();
-            order.asterDeducted = false;
-          }
-        }
-      }
-
+      await handleAstarStockAdjustment(order, newStatus, req.user.shopId);
       order.status = newStatus;
       statusChanged = true;
     }
 
     const updatedOrder = await order.save();
 
-    // Always sync payment details to keep totalAmount in sync with potential tailoring price / lining changes
     await syncPaymentFromTransactions(order._id, req.user.shopId);
 
-    // If status changed to Delivered, sync delivery collection and send alert
     if (statusChanged) {
       if (status === 'Delivered') {
         await Delivery.updateOne(
@@ -491,7 +367,6 @@ export const recordOrderPayment = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a positive payment amount' });
     }
 
-    // Create the transaction entry instead of mutating paidAmount directly
     await Transaction.create({
       shopId: req.user.shopId,
       orderId: order._id,
@@ -500,10 +375,8 @@ export const recordOrderPayment = async (req, res) => {
       type: 'Payment',
     });
 
-    // Dynamically calculate and sync payment records
     const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
 
-    // Create Notification
     await Notification.create({
       shopId: req.user.shopId,
       customerId: order.customer,
@@ -533,7 +406,6 @@ export const deleteOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Decrement customer's ordersCount if linked
     if (order.customer) {
       await Customer.updateOne(
         { _id: order.customer, shopId: req.user.shopId },
@@ -541,19 +413,10 @@ export const deleteOrder = async (req, res) => {
       );
     }
 
-    // Delete associated Payment record
     await Payment.deleteOne({ orderId: order._id, shopId: req.user.shopId });
-
-    // Delete associated Delivery record
     await Delivery.deleteOne({ orderId: order._id, shopId: req.user.shopId });
-
-    // Delete associated Notification records
     await Notification.deleteMany({ orderId: order._id, shopId: req.user.shopId });
-
-    // Delete associated Transaction records
     await Transaction.deleteMany({ orderId: order._id, shopId: req.user.shopId });
-
-    // Delete the Order itself
     await Order.deleteOne({ _id: order._id, shopId: req.user.shopId });
 
     res.json({ message: 'Order and associated records deleted successfully' });
