@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:stitchcraft/firebase_options.dart';
@@ -21,21 +22,33 @@ import 'package:stitchcraft/features/orders/screens/create_order/step3_material.
 import 'package:stitchcraft/features/orders/screens/order_list_screen.dart';
 
 import 'package:stitchcraft/core/services/notification_service.dart';
-import 'package:stitchcraft/features/labs/screens/notification_lab_screen.dart';
-import 'package:stitchcraft/features/labs/screens/lab11_advanced_screen.dart';
 
 // Modules
 import 'package:stitchcraft/features/repairs/screens/repair_dashboard.dart';
 import 'package:stitchcraft/features/khata/screens/khata_screen.dart';
-import 'package:stitchcraft/features/posts/presentation/pages/posts_screen.dart';
+import 'package:stitchcraft/features/shop/screens/inventory_screen.dart';
+import 'package:stitchcraft/features/shop/screens/karigars_screen.dart';
+import 'package:stitchcraft/features/shop/screens/machines_screen.dart';
+import 'package:stitchcraft/features/profile/screens/profile_screen.dart';
+import 'package:stitchcraft/features/orders/screens/customer_list_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   
-  // Initialize Notifications
-  final notificationService = NotificationService();
-  await notificationService.init();
+  final isMobile = !kIsWeb && 
+      (defaultTargetPlatform == TargetPlatform.android || 
+       defaultTargetPlatform == TargetPlatform.iOS);
+
+  if (isMobile) {
+    try {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      // Initialize Notifications
+      final notificationService = NotificationService();
+      await notificationService.init();
+    } catch (e) {
+      debugPrint("Failed to initialize mobile services: $e");
+    }
+  }
 
   runApp(const StitchCraftApp());
 }
@@ -67,10 +80,12 @@ class StitchCraftApp extends StatelessWidget {
         // Modules
         '/repairs': (context) => const RepairDashboard(),
         '/khata': (context) => const KhataScreen(),
+        '/inventory': (context) => const InventoryScreen(),
+        '/karigars': (context) => const KarigarsScreen(),
+        '/machines': (context) => const MachinesScreen(),
+        '/profile': (context) => const ProfileScreen(),
+        '/customers': (context) => const CustomerListScreen(),
         '/orders_pending': (context) => const OrderListScreen(title: 'Pending Orders', statusFilter: 'pending'),
-        '/posts': (context) => const PostsScreen(),
-        '/notifications_lab': (context) => const NotificationLabScreen(),
-        '/lab11_advanced': (context) => const Lab11AdvancedScreen(),
       },
     );
   }

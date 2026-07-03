@@ -1,97 +1,125 @@
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/models/user_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
 
 class AuthService {
-  static final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
   final DatabaseService _dbService = DatabaseService();
 
+  static String get baseUrl {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:5000/api';
+    }
+    return 'http://localhost:5000/api';
+  }
+
   // Sign Up
-  Future<firebase_auth.User?> signUp(String email, String password, String name) async {
+  Future<Map<String, dynamic>?> signUp(String email, String password, String name) async {
     try {
       if (email.isEmpty || password.isEmpty) {
         throw Exception('Email and password cannot be empty');
       }
-      if (password.length < 6) {
-        throw Exception('Password must be at least 6 characters');
-      }
 
-      firebase_auth.UserCredential result = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'name': name,
+          'email': email,
+          'password': password,
+        }),
       );
 
-      // Create Local User Record
-      if (result.user != null) {
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        // Save local user copy
         final newUser = User(
-            id: result.user!.uid,
-            name: name,
-            phone: email, // Using email as phone for now or need separate field
-            role: email.toLowerCase().contains('admin') ? UserRole.admin : UserRole.staff,
-            updatedAt: DateTime.now(),
+          id: data['_id'] ?? data['id'] ?? '',
+          name: data['name'] ?? name,
+          phone: data['email'] ?? email,
+          role: (data['role']?.toString().toLowerCase().contains('admin') ?? false)
+              ? UserRole.admin
+              : UserRole.staff,
+          updatedAt: DateTime.now(),
         );
         await _dbService.addUser(newUser);
-        
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('userRole', newUser.role.toString().split('.').last);
-      }
 
-      return result.user;
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      developer.log('Sign Up Error: ${e.code} - ${e.message}', name: 'AuthService');
-      rethrow;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', data['token'] ?? '');
+        await prefs.setString('userId', newUser.id);
+        await prefs.setString('userName', newUser.name);
+        await prefs.setString('userRole', data['role'] ?? 'staff');
+        if (data['shopId'] != null) {
+          await prefs.setString('shopId', data['shopId']);
+        }
+        await prefs.setBool('isLoggedIn', true);
+
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Sign Up Failed');
+      }
     } catch (e) {
-      developer.log('Unexpected Sign Up Error: $e', name: 'AuthService');
+      developer.log('Sign Up Error: $e', name: 'AuthService');
       rethrow;
     }
   }
 
   // Login & Save Session
-  Future<firebase_auth.User?> login(String email, String password) async {
+  Future<Map<String, dynamic>?> login(String email, String password) async {
     try {
       if (email.isEmpty || password.isEmpty) {
         throw Exception('Email and password cannot be empty');
       }
 
-      firebase_auth.UserCredential result = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'password': password,
+        }),
       );
-      
-      final String userId = result.user?.uid ?? '';
-      
-      // Fetch Role from Local DB
-      User? localUser = await _dbService.getUser(userId);
-      
-      String role = 'staff';
-      if (localUser != null) {
-          role = localUser.role.toString().split('.').last;
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        final String userId = data['_id'] ?? data['id'] ?? '';
+        final String userName = data['name'] ?? '';
+        final String userEmail = data['email'] ?? email;
+        final String role = data['role'] ?? 'staff';
+        final String token = data['token'] ?? '';
+        final String? shopId = data['shopId'] is Map ? data['shopId']['_id'] : data['shopId'];
+
+        // Save local user copy
+        final newUser = User(
+          id: userId,
+          name: userName,
+          phone: userEmail,
+          role: role.toLowerCase().contains('admin') ? UserRole.admin : UserRole.staff,
+          updatedAt: DateTime.now(),
+        );
+        await _dbService.addUser(newUser);
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('token', token);
+        await prefs.setString('userId', userId);
+        await prefs.setString('userName', userName);
+        await prefs.setString('userRole', role);
+        if (shopId != null) {
+          await prefs.setString('shopId', shopId);
+        }
+
+        return data;
       } else {
-          // If not in local DB (new device), deduce and create
-          role = email.toLowerCase().contains('admin') ? 'admin' : 'staff';
-          // Create local record
-          final newUser = User(
-              id: userId,
-              name: result.user?.displayName ?? 'User',
-              phone: email,
-              role: role == 'admin' ? UserRole.admin : UserRole.staff,
-              updatedAt: DateTime.now(),
-          );
-          await _dbService.addUser(newUser);
+        throw Exception(data['message'] ?? 'Invalid email or password');
       }
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('userRole', role);
-
-      return result.user;
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      developer.log('Login Error: ${e.code} - ${e.message}', name: 'AuthService');
-      rethrow;
     } catch (e) {
-      developer.log('Unexpected Login Error: $e', name: 'AuthService');
+      developer.log('Login Error: $e', name: 'AuthService');
       rethrow;
     }
   }
@@ -99,10 +127,13 @@ class AuthService {
   // Logout
   Future<void> logout() async {
     try {
-      await _auth.signOut();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', false);
+      await prefs.remove('token');
+      await prefs.remove('userId');
+      await prefs.remove('userName');
       await prefs.remove('userRole');
+      await prefs.remove('shopId');
     } catch (e) {
       developer.log('Logout Error: $e', name: 'AuthService');
       rethrow;
@@ -115,17 +146,24 @@ class AuthService {
     return prefs.getString('userRole') ?? 'staff';
   }
 
+  // Get Current JWT Token
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
+  }
+
   // Get Current User Data
   Future<Map<String, dynamic>?> getCurrentUserData() async {
     try {
-      final currentUser = _auth.currentUser;
-      if (currentUser == null) return null;
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId');
+      if (userId == null) return null;
 
-      final localUser = await _dbService.getUser(currentUser.uid);
+      final localUser = await _dbService.getUser(userId);
       if (localUser == null) return null;
 
       return {
-        'email': currentUser.email ?? '',
+        'email': localUser.phone, // Phone acts as email in user model mapping
         'shopName': localUser.name,
         'phone': localUser.phone,
         'role': localUser.role.toString().split('.').last,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -11,10 +12,26 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+
+  FirebaseMessaging? get _firebaseMessaging {
+    if (isMobile) {
+      return FirebaseMessaging.instance;
+    }
+    return null;
+  }
+
+  bool get isMobile =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   // Initialize notifications
   Future<void> init() async {
+    if (!isMobile) {
+      print("Notification initialization skipped: not on mobile platform.");
+      return;
+    }
+
     // 1. Initialize Timezone for scheduling
     tz.initializeTimeZones();
     try {
@@ -66,17 +83,23 @@ class NotificationService {
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationClick);
     
     // Get Device Token (Optional: for testing push)
-    String? token = await _firebaseMessaging.getToken();
-    print("FCM Device Token: $token");
+    try {
+      String? token = await _firebaseMessaging?.getToken();
+      print("FCM Device Token: $token");
+    } catch (e) {
+      print("Error getting FCM Token: $e");
+    }
   }
 
   Future<void> requestPermissions() async {
+    if (!isMobile) return;
+    
     await _localNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
     
-    await _firebaseMessaging.requestPermission(
+    await _firebaseMessaging?.requestPermission(
       alert: true,
       badge: true,
       sound: true,
@@ -85,6 +108,11 @@ class NotificationService {
 
   // Show Instant Notification
   Future<void> showInstantNotification(String title, String body, {int id = 0}) async {
+    if (!isMobile) {
+      print("Notification skipped: not on mobile platform.");
+      return;
+    }
+
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'high_importance_channel',
@@ -109,6 +137,11 @@ class NotificationService {
   // Schedule Notification
   Future<void> scheduleNotification(
       int id, String title, String body, int seconds) async {
+    if (!isMobile) {
+      print("Notification skipped: not on mobile platform.");
+      return;
+    }
+
     final scheduledTime = tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
     
     print("Scheduling notification (id: $id) for: $scheduledTime (Current local time: ${tz.TZDateTime.now(tz.local)})");
@@ -150,7 +183,6 @@ class NotificationService {
   // Handle Notification Taps (Local)
   void _onNotificationTapped(NotificationResponse response) {
     print("Notification Tapped: ${response.payload}");
-    // Integration logic for navigation can be added here
   }
 
   // Handle Notification Clicks (FCM Background/Terminated)

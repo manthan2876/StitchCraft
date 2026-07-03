@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
@@ -13,48 +14,64 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 3), () {
-      Navigator.pushReplacementNamed(context, '/language');
-    });
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    await Future.delayed(const Duration(seconds: 2));
+    final prefs = await SharedPreferences.getInstance();
+    final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final String? token = prefs.getString('token');
+
+    if (mounted) {
+      if (isLoggedIn && token != null && token.isNotEmpty) {
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        Navigator.pushReplacementNamed(context, '/language');
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo Placeholder (Yellow Thread Spool)
             Container(
               width: 120,
               height: 120,
-              decoration: const BoxDecoration(
-                color: AppTheme.marigold,
+              decoration: BoxDecoration(
+                color: AppTheme.brandPurple.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.content_cut, // Placeholder for Spool/Needle
+                Icons.content_cut,
                 size: 60,
-                color: AppTheme.navyBlue,
+                color: AppTheme.brandPurple,
               ),
             ),
             const SizedBox(height: 24),
             Text(
               'StitchCraft',
-              style: AppTheme.masterjiTheme.textTheme.displayLarge,
+              style: theme.textTheme.displayLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: AppTheme.brandPurple,
+              ),
             ),
             Text(
               'Made for Bharat',
-              style: AppTheme.masterjiTheme.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppTheme.darkGrey,
               ),
             ),
             const SizedBox(height: 48),
-            // Loader
             const CircularProgressIndicator(
-              color: AppTheme.marigold,
+              color: AppTheme.brandPurple,
             ),
           ],
         ),

@@ -11,7 +11,20 @@ const allowedOrigins = [
 ];
 
 export const corsMiddleware = cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. mobile apps, curl)
+    if (!origin) return callback(null, true);
+
+    const isAllowed = allowedOrigins.includes(origin) ||
+                      origin.startsWith('http://localhost:') ||
+                      origin.startsWith('http://127.0.0.1:');
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 });
 

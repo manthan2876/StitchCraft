@@ -17,7 +17,7 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
     {
       'title': 'ડિજિટલ માપ (Digital Measurements)',
       'subtitle': 'Save customer measurements digitally. No more lost notebooks!',
-      'icon': 'ruler', // Placeholder for logic
+      'icon': 'ruler',
     },
     {
       'title': 'ઉધાર ટ્રેક (Track Credit)',
@@ -33,8 +33,10 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -45,10 +47,11 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
                 alignment: Alignment.topRight,
                 child: TextButton(
                   onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                  child: Text(
+                  child: const Text(
                     'SKIP (છોડો)',
-                    style: AppTheme.masterjiTheme.textTheme.labelLarge?.copyWith(
-                       color: Colors.grey,
+                    style: TextStyle(
+                      color: AppTheme.darkGrey,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -85,7 +88,7 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
                   width: _currentPage == index ? 24 : 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: _currentPage == index ? AppTheme.marigold : Colors.grey[300],
+                    color: _currentPage == index ? AppTheme.brandPurple : AppTheme.darkGrey,
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -118,6 +121,7 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
   }
 
   Widget _buildPage(String title, String subtitle, int index) {
+    final theme = Theme.of(context);
     IconData iconData;
     switch (index) {
       case 0:
@@ -133,20 +137,21 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
         iconData = Icons.circle;
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          const SizedBox(height: 20),
           Container(
-            width: 200,
-            height: 200,
+            width: 180,
+            height: 180,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.cardTheme.color ?? const Color(0xFF1A2231),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -155,25 +160,27 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
             child: Icon(
               iconData,
               size: 80,
-              color: AppTheme.navyBlue,
+              color: AppTheme.brandPurple,
             ),
           ),
-          const SizedBox(height: 48),
+          const SizedBox(height: 40),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: AppTheme.masterjiTheme.textTheme.displayLarge?.copyWith(
-              fontSize: 28,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
             ),
           ),
           const SizedBox(height: 16),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: AppTheme.masterjiTheme.textTheme.bodyLarge?.copyWith(
-              color: Colors.grey[600],
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppTheme.darkGrey,
             ),
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 
@@ -7,7 +8,10 @@ class LanguageSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -17,12 +21,12 @@ class LanguageSelectionScreen extends StatelessWidget {
               const SizedBox(height: 20),
               Text(
                 'Select Language',
-                style: AppTheme.masterjiTheme.textTheme.headlineMedium,
+                style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(
                 'તમારી ભાષા પસંદ કરો',
-                style: AppTheme.masterjiTheme.textTheme.titleMedium?.copyWith(
-                  color: Colors.grey[600],
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: AppTheme.darkGrey,
                 ),
               ),
               const SizedBox(height: 32),
@@ -33,7 +37,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                       context,
                       'English',
                       'English',
-                      true, // Active for demo
+                      true,
                     ),
                     _buildLanguageCard(
                       context,
@@ -64,12 +68,27 @@ class LanguageSelectionScreen extends StatelessWidget {
   }
 
   Widget _buildLanguageCard(BuildContext context, String nativeName, String englishName, bool isSelected) {
+    final theme = Theme.of(context);
+
     return NeoCard(
-      onTap: () {
-        // Navigate to Onboarding
-        Navigator.pushNamed(context, '/onboarding');
+      onTap: () async {
+        final prefs = await SharedPreferences.getInstance();
+        final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+        final String? token = prefs.getString('token');
+
+        if (context.mounted) {
+          if (isLoggedIn && token != null && token.isNotEmpty) {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          } else {
+            Navigator.pushNamed(context, '/onboarding');
+          }
+        }
       },
-      color: isSelected ? AppTheme.marigold.withValues(alpha: 0.1) : Colors.white,
+      color: isSelected ? AppTheme.brandPurple.withValues(alpha: 0.15) : null,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -78,19 +97,19 @@ class LanguageSelectionScreen extends StatelessWidget {
             children: [
               Text(
                 nativeName,
-                style: AppTheme.masterjiTheme.textTheme.headlineMedium?.copyWith(
+                style: theme.textTheme.titleLarge?.copyWith(
                   fontSize: 22,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
                 englishName,
-                style: AppTheme.masterjiTheme.textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
               ),
             ],
           ),
           IconButton(
             onPressed: () {
-              // Play Audio
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Playing Audio Greeting...')),
               );
@@ -98,10 +117,10 @@ class LanguageSelectionScreen extends StatelessWidget {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: const BoxDecoration(
-                color: AppTheme.marigold,
+                color: AppTheme.brandPurple,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.volume_up, color: AppTheme.navyBlue),
+              child: const Icon(Icons.volume_up, color: Colors.white),
             ),
           ),
         ],

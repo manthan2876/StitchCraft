@@ -32,7 +32,7 @@ class _ShopSetupScreenState extends State<ShopSetupScreen> {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardTheme.color,
                   shape: BoxShape.circle,
                   border: Border.all(color: AppTheme.navyBlue, width: 2),
                   boxShadow: [

@@ -1,24 +1,40 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
 import 'dart:developer' as developer;
 import '../config/database_tables.dart';
 
 class LocalDatabaseService {
   static final LocalDatabaseService _instance = LocalDatabaseService._internal();
   static Database? _database;
+  static final Map<String, List<Map<String, dynamic>>> _webDb = {};
 
   LocalDatabaseService._internal();
 
   factory LocalDatabaseService() => _instance;
 
-  Future<Database> get database async {
+  Future<void> _initWebDb() async {
+    final tables = [
+      'users', 'customers', 'measurements', 'orders', 
+      'expenses', 'repair_jobs', 'lining_items', 'gallery_items', 'inventory'
+    ];
+    for (final table in tables) {
+      _webDb.putIfAbsent(table, () => []);
+    }
+  }
+
+  Future<Database?> get database async {
+    if (kIsWeb) {
+      await _initWebDb();
+      return null;
+    }
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
   Future<Database> _initDatabase() async {
-    final path = join(await getDatabasesPath(), 'stitchcraft_v1.db');
+    final path = p.join(await getDatabasesPath(), 'stitchcraft_v1.db');
 
     return await openDatabase(
       path,
@@ -52,26 +68,70 @@ class LocalDatabaseService {
 
   // ============== GENERIC CRUD HELPERS ==============
   Future<void> insertRecord(String table, Map<String, dynamic> data) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final list = _webDb[table]!;
+      final id = data['id'] ?? '';
+      
+      list.removeWhere((item) => item['id'] == id);
+      list.add(Map<String, dynamic>.from(data));
+      return;
+    }
     final db = await database;
-    await db.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db!.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<Map<String, dynamic>?> getRecordById(String table, String id, {String idColumn = 'id'}) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final list = _webDb[table]!;
+      final match = list.where((item) => item[idColumn] == id);
+      return match.isNotEmpty ? match.first : null;
+    }
     final db = await database;
-    final results = await db.query(table, where: '$idColumn = ?', whereArgs: [id]);
+    final results = await db!.query(table, where: '$idColumn = ?', whereArgs: [id]);
     return results.isNotEmpty ? results.first : null;
   }
 
   Future<List<Map<String, dynamic>>> getRecords(String table, {String? where, List<Object?>? whereArgs, String? orderBy}) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final list = _webDb[table]!;
+      var filtered = list.where((item) => item['sync_status'] != 2).toList();
+      
+      if (where != null && whereArgs != null && whereArgs.isNotEmpty) {
+        if (where.contains('customer_id = ?')) {
+          final customerId = whereArgs[0];
+          filtered = filtered.where((item) => item['customer_id'] == customerId).toList();
+        } else if (where.contains('order_id = ?')) {
+          final orderId = whereArgs[0];
+          filtered = filtered.where((item) => item['order_id'] == orderId).toList();
+        }
+      }
+      return filtered;
+    }
     final db = await database;
     final baseWhere = 'sync_status != 2';
     final resolvedWhere = where != null ? '$baseWhere AND ($where)' : baseWhere;
-    return await db.query(table, where: resolvedWhere, whereArgs: whereArgs, orderBy: orderBy);
+    return await db!.query(table, where: resolvedWhere, whereArgs: whereArgs, orderBy: orderBy);
   }
 
   Future<void> softDeleteRecord(String table, String id, {String idColumn = 'id'}) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final list = _webDb[table]!;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i][idColumn] == id) {
+          final updated = Map<String, dynamic>.from(list[i]);
+          updated['sync_status'] = 2;
+          list[i] = updated;
+          break;
+        }
+      }
+      return;
+    }
     final db = await database;
-    await db.update(table, {'sync_status': 2}, where: '$idColumn = ?', whereArgs: [id]);
+    await db!.update(table, {'sync_status': 2}, where: '$idColumn = ?', whereArgs: [id]);
   }
 
   // ============== USER CRUD ==============
@@ -85,8 +145,21 @@ class LocalDatabaseService {
   Future<Map<String, dynamic>?> getCustomer(String id) => getRecordById('customers', id);
   
   Future<void> updateSyncStatus(String table, String id, int status) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final list = _webDb[table]!;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i]['id'] == id) {
+          final updated = Map<String, dynamic>.from(list[i]);
+          updated['sync_status'] = status;
+          list[i] = updated;
+          break;
+        }
+      }
+      return;
+    }
     final db = await database;
-    await db.update(table, {'sync_status': status}, where: 'id = ?', whereArgs: [id]);
+    await db!.update(table, {'sync_status': status}, where: 'id = ?', whereArgs: [id]);
   }
 
   // ============== MEASUREMENT CRUD ==============
@@ -121,7 +194,12 @@ class LocalDatabaseService {
 
   // ============== SYNC HELPERS ==============
   Future<List<Map<String, dynamic>>> getUnsyncedRecords(String table) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final list = _webDb[table]!;
+      return list.where((item) => item['sync_status'] != 0).toList();
+    }
     final db = await database;
-    return await db.query(table, where: 'sync_status != 0');
+    return await db!.query(table, where: 'sync_status != 0');
   }
 }

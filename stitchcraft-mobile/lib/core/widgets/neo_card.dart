@@ -12,7 +12,7 @@ class NeoCard extends StatelessWidget {
     super.key,
     required this.child,
     this.onTap,
-    this.color = Colors.white,
+    this.color,
     this.padding = const EdgeInsets.all(16),
     this.margin = const EdgeInsets.symmetric(vertical: 8),
     this.elevation = 4,
@@ -20,10 +20,11 @@ class NeoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = color ?? Theme.of(context).cardTheme.color ?? const Color(0xFF1A2231);
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: color,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(

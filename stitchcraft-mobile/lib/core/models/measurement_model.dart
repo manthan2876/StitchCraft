@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Measurement {
   final String id;
@@ -59,21 +58,21 @@ class Measurement {
       measurementDate: data['measurement_date'] != null 
           ? (data['measurement_date'] is int 
               ? DateTime.fromMillisecondsSinceEpoch(data['measurement_date']) 
-              : (data['measurement_date'] as Timestamp).toDate())
+              : DateTime.parse(data['measurement_date'].toString()))
           : (data['measurementDate'] != null 
               ? (data['measurementDate'] is int 
                   ? DateTime.fromMillisecondsSinceEpoch(data['measurementDate']) 
-                  : (data['measurementDate'] as Timestamp).toDate())
+                  : DateTime.parse(data['measurementDate'].toString()))
               : DateTime.now()),
       syncStatus: data['sync_status'] ?? data['syncStatus'] ?? 0,
       updatedAt: data['updated_at'] != null 
           ? (data['updated_at'] is int 
               ? DateTime.fromMillisecondsSinceEpoch(data['updated_at']) 
-              : (data['updated_at'] as Timestamp).toDate())
+              : DateTime.parse(data['updated_at'].toString()))
           : (data['updatedAt'] != null 
               ? (data['updatedAt'] is int 
                   ? DateTime.fromMillisecondsSinceEpoch(data['updatedAt']) 
-                  : (data['updatedAt'] as Timestamp).toDate())
+                  : DateTime.parse(data['updatedAt'].toString()))
               : DateTime.now()),
       measurementMode: data['measurement_mode'] ?? data['measurementMode'] ?? 'BIOMETRIC',
       garmentType: data['garment_type'] ?? data['garmentType'],

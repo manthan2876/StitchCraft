@@ -33,7 +33,7 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
             child: Container(
               height: 50,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardTheme.color,
                 borderRadius: BorderRadius.circular(25),
                 border: Border.all(color: AppTheme.navyBlue),
               ),
@@ -55,9 +55,9 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
                   child: Container(
                     margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardTheme.color,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: AppTheme.lightGrey),
                     ),
                     child: Center(
                       child: Column(

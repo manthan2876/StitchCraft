@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Customer {
   final String id;
   final String name;
   final String phone;
   final String email;
-  final String gender; // Added
+  final String gender;
   final String? photoUri;
   final Map<String, dynamic> physicalAttributes;
   final Map<String, dynamic> softPreferences;
@@ -21,7 +20,7 @@ class Customer {
     required this.name,
     required this.phone,
     required this.email,
-    this.gender = 'Male', // Default
+    this.gender = 'Male',
     this.photoUri,
     this.physicalAttributes = const <String, dynamic>{},
     this.softPreferences = const <String, dynamic>{},
@@ -52,23 +51,23 @@ class Customer {
       phone: data['phone'] ?? '',
       email: data['email'] ?? '',
       gender: data['gender'] ?? 'Male',
-      photoUri: data['photo_uri'],
-      physicalAttributes: parseJsonMap(data['physical_attributes']),
-      softPreferences: parseJsonMap(data['soft_preferences']),
+      photoUri: data['photo_uri'] ?? data['photoUri'],
+      physicalAttributes: parseJsonMap(data['physical_attributes'] ?? data['physicalAttributes']),
+      softPreferences: parseJsonMap(data['soft_preferences'] ?? data['softPreferences']),
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
-      loyaltyPoints: data['loyalty_points'] ?? 0,
+      loyaltyPoints: data['loyalty_points'] ?? data['loyaltyPoints'] ?? 0,
       ltv: (data['ltv'] as num?)?.toDouble() ?? 0.0,
-      syncStatus: data['sync_status'] ?? 0,
+      syncStatus: data['sync_status'] ?? data['syncStatus'] ?? 0,
       updatedAt: data['updated_at'] != null 
           ? (data['updated_at'] is int 
               ? DateTime.fromMillisecondsSinceEpoch(data['updated_at']) 
-              : (data['updated_at'] as Timestamp).toDate())
-          : DateTime.now(),
+              : DateTime.parse(data['updated_at'].toString()))
+          : (data['updatedAt'] != null
+              ? (data['updatedAt'] is int
+                  ? DateTime.fromMillisecondsSinceEpoch(data['updatedAt'])
+                  : DateTime.parse(data['updatedAt'].toString()))
+              : DateTime.now()),
     );
-  }
-
-  factory Customer.fromSnapshot(DocumentSnapshot doc) {
-    return Customer.fromMap(doc.data() as Map<String, dynamic>, doc.id);
   }
 
   Map<String, dynamic> toMap() {

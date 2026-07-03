@@ -55,7 +55,10 @@ class VoiceTextField extends StatelessWidget {
             readOnly: readOnly,
             validator: validator,
             maxLines: maxLines,
-            style: const TextStyle(fontSize: 18),
+            style: TextStyle(
+              fontSize: 18, 
+              color: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white
+            ),
             decoration: InputDecoration(
               hintText: hint,
               suffixIcon: GestureDetector(

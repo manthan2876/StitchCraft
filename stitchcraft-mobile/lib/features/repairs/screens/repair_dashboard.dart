@@ -52,7 +52,7 @@ class _RepairDashboardState extends State<RepairDashboard> {
                 
                 return NeoCard(
                   onTap: () => _addItem(item['name'], item['price']),
-                  color: count > 0 ? AppTheme.marigold.withValues(alpha: 0.2) : Colors.white,
+                  color: count > 0 ? AppTheme.marigold.withValues(alpha: 0.2) : null,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -95,7 +95,7 @@ class _RepairDashboardState extends State<RepairDashboard> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardTheme.color,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.1),

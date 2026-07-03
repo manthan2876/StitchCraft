@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
+import 'package:stitchcraft/core/services/local_db_service.dart';
 
-class OrderListScreen extends StatelessWidget {
+class OrderListScreen extends StatefulWidget {
   final String title;
   final String statusFilter; // 'pending', 'completed', 'all'
 
@@ -13,63 +14,111 @@ class OrderListScreen extends StatelessWidget {
   });
 
   @override
+  State<OrderListScreen> createState() => _OrderListScreenState();
+}
+
+class _OrderListScreenState extends State<OrderListScreen> {
+  final _localDb = LocalDatabaseService();
+  List<Map<String, dynamic>> _orders = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() => _isLoading = true);
+    try {
+      final list = await _localDb.getAllOrders();
+      setState(() {
+        if (widget.statusFilter == 'pending') {
+          _orders = list.where((o) => o['status']?.toString().toLowerCase() != 'completed' && o['status']?.toString().toLowerCase() != 'delivered').toList();
+        } else if (widget.statusFilter == 'completed') {
+          _orders = list.where((o) => o['status']?.toString().toLowerCase() == 'completed' || o['status']?.toString().toLowerCase() == 'delivered').toList();
+        } else {
+          _orders = list;
+        }
+      });
+    } catch (e) {
+      debugPrint("Error loading orders: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Mock Data
-    final List<Map<String, dynamic>> orders = [
-      {'id': '#101', 'name': 'Ramesh Bhai', 'item': 'Shirt x 2', 'status': 'Pending', 'date': 'Today'},
-      {'id': '#102', 'name': 'Sita Ben', 'item': 'Blouse', 'status': 'Ready', 'date': 'Yesterday'},
-      {'id': '#103', 'name': 'Gopal', 'item': 'Pant', 'status': 'Delivered', 'date': '10 Feb'},
-    ];
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.cream,
-      appBar: AppBar(title: Text(title)),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: orders.length,
-        itemBuilder: (context, index) {
-          final order = orders[index];
-          return NeoCard(
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(8),
-              leading: CircleAvatar(
-                backgroundColor: AppTheme.navyBlue.withValues(alpha: 0.1),
-                child: Text(order['id'].toString().substring(1), style: const TextStyle(color: AppTheme.navyBlue, fontSize: 12)),
-              ),
-              title: Text(order['name'], style: AppTheme.masterjiTheme.textTheme.titleMedium),
-              subtitle: Text('${order['item']} • ${order['date']}'),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(order['status']).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _getStatusColor(order['status'])),
-                ),
-                child: Text(
-                  order['status'],
-                  style: TextStyle(
-                    color: _getStatusColor(order['status']),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(title: Text(widget.title)),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _orders.isEmpty
+              ? Center(
+                  child: Text(
+                    'No orders found.',
+                    style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
                   ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _orders.length,
+                  itemBuilder: (context, index) {
+                    final order = _orders[index];
+                    final String idStr = order['id']?.toString().split('-').first.toUpperCase() ?? '';
+                    final String nameStr = order['customer_name'] ?? 'Walk-in Customer';
+                    final double amount = (order['total_amount'] as num?)?.toDouble() ?? 0.0;
+                    final String status = order['status'] ?? 'pending';
+
+                    return NeoCard(
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(4),
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.15),
+                          child: Text(
+                            idStr.isNotEmpty ? idStr.substring(0, idStr.length > 3 ? 3 : idStr.length) : 'ORD',
+                            style: const TextStyle(color: AppTheme.brandPurple, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        title: Text(nameStr, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        subtitle: Text('₹$amount • Status: $status'),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(status).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
+                            style: TextStyle(
+                              color: _getStatusColor(status),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-              onTap: () {
-                // Open Order Details
-              },
-            ),
-          );
-        },
-      ),
     );
   }
 
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Pending': return Colors.orange;
-      case 'Ready': return AppTheme.emerald;
-      case 'Delivered': return AppTheme.navyBlue;
-      default: return Colors.grey;
+    final s = status.toLowerCase();
+    if (s.contains('pending') || s.contains('incoming')) {
+      return AppTheme.safetyOrange;
+    } else if (s.contains('progress') || s.contains('stitching')) {
+      return AppTheme.brandPurple;
+    } else if (s.contains('ready') || s.contains('completed')) {
+      return AppTheme.trustGreen;
+    } else if (s.contains('delivered')) {
+      return AppTheme.navyBlue;
     }
+    return AppTheme.darkGrey;
   }
 }
