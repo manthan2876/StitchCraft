@@ -140,3 +140,206 @@ export const handleAstarStockAdjustment = async (order, newStatus, shopId) => {
     }
   }
 };
+
+// Core Business Logic: Create Order
+export const createOrderService = async (reqBody, shopId, userId) => {
+  const {
+    customerName,
+    apparelType,
+    deliveryDate,
+    price,
+    advancePaid,
+    fabric,
+    paymentType,
+    measurements,
+    needsAster,
+    asterQuantity,
+    asterInventoryItem,
+    asterSellingPrice,
+    assignedKarigar,
+    assignedMachine,
+    measurementType,
+    maapImageUrl,
+  } = reqBody;
+
+  const customerObj = await resolveCustomer(reqBody, shopId);
+
+  if (measurementType !== 'Maap' && measurements) {
+    await updateCustomerMeasurements(customerObj._id, measurements, shopId);
+  }
+
+  let measurementsSnapshot = null;
+  if (measurements) {
+    measurementsSnapshot = {
+      shirt: measurements.shirt || null,
+      pant: measurements.pant || null,
+      others: measurements.others || '',
+    };
+  } else {
+    const template = await Measurement.findOne({ customerId: customerObj._id });
+    if (template) {
+      measurementsSnapshot = {
+        shirt: template.shirt ? (typeof template.shirt.toObject === 'function' ? template.shirt.toObject() : template.shirt) : null,
+        pant: template.pant ? (typeof template.pant.toObject === 'function' ? template.pant.toObject() : template.pant) : null,
+        others: template.others || '',
+      };
+    }
+  }
+
+  const order = await Order.create({
+    customerName: customerObj.name,
+    customer: customerObj._id,
+    apparelType,
+    deliveryDate,
+    price,
+    fabric: fabric || '',
+    shopId,
+    status: 'Incoming',
+    needsAster: needsAster || false,
+    asterQuantity: needsAster ? (Number(asterQuantity) || 0) : 0,
+    asterInventoryItem: (needsAster && asterInventoryItem) ? asterInventoryItem : null,
+    asterSellingPrice: needsAster ? (Number(asterSellingPrice) || 0) : 0,
+    measurementType: measurementType || 'Maap',
+    maapImageUrl: maapImageUrl || '',
+    assignedKarigar: assignedKarigar || null,
+    assignedMachine: assignedMachine || null,
+    measurementsSnapshot,
+  });
+
+  const payment = await Payment.create({
+    shopId,
+    orderId: order._id,
+    totalAmount: price + (needsAster ? (Number(asterQuantity) * Number(asterSellingPrice)) : 0),
+    paidAmount: advancePaid || 0,
+    paymentType: paymentType || 'Cash',
+  });
+
+  if (advancePaid && Number(advancePaid) > 0) {
+    await Transaction.create({
+      shopId,
+      orderId: order._id,
+      amount: Number(advancePaid),
+      paymentType: paymentType || 'Cash',
+      type: 'Payment',
+    });
+    await syncPaymentFromTransactions(order._id, shopId);
+  }
+
+  const delivery = await Delivery.create({
+    shopId,
+    orderId: order._id,
+    deliveryDate,
+    status: 'Pending',
+  });
+
+  await Notification.create({
+    shopId,
+    customerId: customerObj._id,
+    orderId: order._id,
+    message: `New order ${order.orderId} created for ${customerObj.name}. Delivery due on ${new Date(deliveryDate).toLocaleDateString()}.`,
+  });
+
+  const result = order.toJSON();
+  result.payment = payment;
+  result.delivery = delivery;
+  return result;
+};
+
+// Core Business Logic: Update Order
+export const updateOrderService = async (orderId, reqBody, shopId, userName) => {
+  const order = await findOrderScoped(orderId, shopId);
+  if (!order) return null;
+
+  const {
+    status,
+    deliveryDate,
+    price,
+    fabric,
+    needsAster,
+    asterQuantity,
+    asterInventoryItem,
+    asterSellingPrice,
+    assignedKarigar,
+    assignedMachine,
+    measurementType,
+    maapImageUrl,
+  } = reqBody;
+
+  if (deliveryDate) {
+    order.deliveryDate = deliveryDate;
+    await Delivery.updateOne({ orderId: order._id }, { deliveryDate });
+  }
+  if (price !== undefined) order.price = price;
+  if (fabric !== undefined) order.fabric = fabric;
+  if (needsAster !== undefined) order.needsAster = needsAster;
+  if (asterQuantity !== undefined) order.asterQuantity = Number(asterQuantity) || 0;
+  if (asterInventoryItem !== undefined) order.asterInventoryItem = asterInventoryItem || null;
+  if (asterSellingPrice !== undefined) order.asterSellingPrice = Number(asterSellingPrice) || 0;
+  if (measurementType !== undefined) order.measurementType = measurementType;
+  if (maapImageUrl !== undefined) order.maapImageUrl = maapImageUrl;
+  if (assignedKarigar !== undefined) order.assignedKarigar = assignedKarigar || null;
+  if (assignedMachine !== undefined) order.assignedMachine = assignedMachine || null;
+
+  let statusChanged = false;
+  let oldStatus = order.status;
+  const newStatus = status;
+
+  if (newStatus && newStatus !== order.status) {
+    await handleAstarStockAdjustment(order, newStatus, shopId);
+    order.status = newStatus;
+    statusChanged = true;
+  }
+
+  const updatedOrder = await order.save();
+  await syncPaymentFromTransactions(order._id, shopId);
+
+  if (statusChanged) {
+    if (status === 'Delivered') {
+      await Delivery.updateOne(
+        { orderId: order._id },
+        { status: 'Delivered', deliveredBy: userName || 'Owner' }
+      );
+      await Notification.create({
+        shopId,
+        customerId: order.customer,
+        orderId: order._id,
+        message: `Order ${order.orderId} has been successfully delivered.`,
+      });
+    } else {
+      await Notification.create({
+        shopId,
+        customerId: order.customer,
+        orderId: order._id,
+        message: `Order ${order.orderId} status changed from ${oldStatus} to ${status}.`,
+      });
+    }
+  }
+
+  const payment = await Payment.findOne({ orderId: order._id });
+  const delivery = await Delivery.findOne({ orderId: order._id });
+
+  const result = updatedOrder.toJSON();
+  result.payment = payment;
+  result.delivery = delivery;
+  return result;
+};
+
+// Core Business Logic: Delete Order
+export const deleteOrderService = async (orderId, shopId) => {
+  const order = await findOrderScoped(orderId, shopId);
+  if (!order) return null;
+
+  if (order.customer) {
+    await Customer.updateOne(
+      { _id: order.customer, shopId },
+      { $inc: { ordersCount: -1 } }
+    );
+  }
+
+  await Payment.deleteOne({ orderId: order._id, shopId });
+  await Delivery.deleteOne({ orderId: order._id, shopId });
+  await Notification.deleteMany({ orderId: order._id, shopId });
+  await Transaction.deleteMany({ orderId: order._id, shopId });
+  await Order.deleteOne({ _id: order._id, shopId });
+  return true;
+};
