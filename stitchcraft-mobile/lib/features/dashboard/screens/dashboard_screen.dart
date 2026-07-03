@@ -145,7 +145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_loc.t('dashboard_title')),
+        title: Text(_loc.t(context, 'dashboard_title')),
         actions: [
           IconButton(
             icon: _isSyncing
@@ -235,7 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Expanded(
                       child: MetricCard(
-                        title: _loc.t('cash_reserve'),
+                        title: _loc.t(context, 'cash_reserve'),
                         value: '₹${_cashReserve.toStringAsFixed(0)}',
                         icon: Icons.account_balance_wallet_outlined,
                         color: AppTheme.trustGreen,
@@ -245,7 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: MetricCard(
-                        title: _loc.t('pending_orders'),
+                        title: _loc.t(context, 'pending_orders'),
                         value: '$_pendingOrdersCount Active',
                         icon: Icons.pending_actions,
                         color: AppTheme.safetyOrange,
@@ -264,13 +264,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${_loc.t('weekly_output')} ($_timeFilter)',
+                        '${_loc.t(context, 'weekly_output')} ($_timeFilter)',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        _loc.t('performance_summary'),
+                        _loc.t(context, 'performance_summary'),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: AppTheme.darkGrey,
                           fontSize: 14,
@@ -310,28 +310,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisSpacing: 16,
                   children: [
                     ActionCard(
-                      title: _loc.t('new_order'),
+                      title: _loc.t(context, 'new_order'),
                       subtitle: 'ગ્રાહકનો નવો ઓર્ડર',
                       icon: Icons.content_cut,
                       color: AppTheme.brandPurple,
                       onTap: () => Navigator.pushNamed(context, '/create_order_step1'),
                     ),
                     ActionCard(
-                      title: _loc.t('khata_ledger'),
+                      title: _loc.t(context, 'khata_ledger'),
                       subtitle: 'ખાતાવહી હિસાબ',
                       icon: Icons.menu_book,
                       color: AppTheme.trustGreen,
                       onTap: () => Navigator.pushNamed(context, '/khata'),
                     ),
                     ActionCard(
-                      title: _loc.t('inventory_stock'),
+                      title: _loc.t(context, 'inventory_stock'),
                       subtitle: 'કાપડ અને મટીરીયલ',
                       icon: Icons.inventory_2_outlined,
                       color: AppTheme.safetyOrange,
                       onTap: () => Navigator.pushNamed(context, '/inventory'),
                     ),
                     ActionCard(
-                      title: _loc.t('tailoring_staff'),
+                      title: _loc.t(context, 'tailoring_staff'),
                       subtitle: 'કારીગરો અને મશીન',
                       icon: Icons.engineering_outlined,
                       color: AppTheme.brandPurple,

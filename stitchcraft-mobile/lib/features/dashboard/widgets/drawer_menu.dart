@@ -55,7 +55,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.dashboard_outlined),
-                  title: Text(_loc.t('home_dashboard')),
+                  title: Text(_loc.t(context, 'home_dashboard')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushReplacementNamed(context, '/home');
@@ -63,7 +63,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.content_cut),
-                  title: Text(_loc.t('orders')),
+                  title: Text(_loc.t(context, 'orders')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/orders_pending');
@@ -71,7 +71,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.people_outline),
-                  title: Text(_loc.t('customers')),
+                  title: Text(_loc.t(context, 'customers')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/customers');
@@ -81,12 +81,12 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 // Billing & Dispatch Expandable tile
                 ExpansionTile(
                   leading: const Icon(Icons.receipt_long_outlined),
-                  title: Text(_loc.t('billing_dispatch')),
+                  title: Text(_loc.t(context, 'billing_dispatch')),
                   childrenPadding: const EdgeInsets.only(left: 16),
                   children: [
                     ListTile(
                       leading: const Icon(Icons.local_shipping_outlined, size: 20),
-                      title: Text(_loc.t('deliveries')),
+                      title: Text(_loc.t(context, 'deliveries')),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/deliveries');
@@ -94,7 +94,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                     ),
                     ListTile(
                       leading: const Icon(Icons.receipt_outlined, size: 20),
-                      title: Text(_loc.t('invoices')),
+                      title: Text(_loc.t(context, 'invoices')),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/invoices');
@@ -102,7 +102,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                     ),
                     ListTile(
                       leading: const Icon(Icons.payment_outlined, size: 20),
-                      title: Text(_loc.t('payments')),
+                      title: Text(_loc.t(context, 'payments')),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/payments');
@@ -113,7 +113,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 
                 ListTile(
                   leading: const Icon(Icons.engineering_outlined),
-                  title: Text(_loc.t('karigars')),
+                  title: Text(_loc.t(context, 'karigars')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/karigars');
@@ -121,7 +121,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.settings_suggest_outlined),
-                  title: Text(_loc.t('machines')),
+                  title: Text(_loc.t(context, 'machines')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/machines');
@@ -129,7 +129,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.inventory_2_outlined),
-                  title: Text(_loc.t('inventory_stock')),
+                  title: Text(_loc.t(context, 'inventory_stock')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/inventory');
@@ -137,7 +137,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.account_balance_wallet_outlined),
-                  title: Text(_loc.t('khata_ledger')),
+                  title: Text(_loc.t(context, 'khata_ledger')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/khata');
@@ -145,7 +145,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.language),
-                  title: Text(_loc.t('change_language')),
+                  title: Text(_loc.t(context, 'change_language')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/language');
@@ -153,7 +153,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.account_circle_outlined),
-                  title: Text(_loc.t('shop_settings')),
+                  title: Text(_loc.t(context, 'shop_settings')),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/profile');
@@ -166,7 +166,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
           ListTile(
             leading: const Icon(Icons.logout, color: AppTheme.alertRed),
             title: Text(
-              _loc.t('logout'),
+              _loc.t(context, 'logout'),
               style: const TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold),
             ),
             onTap: () async {

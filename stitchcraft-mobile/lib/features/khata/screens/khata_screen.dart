@@ -78,7 +78,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_loc.t('khata_ledger')),
+        title: Text(_loc.t(context, 'khata_ledger')),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
