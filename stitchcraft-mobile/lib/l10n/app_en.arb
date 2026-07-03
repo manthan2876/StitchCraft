@@ -25,5 +25,14 @@
   "logout": "Logout",
   "save": "Save Details",
   "add": "Add",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "select_language": "Select Language",
+  "language_settings": "Language Settings",
+  "expenses": "Expenses",
+  "income": "Income",
+  "record_new_expense": "Record New Expense",
+  "expense_category_hint": "Expense Category (e.g., Fabric, Rent, Utilities)",
+  "amount_rs": "Amount (₹)",
+  "short_description": "Short Description",
+  "add_expense": "Add Expense"
 }

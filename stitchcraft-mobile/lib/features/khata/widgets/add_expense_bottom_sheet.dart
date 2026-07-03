@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class AddExpenseBottomSheet extends StatefulWidget {
   final Function(Map<String, dynamic>) onAddExpense;
@@ -35,15 +36,15 @@ class _AddExpenseBottomSheetState extends State<AddExpenseBottomSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Record New Expense',
+            context.loc.record_new_expense,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
           TextField(
             controller: _categoryController,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              labelText: 'Expense Category (e.g., Fabric, Rent, Utilities)',
+            decoration: InputDecoration(
+              labelText: context.loc.expense_category_hint,
             ),
           ),
           const SizedBox(height: 16),
@@ -51,16 +52,16 @@ class _AddExpenseBottomSheetState extends State<AddExpenseBottomSheet> {
             controller: _amountController,
             keyboardType: TextInputType.number,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              labelText: 'Amount (₹)',
+            decoration: InputDecoration(
+              labelText: context.loc.amount_rs,
             ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _descriptionController,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              labelText: 'Short Description',
+            decoration: InputDecoration(
+              labelText: context.loc.short_description,
             ),
           ),
           const SizedBox(height: 24),
@@ -87,7 +88,7 @@ class _AddExpenseBottomSheetState extends State<AddExpenseBottomSheet> {
                   Navigator.pop(context);
                 }
               },
-              child: const Text('Add Expense'),
+              child: Text(context.loc.add_expense),
             ),
           ),
         ],

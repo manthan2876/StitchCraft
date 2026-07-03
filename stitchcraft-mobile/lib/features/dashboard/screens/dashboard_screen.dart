@@ -3,7 +3,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/sync_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
-import 'package:stitchcraft/core/services/localization_service.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/services/profile_service.dart';
 import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 import 'package:stitchcraft/features/dashboard/widgets/line_chart_painter.dart';
@@ -20,7 +20,6 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _syncService = SyncService();
   final _localDb = LocalDatabaseService();
-  final _loc = LocalizationService();
   final _profileService = ProfileService();
   
   bool _isSyncing = false;
@@ -145,7 +144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_loc.t(context, 'dashboard_title')),
+        title: Text(context.loc.dashboard_title),
         actions: [
           IconButton(
             icon: _isSyncing
@@ -235,7 +234,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Expanded(
                       child: MetricCard(
-                        title: _loc.t(context, 'cash_reserve'),
+                        title: context.loc.cash_reserve,
                         value: '₹${_cashReserve.toStringAsFixed(0)}',
                         icon: Icons.account_balance_wallet_outlined,
                         color: AppTheme.trustGreen,
@@ -245,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: MetricCard(
-                        title: _loc.t(context, 'pending_orders'),
+                        title: context.loc.pending_orders,
                         value: '$_pendingOrdersCount Active',
                         icon: Icons.pending_actions,
                         color: AppTheme.safetyOrange,
@@ -264,13 +263,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${_loc.t(context, 'weekly_output')} ($_timeFilter)',
+                        '${context.loc.weekly_output} ($_timeFilter)',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        _loc.t(context, 'performance_summary'),
+                        context.loc.performance_summary,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: AppTheme.darkGrey,
                           fontSize: 14,
@@ -310,28 +309,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisSpacing: 16,
                   children: [
                     ActionCard(
-                      title: _loc.t(context, 'new_order'),
+                      title: context.loc.new_order,
                       subtitle: 'ગ્રાહકનો નવો ઓર્ડર',
                       icon: Icons.content_cut,
                       color: AppTheme.brandPurple,
                       onTap: () => Navigator.pushNamed(context, '/create_order_step1'),
                     ),
                     ActionCard(
-                      title: _loc.t(context, 'khata_ledger'),
+                      title: context.loc.khata_ledger,
                       subtitle: 'ખાતાવહી હિસાબ',
                       icon: Icons.menu_book,
                       color: AppTheme.trustGreen,
                       onTap: () => Navigator.pushNamed(context, '/khata'),
                     ),
                     ActionCard(
-                      title: _loc.t(context, 'inventory_stock'),
+                      title: context.loc.inventory_stock,
                       subtitle: 'કાપડ અને મટીરીયલ',
                       icon: Icons.inventory_2_outlined,
                       color: AppTheme.safetyOrange,
                       onTap: () => Navigator.pushNamed(context, '/inventory'),
                     ),
                     ActionCard(
-                      title: _loc.t(context, 'tailoring_staff'),
+                      title: context.loc.tailoring_staff,
                       subtitle: 'કારીગરો અને મશીન',
                       icon: Icons.engineering_outlined,
                       color: AppTheme.brandPurple,

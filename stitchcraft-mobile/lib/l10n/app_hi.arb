@@ -25,5 +25,14 @@
   "logout": "लॉग आउट",
   "save": "विवरण सहेजें",
   "add": "जोड़ें",
-  "cancel": "रद्द करें"
+  "cancel": "रद्द करें",
+  "select_language": "भाषा चुनें",
+  "language_settings": "भाषा सेटिंग्स",
+  "expenses": "खर्च",
+  "income": "आय",
+  "record_new_expense": "नया खर्च दर्ज करें",
+  "expense_category_hint": "खर्च की श्रेणी (जैसे, कपड़ा, किराया, बिजली बिल)",
+  "amount_rs": "राशि (₹)",
+  "short_description": "संक्षिप्त विवरण",
+  "add_expense": "खर्च जोड़ें"
 }

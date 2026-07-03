@@ -255,6 +255,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
+
+  /// No description provided for @select_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Language'**
+  String get select_language;
+
+  /// No description provided for @language_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Language Settings'**
+  String get language_settings;
+
+  /// No description provided for @expenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get expenses;
+
+  /// No description provided for @income.
+  ///
+  /// In en, this message translates to:
+  /// **'Income'**
+  String get income;
+
+  /// No description provided for @record_new_expense.
+  ///
+  /// In en, this message translates to:
+  /// **'Record New Expense'**
+  String get record_new_expense;
+
+  /// No description provided for @expense_category_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Expense Category (e.g., Fabric, Rent, Utilities)'**
+  String get expense_category_hint;
+
+  /// No description provided for @amount_rs.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount (₹)'**
+  String get amount_rs;
+
+  /// No description provided for @short_description.
+  ///
+  /// In en, this message translates to:
+  /// **'Short Description'**
+  String get short_description;
+
+  /// No description provided for @add_expense.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Expense'**
+  String get add_expense;
 }
 
 class _AppLocalizationsDelegate

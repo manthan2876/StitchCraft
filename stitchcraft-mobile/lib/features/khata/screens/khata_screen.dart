@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
-import 'package:stitchcraft/core/services/localization_service.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/features/khata/widgets/add_expense_bottom_sheet.dart';
 import 'package:stitchcraft/features/khata/widgets/expenses_list.dart';
 import 'package:stitchcraft/features/khata/widgets/income_list.dart';
@@ -18,7 +18,6 @@ class KhataScreen extends StatefulWidget {
 class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _localDb = LocalDatabaseService();
-  final _loc = LocalizationService();
   List<Map<String, dynamic>> _expenses = [];
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = false;
@@ -78,15 +77,15 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_loc.t(context, 'khata_ledger')),
+        title: Text(context.loc.khata_ledger),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
           indicatorColor: AppTheme.brandPurple,
           unselectedLabelColor: AppTheme.darkGrey,
-          tabs: const [
-            Tab(text: 'Expenses (ખર્ચ)'),
-            Tab(text: 'Income (આવક)'),
+          tabs: [
+            Tab(text: context.loc.expenses),
+            Tab(text: context.loc.income),
           ],
         ),
       ),

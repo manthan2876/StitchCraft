@@ -86,4 +86,32 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get cancel => 'रद्द करें';
+
+  @override
+  String get select_language => 'भाषा चुनें';
+
+  @override
+  String get language_settings => 'भाषा सेटिंग्स';
+
+  @override
+  String get expenses => 'खर्च';
+
+  @override
+  String get income => 'आय';
+
+  @override
+  String get record_new_expense => 'नया खर्च दर्ज करें';
+
+  @override
+  String get expense_category_hint =>
+      'खर्च की श्रेणी (जैसे, कपड़ा, किराया, बिजली बिल)';
+
+  @override
+  String get amount_rs => 'राशि (₹)';
+
+  @override
+  String get short_description => 'संक्षिप्त विवरण';
+
+  @override
+  String get add_expense => 'खर्च जोड़ें';
 }

@@ -86,4 +86,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancel => 'Cancel';
+
+  @override
+  String get select_language => 'Select Language';
+
+  @override
+  String get language_settings => 'Language Settings';
+
+  @override
+  String get expenses => 'Expenses';
+
+  @override
+  String get income => 'Income';
+
+  @override
+  String get record_new_expense => 'Record New Expense';
+
+  @override
+  String get expense_category_hint =>
+      'Expense Category (e.g., Fabric, Rent, Utilities)';
+
+  @override
+  String get amount_rs => 'Amount (₹)';
+
+  @override
+  String get short_description => 'Short Description';
+
+  @override
+  String get add_expense => 'Add Expense';
 }

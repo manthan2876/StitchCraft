@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/localization_service.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class LanguageSelectionScreen extends StatefulWidget {
   const LanguageSelectionScreen({super.key});
@@ -57,7 +58,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: Navigator.canPop(context) ? AppBar(title: const Text('Language Settings')) : null,
+      appBar: Navigator.canPop(context) ? AppBar(title: Text(context.loc.language_settings)) : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -66,7 +67,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
             children: [
               const SizedBox(height: 20),
               Text(
-                'Select Language',
+                context.loc.select_language,
                 style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(

@@ -85,4 +85,32 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get cancel => 'રદ કરો';
+
+  @override
+  String get select_language => 'ભાષા પસંદ કરો';
+
+  @override
+  String get language_settings => 'ભાષા સેટિંગ્સ';
+
+  @override
+  String get expenses => 'ખર્ચ';
+
+  @override
+  String get income => 'આવક';
+
+  @override
+  String get record_new_expense => 'નવો ખર્ચ નોંધો';
+
+  @override
+  String get expense_category_hint =>
+      'ખર્ચની કેટેગરી (દા.ત. કાપડ, ભાડું, લાઇટ બિલ)';
+
+  @override
+  String get amount_rs => 'રકમ (₹)';
+
+  @override
+  String get short_description => 'ટૂંકી વિગત';
+
+  @override
+  String get add_expense => 'ખર્ચ ઉમેરો';
 }

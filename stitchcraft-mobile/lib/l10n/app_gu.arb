@@ -25,5 +25,14 @@
   "logout": "લૉગ આઉટ",
   "save": "વિગત સાચવો",
   "add": "ઉમેરો",
-  "cancel": "રદ કરો"
+  "cancel": "રદ કરો",
+  "select_language": "ભાષા પસંદ કરો",
+  "language_settings": "ભાષા સેટિંગ્સ",
+  "expenses": "ખર્ચ",
+  "income": "આવક",
+  "record_new_expense": "નવો ખર્ચ નોંધો",
+  "expense_category_hint": "ખર્ચની કેટેગરી (દા.ત. કાપડ, ભાડું, લાઇટ બિલ)",
+  "amount_rs": "રકમ (₹)",
+  "short_description": "ટૂંકી વિગત",
+  "add_expense": "ખર્ચ ઉમેરો"
 }

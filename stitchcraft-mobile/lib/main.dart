@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:stitchcraft/core/localization/generated/app_localizations.dart';
 import 'package:stitchcraft/firebase_options.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
@@ -76,17 +75,8 @@ class StitchCraftApp extends StatelessWidget {
           theme: AppTheme.masterjiTheme,
           initialRoute: '/',
           locale: currentLocale,
-          localizationsDelegates: [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('en', ''),
-            Locale('gu', ''),
-            Locale('hi', ''),
-          ],
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           routes: {
             '/': (context) => const SplashScreen(),
             '/language': (context) => const LanguageSelectionScreen(),

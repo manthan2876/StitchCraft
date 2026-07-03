@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
-import 'package:stitchcraft/core/services/localization_service.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class DrawerMenu extends StatefulWidget {
   const DrawerMenu({super.key});
@@ -13,7 +13,6 @@ class DrawerMenu extends StatefulWidget {
 
 class _DrawerMenuState extends State<DrawerMenu> {
   final _authService = AuthService();
-  final _loc = LocalizationService();
   
   String _userName = 'Masterji Tailor';
   String _userRole = 'OWNER';
@@ -55,7 +54,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.dashboard_outlined),
-                  title: Text(_loc.t(context, 'home_dashboard')),
+                  title: Text(context.loc.home_dashboard),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushReplacementNamed(context, '/home');
@@ -63,7 +62,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.content_cut),
-                  title: Text(_loc.t(context, 'orders')),
+                  title: Text(context.loc.orders),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/orders_pending');
@@ -71,7 +70,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.people_outline),
-                  title: Text(_loc.t(context, 'customers')),
+                  title: Text(context.loc.customers),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/customers');
@@ -81,12 +80,12 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 // Billing & Dispatch Expandable tile
                 ExpansionTile(
                   leading: const Icon(Icons.receipt_long_outlined),
-                  title: Text(_loc.t(context, 'billing_dispatch')),
+                  title: Text(context.loc.billing_dispatch),
                   childrenPadding: const EdgeInsets.only(left: 16),
                   children: [
                     ListTile(
                       leading: const Icon(Icons.local_shipping_outlined, size: 20),
-                      title: Text(_loc.t(context, 'deliveries')),
+                      title: Text(context.loc.deliveries),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/deliveries');
@@ -94,7 +93,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                     ),
                     ListTile(
                       leading: const Icon(Icons.receipt_outlined, size: 20),
-                      title: Text(_loc.t(context, 'invoices')),
+                      title: Text(context.loc.invoices),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/invoices');
@@ -102,7 +101,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                     ),
                     ListTile(
                       leading: const Icon(Icons.payment_outlined, size: 20),
-                      title: Text(_loc.t(context, 'payments')),
+                      title: Text(context.loc.payments),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/payments');
@@ -113,7 +112,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 
                 ListTile(
                   leading: const Icon(Icons.engineering_outlined),
-                  title: Text(_loc.t(context, 'karigars')),
+                  title: Text(context.loc.karigars),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/karigars');
@@ -121,7 +120,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.settings_suggest_outlined),
-                  title: Text(_loc.t(context, 'machines')),
+                  title: Text(context.loc.machines),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/machines');
@@ -129,7 +128,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.inventory_2_outlined),
-                  title: Text(_loc.t(context, 'inventory_stock')),
+                  title: Text(context.loc.inventory_stock),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/inventory');
@@ -137,7 +136,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.account_balance_wallet_outlined),
-                  title: Text(_loc.t(context, 'khata_ledger')),
+                  title: Text(context.loc.khata_ledger),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/khata');
@@ -145,7 +144,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.language),
-                  title: Text(_loc.t(context, 'change_language')),
+                  title: Text(context.loc.change_language),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/language');
@@ -153,7 +152,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.account_circle_outlined),
-                  title: Text(_loc.t(context, 'shop_settings')),
+                  title: Text(context.loc.shop_settings),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/profile');
@@ -166,7 +165,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
           ListTile(
             leading: const Icon(Icons.logout, color: AppTheme.alertRed),
             title: Text(
-              _loc.t(context, 'logout'),
+              context.loc.logout,
               style: const TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold),
             ),
             onTap: () async {
