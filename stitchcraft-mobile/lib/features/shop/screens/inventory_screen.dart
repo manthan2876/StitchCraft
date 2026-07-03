@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
-import 'package:stitchcraft/core/services/local_db_service.dart';
-import 'package:uuid/uuid.dart';
+import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:developer' as developer;
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -12,8 +14,8 @@ class InventoryScreen extends StatefulWidget {
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
-  final _localDb = LocalDatabaseService();
-  List<Map<String, dynamic>> _items = [];
+  final _authService = AuthService();
+  List<dynamic> _items = [];
   bool _isLoading = false;
 
   @override
@@ -25,10 +27,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Future<void> _loadInventory() async {
     setState(() => _isLoading = true);
     try {
-      final list = await _localDb.getRecords('inventory');
-      setState(() => _items = list);
+      final token = await _authService.getToken();
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('${AuthService.baseUrl}/inventory'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _items = json.decode(response.body);
+        });
+      }
     } catch (e) {
-      debugPrint("Error loading inventory: $e");
+      developer.log("Error loading inventory: $e");
     } finally {
       setState(() => _isLoading = false);
     }
@@ -36,7 +52,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Future<void> _showAddItemModal() async {
     final nameController = TextEditingController();
-    final categoryController = TextEditingController();
+    final typeController = TextEditingController();
     final qtyController = TextEditingController();
     final priceController = TextEditingController();
 
@@ -66,9 +82,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: categoryController,
+                controller: typeController,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(labelText: 'Category (Fabric, Thread, Button)'),
+                decoration: const InputDecoration(labelText: 'Type (Lining, Fabric, Thread, Accessories, Other)'),
               ),
               const SizedBox(height: 16),
               Row(
@@ -99,25 +115,42 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 child: ElevatedButton(
                   onPressed: () async {
                     final name = nameController.text.trim();
-                    final cat = categoryController.text.trim();
+                    final type = typeController.text.trim();
                     final qty = double.tryParse(qtyController.text) ?? 0.0;
                     final price = double.tryParse(priceController.text) ?? 0.0;
 
-                    if (name.isNotEmpty && cat.isNotEmpty && qty > 0) {
-                      final newItem = {
-                        'id': const Uuid().v4(),
-                        'name': name,
-                        'category': cat,
-                        'quantity': qty,
-                        'unit_price': price,
-                        'low_stock_threshold': 5.0,
-                        'sync_status': 1,
-                        'updated_at': DateTime.now().millisecondsSinceEpoch,
-                      };
+                    if (name.isNotEmpty && type.isNotEmpty) {
+                      try {
+                        final token = await _authService.getToken();
+                        if (token == null) return;
 
-                      await _localDb.insertRecord('inventory', newItem);
-                      Navigator.pop(context);
-                      _loadInventory();
+                        final response = await http.post(
+                          Uri.parse('${AuthService.baseUrl}/inventory'),
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer $token',
+                          },
+                          body: json.encode({
+                            'itemName': name,
+                            'itemType': type,
+                            'quantity': qty,
+                            'unit': 'meters',
+                            'minQuantity': 5.0,
+                            'costPerUnit': price,
+                            'purchaseAmount': qty * price,
+                            'description': 'Added from mobile app',
+                          }),
+                        );
+
+                        if (response.statusCode == 200 || response.statusCode == 201) {
+                          if (context.mounted) Navigator.pop(context);
+                          _loadInventory();
+                        } else {
+                          developer.log("Failed to create inventory item: ${response.body}");
+                        }
+                      } catch (e) {
+                        developer.log("Error creating inventory item: $e");
+                      }
                     }
                   },
                   child: const Text('Add Material'),
@@ -146,70 +179,81 @@ class _InventoryScreenState extends State<InventoryScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _items.length,
-              itemBuilder: (context, index) {
-                final item = _items[index];
-                final double quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
-                final double limit = (item['low_stock_threshold'] as num?)?.toDouble() ?? 5.0;
-                final bool isLowStock = quantity <= limit;
+          : _items.isEmpty
+              ? Center(
+                  child: Text(
+                    'No items found.',
+                    style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _items.length,
+                  itemBuilder: (context, index) {
+                    final item = _items[index];
+                    final String name = item['itemName'] ?? 'Material';
+                    final String type = item['itemType'] ?? 'General';
+                    final double quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
+                    final double price = (item['costPerUnit'] as num?)?.toDouble() ?? 0.0;
+                    final double limit = (item['minQuantity'] as num?)?.toDouble() ?? 5.0;
+                    final bool isLowStock = quantity <= limit;
+                    final String unit = item['unit'] ?? 'meters';
 
-                return NeoCard(
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: isLowStock
-                              ? AppTheme.alertRed.withValues(alpha: 0.15)
-                              : AppTheme.brandPurple.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.inventory,
-                          color: isLowStock ? AppTheme.alertRed : AppTheme.brandPurple,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item['name'] ?? 'Material',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              'Category: ${item['category'] ?? 'General'} • ₹${item['unit_price']}/unit',
-                              style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey, fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                    return NeoCard(
+                      child: Row(
                         children: [
-                          Text(
-                            '$quantity units',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isLowStock ? AppTheme.alertRed : Colors.white,
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: isLowStock
+                                  ? AppTheme.alertRed.withValues(alpha: 0.15)
+                                  : AppTheme.brandPurple.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.inventory,
+                              color: isLowStock ? AppTheme.alertRed : AppTheme.brandPurple,
+                              size: 24,
                             ),
                           ),
-                          if (isLowStock)
-                            Text(
-                              'Low Stock!',
-                              style: theme.textTheme.labelSmall?.copyWith(color: AppTheme.alertRed),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  'Category: $type • ₹$price/$unit',
+                                  style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey, fontSize: 14),
+                                ),
+                              ],
                             ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '$quantity $unit',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isLowStock ? AppTheme.alertRed : Colors.white,
+                                ),
+                              ),
+                              if (isLowStock)
+                                const Text(
+                                  'Low Stock!',
+                                  style: TextStyle(color: AppTheme.alertRed, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
     );
   }
 }

@@ -7,11 +7,13 @@ import 'package:stitchcraft/features/khata/widgets/expenses_list.dart';
 import 'package:stitchcraft/features/khata/widgets/income_list.dart';
 
 class KhataScreen extends StatefulWidget {
-  const KhataScreen({super.key});
+  final int initialTabIndex;
+  const KhataScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<KhataScreen> createState() => _KhataScreenState();
 }
+
 
 class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
@@ -24,7 +26,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTabIndex);
     _loadData();
   }
 

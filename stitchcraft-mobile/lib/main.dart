@@ -31,6 +31,7 @@ import 'package:stitchcraft/features/shop/screens/karigars_screen.dart';
 import 'package:stitchcraft/features/shop/screens/machines_screen.dart';
 import 'package:stitchcraft/features/profile/screens/profile_screen.dart';
 import 'package:stitchcraft/features/orders/screens/customer_list_screen.dart';
+import 'package:stitchcraft/features/orders/screens/invoice_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,13 +80,16 @@ class StitchCraftApp extends StatelessWidget {
         
         // Modules
         '/repairs': (context) => const RepairDashboard(),
-        '/khata': (context) => const KhataScreen(),
+        '/khata': (context) => const KhataScreen(initialTabIndex: 0),
         '/inventory': (context) => const InventoryScreen(),
         '/karigars': (context) => const KarigarsScreen(),
         '/machines': (context) => const MachinesScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/customers': (context) => const CustomerListScreen(),
         '/orders_pending': (context) => const OrderListScreen(title: 'Pending Orders', statusFilter: 'pending'),
+        '/deliveries': (context) => const OrderListScreen(title: 'Deliveries', statusFilter: 'completed'),
+        '/invoices': (context) => const InvoiceScreen(),
+        '/payments': (context) => const KhataScreen(initialTabIndex: 1),
       },
     );
   }

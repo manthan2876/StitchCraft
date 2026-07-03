@@ -89,7 +89,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                       title: Text(_loc.t('deliveries')),
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.pushNamed(context, '/repairs');
+                        Navigator.pushNamed(context, '/deliveries');
                       },
                     ),
                     ListTile(
@@ -97,9 +97,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                       title: Text(_loc.t('invoices')),
                       onTap: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Invoice details can be opened from Orders list.')),
-                        );
+                        Navigator.pushNamed(context, '/invoices');
                       },
                     ),
                     ListTile(
@@ -107,7 +105,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
                       title: Text(_loc.t('payments')),
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.pushNamed(context, '/khata');
+                        Navigator.pushNamed(context, '/payments');
                       },
                     ),
                   ],

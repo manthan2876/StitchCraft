@@ -50,6 +50,85 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
     }
   }
 
+  void _showKarigarDetails(Map<String, dynamic> karigar) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        final String name = karigar['name'] ?? 'Staff Member';
+        final String phone = karigar['phone'] ?? 'N/A';
+        final String specialty = karigar['specialty'] ?? karigar['specialization'] ?? 'Stitching';
+        final String status = karigar['status'] ?? 'Available';
+        final int activeOrders = (karigar['activeOrders'] as num?)?.toInt() ?? 0;
+
+        return AlertDialog(
+          backgroundColor: AppTheme.darkCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppTheme.lightGrey, width: 0.5),
+          ),
+          title: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.15),
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : 'K',
+                  style: const TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  name,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detailRow(Icons.phone_outlined, 'Phone', phone),
+              const SizedBox(height: 12),
+              _detailRow(Icons.star_outline, 'Specialty', specialty),
+              const SizedBox(height: 12),
+              _detailRow(Icons.info_outline, 'Status', status),
+              const SizedBox(height: 12),
+              _detailRow(Icons.list_alt_outlined, 'Active Orders', '$activeOrders orders'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close', style: TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: AppTheme.darkGrey),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
+              const SizedBox(height: 2),
+              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -80,6 +159,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                     final isBusy = status.toLowerCase() == 'busy';
 
                     return NeoCard(
+                      onTap: () => _showKarigarDetails(karigar),
                       child: Row(
                         children: [
                           CircleAvatar(

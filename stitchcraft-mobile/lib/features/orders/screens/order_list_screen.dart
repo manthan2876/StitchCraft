@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:http/http.dart' as http;
 
 class OrderListScreen extends StatefulWidget {
   final String title;
@@ -31,7 +34,49 @@ class _OrderListScreenState extends State<OrderListScreen> {
   Future<void> _loadOrders() async {
     setState(() => _isLoading = true);
     try {
-      final list = await _localDb.getAllOrders();
+      var list = await _localDb.getAllOrders();
+
+      // Fallback: If local database is empty, fetch from remote API to populate
+      if (list.isEmpty) {
+        final token = await AuthService().getToken();
+        if (token != null) {
+          final response = await http.get(
+            Uri.parse('${AuthService.baseUrl}/orders'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          if (response.statusCode == 200) {
+            final List<dynamic> remoteData = json.decode(response.body);
+            for (final rawRecord in remoteData) {
+              final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(rawRecord);
+              final String id = remoteRecord['_id'] ?? remoteRecord['id'] ?? '';
+              if (id.isEmpty) continue;
+
+              final Map<String, dynamic> sqliteRecord = {
+                'id': id,
+                'customer_id': remoteRecord['customer'] is Map ? remoteRecord['customer']['_id'] : remoteRecord['customer'] ?? '',
+                'customer_name': remoteRecord['customerName'] ?? 'Walk-in Customer',
+                'order_date': remoteRecord['date'] != null 
+                    ? DateTime.parse(remoteRecord['date'].toString()).millisecondsSinceEpoch
+                    : DateTime.now().millisecondsSinceEpoch,
+                'due_date': remoteRecord['deliveryDate'] != null 
+                    ? DateTime.parse(remoteRecord['deliveryDate'].toString()).millisecondsSinceEpoch
+                    : DateTime.now().millisecondsSinceEpoch,
+                'status': remoteRecord['status'] ?? 'Incoming',
+                'total_amount': (remoteRecord['price'] as num?)?.toDouble() ?? 0.0,
+                'description': remoteRecord['fabric'] ?? '',
+                'sync_status': 0,
+                'updated_at': DateTime.now().millisecondsSinceEpoch,
+              };
+              await _localDb.insertRecord('orders', sqliteRecord);
+            }
+            list = await _localDb.getAllOrders();
+          }
+        }
+      }
+
       setState(() {
         if (widget.statusFilter == 'pending') {
           _orders = list.where((o) => o['status']?.toString().toLowerCase() != 'completed' && o['status']?.toString().toLowerCase() != 'delivered').toList();

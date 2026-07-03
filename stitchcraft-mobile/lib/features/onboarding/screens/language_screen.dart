@@ -2,9 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
+import 'package:stitchcraft/core/services/localization_service.dart';
 
-class LanguageSelectionScreen extends StatelessWidget {
+class LanguageSelectionScreen extends StatefulWidget {
   const LanguageSelectionScreen({super.key});
+
+  @override
+  State<LanguageSelectionScreen> createState() => _LanguageSelectionScreenState();
+}
+
+class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
+  final _loc = LocalizationService();
+  String _selectedLang = 'en';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentLanguage();
+  }
+
+  Future<void> _loadCurrentLanguage() async {
+    await _loc.loadLanguage();
+    setState(() {
+      _selectedLang = _loc.currentLanguage;
+    });
+  }
+
+  Future<void> _changeLanguage(String code) async {
+    await _loc.setLanguage(code);
+    setState(() {
+      _selectedLang = code;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final String? token = prefs.getString('token');
+
+    if (mounted) {
+      if (isLoggedIn && token != null && token.isNotEmpty) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } else {
+        Navigator.pushNamed(context, '/onboarding');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,6 +57,7 @@ class LanguageSelectionScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: Navigator.canPop(context) ? AppBar(title: const Text('Language Settings')) : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -37,25 +83,19 @@ class LanguageSelectionScreen extends StatelessWidget {
                       context,
                       'English',
                       'English',
-                      true,
+                      'en',
                     ),
                     _buildLanguageCard(
                       context,
                       'ગુજરાતી',
                       'Gujarati',
-                      false,
+                      'gu',
                     ),
                     _buildLanguageCard(
                       context,
                       'हिंदी',
                       'Hindi',
-                      false,
-                    ),
-                    _buildLanguageCard(
-                      context,
-                      'தமிழ்',
-                      'Tamil',
-                      false,
+                      'hi',
                     ),
                   ],
                 ),
@@ -67,62 +107,53 @@ class LanguageSelectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLanguageCard(BuildContext context, String nativeName, String englishName, bool isSelected) {
+  Widget _buildLanguageCard(BuildContext context, String nativeName, String englishName, String code) {
     final theme = Theme.of(context);
+    final isSelected = _selectedLang == code;
 
     return NeoCard(
-      onTap: () async {
-        final prefs = await SharedPreferences.getInstance();
-        final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-        final String? token = prefs.getString('token');
-
-        if (context.mounted) {
-          if (isLoggedIn && token != null && token.isNotEmpty) {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              Navigator.pushReplacementNamed(context, '/home');
-            }
-          } else {
-            Navigator.pushNamed(context, '/onboarding');
-          }
-        }
-      },
+      onTap: () => _changeLanguage(code),
       color: isSelected ? AppTheme.brandPurple.withValues(alpha: 0.15) : null,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                nativeName,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nativeName,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? AppTheme.brandPurple : Colors.white,
+                  ),
                 ),
-              ),
-              Text(
-                englishName,
-                style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
-              ),
-            ],
-          ),
-          IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Playing Audio Greeting...')),
-              );
-            },
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: AppTheme.brandPurple,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.volume_up, color: Colors.white),
+                Text(
+                  englishName,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
+                ),
+              ],
             ),
           ),
+          if (isSelected)
+            const Icon(Icons.check_circle, color: AppTheme.brandPurple, size: 28)
+          else
+            IconButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Playing Audio Greeting...')),
+                );
+              },
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: AppTheme.brandPurple,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.volume_up, color: Colors.white),
+              ),
+            ),
         ],
       ),
     );
