@@ -1,121 +1,51 @@
 /* src/pages/OrderDetails.jsx */
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api } from '../services/api';
 import Card from '../components/common/Card';
 import {
-  MdArrowBack, MdPhone, MdEdit, MdDelete, MdClose,
-  MdPayments, MdLocalShipping, MdOutlineInventory,
-  MdAssignmentInd, MdBookmarkBorder, MdCameraAlt
+  MdArrowBack, MdPhone, MdEdit, MdDelete,
+  MdOutlineInventory, MdAssignmentInd, MdBookmarkBorder, MdCameraAlt,
+  MdPayments, MdLocalShipping
 } from 'react-icons/md';
 import { FaWhatsapp } from 'react-icons/fa';
 import { GiSewingMachine } from 'react-icons/gi';
 import { useLanguage } from '../context/LanguageContext';
-import { getSignedUrl } from '../services/supabase';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { useOrderDetails } from '../features/orders/hooks/useOrderDetails';
+import { PaymentModal } from '../features/orders/components/PaymentModal';
+import { DeleteOrderModal } from '../features/orders/components/DeleteOrderModal';
 
 export const OrderDetails = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { navigate } = useNavigate();
   const { t } = useLanguage();
-  const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [maapSignedUrl, setMaapSignedUrl] = useState('');
 
-  useEffect(() => {
-    const fetchSignedUrl = async () => {
-      if (order && order.maapImageUrl) {
-        if (order.maapImageUrl.startsWith('http://') || order.maapImageUrl.startsWith('https://')) {
-          setMaapSignedUrl(order.maapImageUrl);
-        } else {
-          const url = await getSignedUrl('maap-images', order.maapImageUrl);
-          if (url) {
-            setMaapSignedUrl(url);
-          }
-        }
-      }
-    };
-    fetchSignedUrl();
-  }, [order]);
+  const {
+    id,
+    order,
+    loading,
+    maapSignedUrl,
+    isPaymentModalOpen,
+    setIsPaymentModalOpen,
+    payAmount,
+    setPayAmount,
+    payType,
+    setPayType,
+    paymentLoading,
+    paymentError,
+    setPaymentError,
+    isDeleteModalOpen,
+    setIsDeleteModalOpen,
+    deleteLoading,
+    deleteError,
+    handleRecordPayment,
+    handleDeleteOrder,
+    handleStatusChange,
+  } = useOrderDetails();
 
-  // Payment Modal states
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [payAmount, setPayAmount] = useState('');
-  const [payType, setPayType] = useState('Cash');
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentError, setPaymentError] = useState('');
-
-  // Delete Order states
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
-
-  // Helper with fallbacks for translations
+  // Translation helper with fallback
   const tf = (key, fallback) => {
     const val = t(key);
     return val === key ? fallback : val;
-  };
-
-  const fetchOrderDetails = async () => {
-    setLoading(true);
-    try {
-      const data = await api.get(`/orders/${id}`);
-      setOrder(data);
-    } catch (err) {
-      console.error('Failed to fetch order details:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOrderDetails();
-  }, [id]);
-
-  const handleRecordPayment = async (e) => {
-    e.preventDefault();
-    if (!payAmount || Number(payAmount) <= 0) {
-      setPaymentError('Please enter a valid amount.');
-      return;
-    }
-    setPaymentLoading(true);
-    setPaymentError('');
-    try {
-      const updatedOrder = await api.post(`/orders/${id}/payments`, {
-        amount: Number(payAmount),
-        paymentType: payType
-      });
-      setOrder(updatedOrder);
-      setIsPaymentModalOpen(false);
-      setPayAmount('');
-    } catch (err) {
-      setPaymentError(err.message || 'Failed to record payment.');
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
-
-  const handleDeleteOrder = async () => {
-    setDeleteLoading(true);
-    setDeleteError('');
-    try {
-      await api.delete(`/orders/${id}`);
-      navigate('/orders');
-    } catch (err) {
-      setDeleteError(err.message || 'Failed to delete order.');
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  const handleStatusChange = async (newStatus) => {
-    try {
-      const updatedOrder = await api.put(`/orders/${id}`, { status: newStatus });
-      setOrder(updatedOrder);
-    } catch (err) {
-      console.error('Failed to update status:', err);
-      alert('Failed to update status.');
-    }
   };
 
   if (loading) {
@@ -141,7 +71,6 @@ export const OrderDetails = () => {
     : totalValue;
 
   const isFullyPaid = balanceAmount === 0;
-
   const statusList = ['Incoming', 'Measuring', 'Cutting', 'Stitching', 'Checking', 'Ready', 'Delivered', 'Cancelled'];
 
   const getStatusBadgeClass = (status) => {
@@ -167,13 +96,13 @@ export const OrderDetails = () => {
           <span>{tf('backToOrders', 'Back to Orders')}</span>
         </Link>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate(`/orders/${order._id}/edit`)}
+          <Link
+            to={`/orders/${order._id}/edit`}
             className="px-3.5 py-1.5 bg-bg-secondary hover:bg-bg-card-hover text-text-main border border-border-medium hover:border-color-accent-purple/50 font-bold rounded-xl shadow-lg text-xs cursor-pointer flex items-center gap-1 transition-all"
           >
             <MdEdit className="w-3.5 h-3.5 text-color-accent-purple" />
             <span>{tf('editOrder', 'Edit Order')}</span>
-          </button>
+          </Link>
           <button
             onClick={() => setIsDeleteModalOpen(true)}
             className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold rounded-xl shadow-lg text-xs cursor-pointer flex items-center gap-1 transition-all"
@@ -222,10 +151,8 @@ export const OrderDetails = () => {
 
       {/* Three Column Info Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
         {/* Left Column: Order details & fabrication */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-
           {/* Order Specifications Card */}
           <Card className="flex flex-col gap-5">
             <h3 className="text-sm font-black text-text-main uppercase tracking-wider border-b border-border-subtle pb-3">
@@ -263,7 +190,7 @@ export const OrderDetails = () => {
                   {order.needsAster ? (
                     order.asterDeducted ? (
                       <span style={{ whiteSpace: 'nowrap' }} className="px-2.5 py-1 text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-md">
-                        ✓ {tf('deducted', 'Stock Deducted')}
+                        ✓ {tf('stockDeducted', 'Stock Deducted')}
                       </span>
                     ) : (
                       <span style={{ whiteSpace: 'nowrap' }} className="px-2.5 py-1 text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-md">
@@ -448,7 +375,6 @@ export const OrderDetails = () => {
 
         {/* Right Column: Payments & Deliveries */}
         <div className="flex flex-col gap-6">
-
           {/* Payment Card */}
           <Card className="flex flex-col gap-5 border-l-4 border-l-emerald-500">
             <div className="flex items-center justify-between border-b border-border-subtle pb-3">
@@ -587,128 +513,33 @@ export const OrderDetails = () => {
               </div>
             </div>
           </Card>
-
         </div>
       </div>
 
-      {/* Record Payment Dialog Modal */}
-      {isPaymentModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-[420px] bg-bg-modal border border-border-medium rounded-[24px] p-6 shadow-2xl relative text-left">
-            <button
-              onClick={() => setIsPaymentModalOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg bg-bg-secondary border border-border-subtle text-text-muted hover:text-text-main cursor-pointer"
-            >
-              <MdClose className="w-5 h-5" />
-            </button>
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        balanceAmount={balanceAmount}
+        payAmount={payAmount}
+        setPayAmount={setPayAmount}
+        payType={payType}
+        setPayType={setPayType}
+        paymentError={paymentError}
+        setPaymentError={setPaymentError}
+        paymentLoading={paymentLoading}
+        onSubmit={handleRecordPayment}
+        tf={tf}
+      />
 
-            <h3 className="text-lg font-black text-text-main flex items-center gap-2 mb-1">
-              <MdPayments className="text-emerald-500 w-5 h-5" />
-              {tf('recordPayment', 'Record Payment')}
-            </h3>
-            <p className="text-xs text-text-muted mb-5 font-semibold">
-              {tf('recordPaymentDesc', 'Enter partial or full amount received from the customer for this order.')}
-            </p>
-
-            <form onSubmit={handleRecordPayment} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('amountReceived', 'Amount (₹)')}</label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  max={balanceAmount}
-                  value={payAmount}
-                  onChange={e => { setPayAmount(e.target.value); setPaymentError(''); }}
-                  placeholder={`Max ₹${balanceAmount}`}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-black placeholder:text-text-muted/50"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('paymentMode', 'Payment Mode')}</label>
-                <select
-                  value={payType}
-                  onChange={e => setPayType(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all cursor-pointer font-bold"
-                >
-                  <option value="Cash" className="bg-bg-card">💵 Cash</option>
-                  <option value="UPI" className="bg-bg-card">📱 UPI / Online</option>
-                  <option value="Card" className="bg-bg-card">💳 Card</option>
-                </select>
-              </div>
-
-              {paymentError && (
-                <span className="text-xs text-color-accent-pink font-bold text-center animate-pulse">
-                  {paymentError}
-                </span>
-              )}
-
-              <div className="flex gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsPaymentModalOpen(false)}
-                  className="flex-1 py-2.5 bg-bg-secondary border border-border-medium text-text-main rounded-xl font-bold text-sm hover:bg-bg-card-hover transition-all cursor-pointer"
-                >
-                  {tf('cancel', 'Cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={paymentLoading}
-                  className="flex-1 py-2.5 bg-emerald-500 text-white-forced rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {paymentLoading ? tf('saving', 'Saving...') : tf('confirmPayment', 'Confirm')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Order Dialog Modal */}
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-[420px] bg-bg-modal border border-border-medium rounded-[24px] p-6 shadow-2xl relative text-left">
-            <button
-              onClick={() => setIsDeleteModalOpen(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-lg bg-bg-secondary border border-border-subtle text-text-muted hover:text-text-main cursor-pointer"
-            >
-              <MdClose className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-black text-text-main flex items-center gap-2 mb-2">
-              <MdDelete className="text-color-accent-pink w-5 h-5" />
-              {tf('deleteOrder', 'Delete Order')}
-            </h3>
-            <p className="text-xs text-text-muted mb-4 font-semibold">
-              {tf('deleteOrderConfirm', 'Are you sure you want to permanently delete the tailoring order record')} <span className="text-text-main font-bold">{order.orderId}</span>?
-            </p>
-
-            {deleteError && (
-              <span className="text-xs text-color-accent-pink font-bold text-center block mb-4 animate-pulse">
-                {deleteError}
-              </span>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 py-2.5 bg-bg-secondary border border-border-medium text-text-main rounded-xl font-bold text-sm hover:bg-bg-card-hover transition-all cursor-pointer"
-              >
-                {tf('cancel', 'Cancel')}
-              </button>
-              <button
-                onClick={handleDeleteOrder}
-                disabled={deleteLoading}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white-forced rounded-xl font-bold text-sm shadow-lg transition-all cursor-pointer disabled:opacity-50"
-              >
-                {deleteLoading ? tf('saving', 'Saving...') : tf('deleteOrder', 'Delete Order')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteOrderModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        orderId={order.orderId}
+        deleteError={deleteError}
+        deleteLoading={deleteLoading}
+        onConfirm={handleDeleteOrder}
+        tf={tf}
+      />
     </div>
   );
 };
