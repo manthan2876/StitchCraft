@@ -40,10 +40,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   Future<void> _loadProfile() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final profile = await _profileService.fetchProfile();
       final shops = await _profileService.fetchShops();
+      if (!mounted) return;
       if (profile != null) {
         setState(() {
           _userProfile = profile;
@@ -56,7 +58,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     } catch (e) {
       developer.log("Error loading profile: $e");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -126,6 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   Future<void> _updateProfile() async {
+    if (!mounted) return;
     setState(() => _isSaving = true);
     try {
       final updated = await _profileService.updateProfile(name: _nameController.text.trim());
@@ -144,11 +149,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         );
       }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
   Future<void> _updatePassword() async {
+    if (!mounted) return;
     setState(() => _isSaving = true);
     try {
       final token = await _authService.getToken();
@@ -182,7 +190,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         );
       }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
