@@ -10,7 +10,7 @@ export const useInventory = (tf) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit' | 'restock'
   const [selectedItem, setSelectedItem] = useState(null);
-  const [form, setForm] = useState({ itemName: '', quantity: '', unit: 'meters', minQuantity: '10', purchaseAmount: '', description: '', costPerUnit: '', quantityToAdd: '' });
+  const [form, setForm] = useState({ itemName: '', itemType: 'Lining', quantity: '', unit: 'meters', minQuantity: '10', purchaseAmount: '', description: '', costPerUnit: '', quantityToAdd: '' });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
@@ -36,7 +36,7 @@ export const useInventory = (tf) => {
   }, [searchTerm]);
 
   const handleOpenAddModal = () => {
-    setForm({ itemName: '', quantity: '0', unit: 'meters', minQuantity: '10', purchaseAmount: '', description: '', costPerUnit: '0', quantityToAdd: '' });
+    setForm({ itemName: '', itemType: 'Lining', quantity: '0', unit: 'meters', minQuantity: '10', purchaseAmount: '', description: '', costPerUnit: '0', quantityToAdd: '' });
     setModalMode('add');
     setSelectedItem(null);
     setFormError('');
@@ -46,6 +46,7 @@ export const useInventory = (tf) => {
   const handleOpenEditModal = (item) => {
     setForm({
       itemName: item.itemName,
+      itemType: item.itemType || 'Lining',
       quantity: String(item.quantity),
       unit: item.unit || 'meters',
       minQuantity: String(item.minQuantity),
@@ -63,6 +64,7 @@ export const useInventory = (tf) => {
   const handleOpenRestockModal = (item) => {
     setForm({
       itemName: item.itemName,
+      itemType: item.itemType || 'Lining',
       quantity: String(item.quantity),
       unit: item.unit || 'meters',
       minQuantity: String(item.minQuantity),
@@ -83,6 +85,10 @@ export const useInventory = (tf) => {
       setFormError(tf('itemNameRequired', 'Item name is required.'));
       return;
     }
+    if (modalMode !== 'restock' && !form.itemType) {
+      setFormError(tf('itemTypeRequired', 'Item type is required.'));
+      return;
+    }
     if (modalMode === 'restock' && (!form.quantityToAdd || Number(form.quantityToAdd) <= 0)) {
       setFormError(tf('quantityToAddRequired', 'Please enter a valid quantity to add.'));
       return;
@@ -94,6 +100,7 @@ export const useInventory = (tf) => {
       if (modalMode === 'add') {
         payload = {
           itemName: form.itemName,
+          itemType: form.itemType,
           quantity: Number(form.quantity) || 0,
           unit: form.unit,
           minQuantity: Number(form.minQuantity) || 10,
@@ -106,6 +113,7 @@ export const useInventory = (tf) => {
       } else if (modalMode === 'edit') {
         payload = {
           itemName: form.itemName,
+          itemType: form.itemType,
           quantity: Number(form.quantity) || 0,
           unit: form.unit,
           minQuantity: Number(form.minQuantity) || 10,
@@ -119,6 +127,7 @@ export const useInventory = (tf) => {
         const addedQty = Number(form.quantityToAdd) || 0;
         payload = {
           itemName: selectedItem.itemName,
+          itemType: selectedItem.itemType || 'Lining',
           quantity: selectedItem.quantity + addedQty,
           unit: selectedItem.unit,
           minQuantity: selectedItem.minQuantity,

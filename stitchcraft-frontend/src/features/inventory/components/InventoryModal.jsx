@@ -40,17 +40,34 @@ export const InventoryModal = ({
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           {modalMode !== 'restock' && (
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('itemName', 'Item Name')}</label>
-              <input
-                type="text"
-                required
-                value={form.itemName}
-                onChange={e => { setForm({ ...form, itemName: e.target.value }); setFormError(''); }}
-                placeholder={tf('itemNamePlaceholder', 'e.g. Silk, Velvet fabric, Cotton Thread')}
-                className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
-              />
-            </div>
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('itemName', 'Item Name')}</label>
+                <input
+                  type="text"
+                  required
+                  value={form.itemName}
+                  onChange={e => { setForm({ ...form, itemName: e.target.value }); setFormError(''); }}
+                  placeholder={tf('itemNamePlaceholder', 'e.g. Silk, Velvet fabric, Cotton Thread')}
+                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('itemType', 'Item Type')}</label>
+                <select
+                  value={form.itemType}
+                  onChange={e => setForm({ ...form, itemType: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all cursor-pointer font-bold"
+                >
+                  <option value="Lining" className="bg-bg-card">{tf('lining', 'Lining / Astar')}</option>
+                  <option value="Fabric" className="bg-bg-card">{tf('fabric', 'Fabric')}</option>
+                  <option value="Thread" className="bg-bg-card">{tf('thread', 'Thread')}</option>
+                  <option value="Accessories" className="bg-bg-card">{tf('accessories', 'Accessories / Trims')}</option>
+                  <option value="Other" className="bg-bg-card">{tf('other', 'Other')}</option>
+                </select>
+              </div>
+            </>
           )}
 
           {modalMode === 'restock' && (
