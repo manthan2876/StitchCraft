@@ -24,9 +24,16 @@ class ProfileService {
       if (profileResponse.statusCode == 200) {
         final data = json.decode(profileResponse.body) as Map<String, dynamic>;
         final avatarPath = data['avatar'] as String?;
-        if (avatarPath != null && avatarPath.isNotEmpty) {
+
+        // Only try to get a signed URL if there's a real uploaded photo
+        // (not the default placeholder 'profile.png')
+        final isDefaultAvatar = avatarPath == null ||
+            avatarPath.isEmpty ||
+            avatarPath == 'profile.png';
+
+        if (!isDefaultAvatar) {
           try {
-            final encodedPath = Uri.encodeComponent(avatarPath);
+            final encodedPath = Uri.encodeComponent(avatarPath!);
             final viewUrlResponse = await http.get(
               Uri.parse('${AuthService.baseUrl}/upload/view-url/profile-images/$encodedPath'),
               headers: {
@@ -36,11 +43,24 @@ class ProfileService {
             );
             if (viewUrlResponse.statusCode == 200) {
               final viewData = json.decode(viewUrlResponse.body);
-              data['avatar'] = viewData['signedUrl'];
+              final signedUrl = viewData['signedUrl'] as String?;
+              // Only set if we got a valid https URL back
+              if (signedUrl != null && signedUrl.startsWith('http')) {
+                data['avatar'] = signedUrl;
+              } else {
+                data['avatar'] = null;
+              }
+            } else {
+              // Signing failed - clear avatar so UI shows initials
+              data['avatar'] = null;
             }
           } catch (e) {
             developer.log("Error loading avatar view url: $e", name: 'ProfileService');
+            data['avatar'] = null;
           }
+        } else {
+          // No real avatar uploaded yet - clear so UI shows initials
+          data['avatar'] = null;
         }
         return data;
       }
