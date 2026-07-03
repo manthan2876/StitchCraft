@@ -25,8 +25,13 @@ class ProfileService {
         final data = json.decode(profileResponse.body) as Map<String, dynamic>;
         final avatarPath = data['avatar'] as String?;
 
+        // If the stored value is already a full https URL, use it directly
+        if (avatarPath != null && avatarPath.startsWith('http')) {
+          return data; // already a usable URL, no need to sign
+        }
+
         // Only try to get a signed URL if there's a real uploaded photo
-        // (not the default placeholder 'profile.png')
+        // (not null, empty, or the default placeholder 'profile.png')
         final isDefaultAvatar = avatarPath == null ||
             avatarPath.isEmpty ||
             avatarPath == 'profile.png';
@@ -44,18 +49,21 @@ class ProfileService {
             if (viewUrlResponse.statusCode == 200) {
               final viewData = json.decode(viewUrlResponse.body);
               final signedUrl = viewData['signedUrl'] as String?;
-              // Only set if we got a valid https URL back
+              // Only use if we got a valid https URL back
               if (signedUrl != null && signedUrl.startsWith('http')) {
                 data['avatar'] = signedUrl;
               } else {
                 data['avatar'] = null;
               }
             } else {
-              // Signing failed - clear avatar so UI shows initials
+              developer.log(
+                'Avatar signing failed (${viewUrlResponse.statusCode}): ${viewUrlResponse.body}',
+                name: 'ProfileService',
+              );
               data['avatar'] = null;
             }
           } catch (e) {
-            developer.log("Error loading avatar view url: $e", name: 'ProfileService');
+            developer.log('Error loading avatar view url: $e', name: 'ProfileService');
             data['avatar'] = null;
           }
         } else {
