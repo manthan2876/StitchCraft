@@ -19,7 +19,9 @@ export const Topbar = ({ pageTitle = 'Dashboard', onMenuToggle }) => {
   const { theme, toggleTheme } = useTheme();
   const { language, changeLanguage, t } = useLanguage();
   const navigate = useNavigate();
-  const [avatarUrl, setAvatarUrl] = useState(ProfileImage);
+  // null = no real avatar, string = signed URL
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [imageError, setImageError] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -30,12 +32,17 @@ export const Topbar = ({ pageTitle = 'Dashboard', onMenuToggle }) => {
   }, []);
 
   useEffect(() => {
+    setImageError(false);
     const loadAvatar = async () => {
-      if (user?.avatar && user.avatar !== 'profile.png') {
+      // Only fetch signed URL for real uploaded photos (not the default placeholder)
+      if (user?.avatar && user.avatar !== 'profile.png' && !user.avatar.startsWith('http') === false) {
+        // already a full URL
+        setAvatarUrl(user.avatar);
+      } else if (user?.avatar && user.avatar !== 'profile.png') {
         const url = await getSignedUrl('profile-images', user.avatar);
-        if (url) setAvatarUrl(url);
+        setAvatarUrl(url || null);
       } else {
-        setAvatarUrl(ProfileImage); // Fallback to initials
+        setAvatarUrl(null); // show initials
       }
     };
     loadAvatar();
@@ -308,13 +315,18 @@ export const Topbar = ({ pageTitle = 'Dashboard', onMenuToggle }) => {
           </div>
 
           <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full overflow-hidden border-2 border-border-medium group-hover:border-color-accent-purple/60 bg-bg-card flex items-center justify-center shadow-md transition-all">
-            {/* HERE IS THE FIX: Use avatarUrl instead of user.avatar */}
-            <img
-              src={avatarUrl || ProfileImage}
-              alt="Profile"
-              className="w-full h-full object-cover"
-              onError={() => setImageError(true)}
-            />
+            {avatarUrl && !imageError ? (
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-full h-full object-cover"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <span className="text-xs font-black text-white-forced select-none">
+                {(user?.name || 'MR').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+              </span>
+            )}
           </div>
         </button>
       </div>

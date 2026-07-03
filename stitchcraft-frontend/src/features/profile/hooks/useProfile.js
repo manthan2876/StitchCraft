@@ -16,7 +16,8 @@ export const useProfile = () => {
 
   const [activeTab, setActiveTab] = useState('Profile');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(ProfileImage);
+  // null means no real avatar — UI should show initials
+  const [avatarUrl, setAvatarUrl] = useState(null);
 
   // Password update states
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
@@ -113,10 +114,17 @@ export const useProfile = () => {
 
   useEffect(() => {
     const loadAvatar = async () => {
-      if (user?.avatar && user.avatar !== 'profile.png') {
-        const url = await getSignedUrl('profile-images', user.avatar);
-        if (url) setAvatarUrl(url);
+      if (!user?.avatar || user.avatar === 'profile.png') {
+        setAvatarUrl(null); // no real photo — show initials
+        return;
       }
+      // If it's already a full URL (e.g. stored from a previous version), use it directly
+      if (user.avatar.startsWith('http')) {
+        setAvatarUrl(user.avatar);
+        return;
+      }
+      const url = await getSignedUrl('profile-images', user.avatar);
+      setAvatarUrl(url || null);
     };
     loadAvatar();
   }, [user]);
@@ -135,6 +143,9 @@ export const useProfile = () => {
       const path = await uploadToPrivateBucket('profile-images', file);
       const data = await api.put('/auth/profile', { avatar: path });
       updateUser(data);
+      // Immediately refresh the signed URL so the new photo shows without reload
+      const freshUrl = await getSignedUrl('profile-images', path);
+      setAvatarUrl(freshUrl || null);
     } catch (err) {
       console.error('Failed to upload photo:', err);
       alert(err.message || 'Failed to upload profile photo');

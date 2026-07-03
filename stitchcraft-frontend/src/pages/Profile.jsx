@@ -2,7 +2,6 @@
 import React from 'react';
 import Card from '../components/common/Card';
 import { MdEdit, MdLogout } from 'react-icons/md';
-import ProfileImage from '../assets/profile.png';
 
 // Custom State/Business Logic Hook
 import useProfile from '../features/profile/hooks/useProfile';
@@ -112,18 +111,18 @@ export const Profile = () => {
               <MdEdit className="w-4 h-4 mb-0.5 text-color-accent-purple" />
               <span>Upload</span>
             </div>
-            <img
-              src={avatarUrl}
-              alt="Profile"
-              className="w-full h-full object-cover"
-              onError={e => {
-                e.target.style.display = 'none';
-                e.target.parentElement.querySelector('.initials-fallback').style.display = 'flex';
-              }}
-            />
-            <span className="initials-fallback hidden text-white-forced font-black text-2xl items-center justify-center w-full h-full">
-              {initials}
-            </span>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-full h-full object-cover"
+                onError={e => { e.target.style.display = 'none'; }}
+              />
+            ) : (
+              <span className="text-white-forced font-black text-2xl select-none">
+                {initials}
+              </span>
+            )}
           </div>
 
           <div className="flex-1 text-center sm:text-left">
