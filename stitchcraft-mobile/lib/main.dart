@@ -34,6 +34,8 @@ import 'package:stitchcraft/features/shop/screens/machines_screen.dart';
 import 'package:stitchcraft/features/profile/screens/profile_screen.dart';
 import 'package:stitchcraft/features/orders/screens/customer_list_screen.dart';
 import 'package:stitchcraft/features/orders/screens/invoice_screen.dart';
+import 'package:stitchcraft/features/orders/screens/order_details_screen.dart';
+import 'package:stitchcraft/features/orders/screens/customer_details_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -99,6 +101,8 @@ class StitchCraftApp extends StatelessWidget {
             '/machines': (context) => const MachinesScreen(),
             '/profile': (context) => const ProfileScreen(),
             '/customers': (context) => const CustomerListScreen(),
+            '/order_details': (context) => const OrderDetailsScreen(),
+            '/customer_details': (context) => const CustomerDetailsScreen(),
             '/orders_pending': (context) => const OrderListScreen(title: 'Pending Orders', statusFilter: 'pending'),
             '/deliveries': (context) => const OrderListScreen(title: 'Deliveries', statusFilter: 'completed'),
             '/invoices': (context) => const InvoiceScreen(),

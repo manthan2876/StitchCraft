@@ -120,6 +120,9 @@ class _OrderListScreenState extends State<OrderListScreen> {
                     final String status = order['status'] ?? 'pending';
 
                     return NeoCard(
+                      onTap: () {
+                        Navigator.pushNamed(context, '/order_details', arguments: order['id'] ?? '');
+                      },
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(4),
                         leading: CircleAvatar(

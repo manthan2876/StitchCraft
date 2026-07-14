@@ -175,7 +175,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                     return NeoCard(
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(4),
-                        onTap: () => _showCustomerDetails(customer),
+                        onTap: () {
+                          Navigator.pushNamed(context, '/customer_details', arguments: customer['_id'] ?? customer['id'] ?? '');
+                        },
                         leading: CircleAvatar(
                           backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.15),
                           child: Text(
