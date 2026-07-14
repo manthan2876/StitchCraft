@@ -47,6 +47,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       final shops = await _profileService.fetchShops();
       if (!mounted) return;
       if (profile != null) {
+        final prefs = await SharedPreferences.getInstance();
+        if (profile['name'] != null) await prefs.setString('userName', profile['name']);
+        if (profile['role'] != null) await prefs.setString('userRole', profile['role']);
+        if (profile['avatar'] != null) {
+          await prefs.setString('userAvatar', profile['avatar']);
+        } else {
+          await prefs.remove('userAvatar');
+        }
         setState(() {
           _userProfile = profile;
           _nameController.text = profile['name'] ?? '';

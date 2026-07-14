@@ -114,4 +114,28 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get add_expense => 'खर्च जोड़ें';
+
+  @override
+  String get download_gdpr => 'सभी डेटा डाउनलोड करें (GDPR)';
+
+  @override
+  String get delete_account => 'खाता हटाने का अनुरोध';
+
+  @override
+  String get add_staff => 'कर्मचारी जोड़ें';
+
+  @override
+  String get edit_staff => 'कर्मचारी संपादित करें';
+
+  @override
+  String get add_machine => 'मशीन जोड़ें';
+
+  @override
+  String get edit_machine => 'मशीन संपादित करें';
+
+  @override
+  String get add_material => 'सामग्री जोड़ें';
+
+  @override
+  String get edit_material => 'सामग्री संपादित करें';
 }

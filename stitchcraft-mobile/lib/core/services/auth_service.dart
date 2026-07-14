@@ -10,10 +10,8 @@ class AuthService {
   final DatabaseService _dbService = DatabaseService();
 
   static String get baseUrl {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5000/api';
-    }
-    return 'http://localhost:5000/api';
+    // Point directly to production Render backend server
+    return 'https://stitchcraft-backend.onrender.com/api';
   }
 
   // Sign Up
@@ -110,6 +108,12 @@ class AuthService {
         await prefs.setString('userId', userId);
         await prefs.setString('userName', userName);
         await prefs.setString('userRole', role);
+        final String? avatar = data['avatar'] ?? data['avatarUrl'];
+        if (avatar != null && avatar.isNotEmpty) {
+          await prefs.setString('userAvatar', avatar);
+        } else {
+          await prefs.remove('userAvatar');
+        }
         if (shopId != null) {
           await prefs.setString('shopId', shopId);
         }
@@ -133,6 +137,7 @@ class AuthService {
       await prefs.remove('userId');
       await prefs.remove('userName');
       await prefs.remove('userRole');
+      await prefs.remove('userAvatar');
       await prefs.remove('shopId');
     } catch (e) {
       developer.log('Logout Error: $e', name: 'AuthService');

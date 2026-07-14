@@ -34,5 +34,13 @@
   "expense_category_hint": "Expense Category (e.g., Fabric, Rent, Utilities)",
   "amount_rs": "Amount (₹)",
   "short_description": "Short Description",
-  "add_expense": "Add Expense"
+  "add_expense": "Add Expense",
+  "download_gdpr": "Download All Data (GDPR)",
+  "delete_account": "Delete Account Request",
+  "add_staff": "Add Staff",
+  "edit_staff": "Edit Tailoring Staff",
+  "add_machine": "Add Machine",
+  "edit_machine": "Edit Machine Info",
+  "add_material": "Add Material",
+  "edit_material": "Edit Material Info"
 }

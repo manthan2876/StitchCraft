@@ -16,6 +16,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
   
   String _userName = 'Masterji Tailor';
   String _userRole = 'OWNER';
+  String? _userAvatar;
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
     setState(() {
       _userName = prefs.getString('userName') ?? 'Masterji Tailor';
       _userRole = prefs.getString('userRole')?.toUpperCase() ?? 'OWNER';
+      _userAvatar = prefs.getString('userAvatar');
     });
   }
 
@@ -43,10 +45,18 @@ class _DrawerMenuState extends State<DrawerMenu> {
             decoration: const BoxDecoration(color: Color(0xFF101828)),
             accountName: Text(_userName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             accountEmail: Text(_userRole, style: const TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold)),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: AppTheme.brandPurple,
-              child: Icon(Icons.person, color: Colors.white, size: 36),
-            ),
+            currentAccountPicture: _userAvatar != null && _userAvatar!.isNotEmpty
+                ? CircleAvatar(
+                    backgroundImage: NetworkImage(_userAvatar!),
+                    backgroundColor: AppTheme.brandPurple,
+                  )
+                : CircleAvatar(
+                    backgroundColor: AppTheme.brandPurple,
+                    child: Text(
+                      _userName.isNotEmpty ? _userName[0].toUpperCase() : 'M',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24),
+                    ),
+                  ),
           ),
           Expanded(
             child: ListView(

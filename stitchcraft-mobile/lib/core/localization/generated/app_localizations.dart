@@ -309,6 +309,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add Expense'**
   String get add_expense;
+
+  /// No description provided for @download_gdpr.
+  ///
+  /// In en, this message translates to:
+  /// **'Download All Data (GDPR)'**
+  String get download_gdpr;
+
+  /// No description provided for @delete_account.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account Request'**
+  String get delete_account;
+
+  /// No description provided for @add_staff.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Staff'**
+  String get add_staff;
+
+  /// No description provided for @edit_staff.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Tailoring Staff'**
+  String get edit_staff;
+
+  /// No description provided for @add_machine.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Machine'**
+  String get add_machine;
+
+  /// No description provided for @edit_machine.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Machine Info'**
+  String get edit_machine;
+
+  /// No description provided for @add_material.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Material'**
+  String get add_material;
+
+  /// No description provided for @edit_material.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Material Info'**
+  String get edit_material;
 }
 
 class _AppLocalizationsDelegate

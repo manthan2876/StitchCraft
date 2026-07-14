@@ -114,4 +114,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get add_expense => 'Add Expense';
+
+  @override
+  String get download_gdpr => 'Download All Data (GDPR)';
+
+  @override
+  String get delete_account => 'Delete Account Request';
+
+  @override
+  String get add_staff => 'Add Staff';
+
+  @override
+  String get edit_staff => 'Edit Tailoring Staff';
+
+  @override
+  String get add_machine => 'Add Machine';
+
+  @override
+  String get edit_machine => 'Edit Machine Info';
+
+  @override
+  String get add_material => 'Add Material';
+
+  @override
+  String get edit_material => 'Edit Material Info';
 }

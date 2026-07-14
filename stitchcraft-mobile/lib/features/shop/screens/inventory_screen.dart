@@ -5,6 +5,7 @@ import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -50,11 +51,155 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  Future<void> _showAddItemModal() async {
-    final nameController = TextEditingController();
-    final typeController = TextEditingController();
-    final qtyController = TextEditingController();
-    final priceController = TextEditingController();
+  Future<void> _deleteItem(String id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Text('Delete Stock Item', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to remove this inventory item? This cannot be undone.', style: TextStyle(color: AppTheme.darkGrey)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.darkGrey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authService.getToken();
+      final response = await http.delete(
+        Uri.parse('${AuthService.baseUrl}/inventory/$id'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item deleted successfully'), backgroundColor: AppTheme.trustGreen),
+        );
+        _loadInventory();
+      } else {
+        throw Exception(json.decode(response.body)['message'] ?? 'Failed to delete');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
+      );
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showItemDetails(Map<String, dynamic> item) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        final String name = item['itemName'] ?? 'Material';
+        final String type = item['itemType'] ?? 'General';
+        final double quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
+        final double price = (item['costPerUnit'] as num?)?.toDouble() ?? 0.0;
+        final String unit = item['unit'] ?? 'meters';
+
+        return AlertDialog(
+          backgroundColor: AppTheme.darkCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppTheme.lightGrey, width: 0.5),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1D2939),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.inventory, color: AppTheme.brandPurple, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  name,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detailRow(Icons.category_outlined, 'Category', type),
+              const SizedBox(height: 12),
+              _detailRow(Icons.production_quantity_limits, 'Current Stock', '$quantity $unit'),
+              const SizedBox(height: 12),
+              _detailRow(Icons.attach_money, 'Unit Cost', '₹$price / $unit'),
+              const SizedBox(height: 12),
+              _detailRow(Icons.description_outlined, 'Description', item['description'] ?? 'No description'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteItem(item['_id']);
+              },
+              child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showItemForm(item: item);
+              },
+              child: const Text('Edit', style: TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close', style: TextStyle(color: AppTheme.darkGrey)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: AppTheme.darkGrey),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
+              const SizedBox(height: 2),
+              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showItemForm({Map<String, dynamic>? item}) async {
+    final isEdit = item != null;
+    final nameController = TextEditingController(text: isEdit ? item['itemName'] : '');
+    final typeController = TextEditingController(text: isEdit ? item['itemType'] : 'Fabric');
+    final qtyController = TextEditingController(text: isEdit ? item['quantity'].toString() : '');
+    final priceController = TextEditingController(text: isEdit ? item['costPerUnit'].toString() : '');
 
     await showModalBottomSheet(
       context: context,
@@ -71,7 +216,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Add Stock Item',
+                isEdit ? context.loc.edit_material : context.loc.add_material,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
@@ -120,40 +265,54 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     final price = double.tryParse(priceController.text) ?? 0.0;
 
                     if (name.isNotEmpty && type.isNotEmpty) {
+                      Navigator.pop(context);
+                      setState(() => _isLoading = true);
                       try {
                         final token = await _authService.getToken();
                         if (token == null) return;
 
-                        final response = await http.post(
-                          Uri.parse('${AuthService.baseUrl}/inventory'),
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer $token',
-                          },
-                          body: json.encode({
-                            'itemName': name,
-                            'itemType': type,
-                            'quantity': qty,
-                            'unit': 'meters',
-                            'minQuantity': 5.0,
-                            'costPerUnit': price,
-                            'purchaseAmount': qty * price,
-                            'description': 'Added from mobile app',
-                          }),
-                        );
+                        final body = json.encode({
+                          'itemName': name,
+                          'itemType': type,
+                          'quantity': qty,
+                          'unit': isEdit ? (item['unit'] ?? 'meters') : 'meters',
+                          'minQuantity': isEdit ? (item['minQuantity'] ?? 5.0) : 5.0,
+                          'costPerUnit': price,
+                          'purchaseAmount': qty * price,
+                          'description': isEdit ? (item['description'] ?? 'Updated from mobile') : 'Added from mobile app',
+                        });
+
+                        final response = isEdit
+                            ? await http.put(
+                                Uri.parse('${AuthService.baseUrl}/inventory/${item['_id']}'),
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': 'Bearer $token',
+                                },
+                                body: body,
+                              )
+                            : await http.post(
+                                Uri.parse('${AuthService.baseUrl}/inventory'),
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': 'Bearer $token',
+                                },
+                                body: body,
+                              );
 
                         if (response.statusCode == 200 || response.statusCode == 201) {
-                          if (context.mounted) Navigator.pop(context);
                           _loadInventory();
                         } else {
-                          developer.log("Failed to create inventory item: ${response.body}");
+                          developer.log("Failed to save inventory item: ${response.body}");
+                          setState(() => _isLoading = false);
                         }
                       } catch (e) {
-                        developer.log("Error creating inventory item: $e");
+                        developer.log("Error saving inventory item: $e");
+                        setState(() => _isLoading = false);
                       }
                     }
                   },
-                  child: const Text('Add Material'),
+                  child: Text(isEdit ? context.loc.save : context.loc.add),
                 ),
               ),
             ],
@@ -170,12 +329,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Inventory Stock'),
+        title: Text(context.loc.inventory_stock),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddItemModal,
+        onPressed: () => _showItemForm(),
         backgroundColor: AppTheme.brandPurple,
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -200,6 +359,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     final String unit = item['unit'] ?? 'meters';
 
                     return NeoCard(
+                      onTap: () => _showItemDetails(item),
                       child: Row(
                         children: [
                           Container(

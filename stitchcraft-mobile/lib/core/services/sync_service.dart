@@ -9,10 +9,8 @@ class SyncService {
   final _localDb = LocalDatabaseService();
 
   static String get baseUrl {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5000/api';
-    }
-    return 'http://localhost:5000/api';
+    // Point directly to production Render backend server
+    return 'https://stitchcraft-backend.onrender.com/api';
   }
 
   Future<String?> _getToken() async {

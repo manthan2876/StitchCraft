@@ -113,4 +113,28 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get add_expense => 'ખર્ચ ઉમેરો';
+
+  @override
+  String get download_gdpr => 'બધા ડેટા ડાઉનલોડ કરો (GDPR)';
+
+  @override
+  String get delete_account => 'ખાતું કાઢી નાખવાની વિનંતી';
+
+  @override
+  String get add_staff => 'સ્ટાફ ઉમેરો';
+
+  @override
+  String get edit_staff => 'સ્ટાફ સંપાદિત કરો';
+
+  @override
+  String get add_machine => 'મશીન ઉમેરો';
+
+  @override
+  String get edit_machine => 'મશીન સંપાદિત કરો';
+
+  @override
+  String get add_material => 'સામગ્રી ઉમેરો';
+
+  @override
+  String get edit_material => 'સામગ્રી સંપાદિત કરો';
 }

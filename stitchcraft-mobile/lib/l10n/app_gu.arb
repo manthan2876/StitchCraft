@@ -34,5 +34,13 @@
   "expense_category_hint": "ખર્ચની કેટેગરી (દા.ત. કાપડ, ભાડું, લાઇટ બિલ)",
   "amount_rs": "રકમ (₹)",
   "short_description": "ટૂંકી વિગત",
-  "add_expense": "ખર્ચ ઉમેરો"
+  "add_expense": "ખર્ચ ઉમેરો",
+  "download_gdpr": "બધા ડેટા ડાઉનલોડ કરો (GDPR)",
+  "delete_account": "ખાતું કાઢી નાખવાની વિનંતી",
+  "add_staff": "સ્ટાફ ઉમેરો",
+  "edit_staff": "સ્ટાફ સંપાદિત કરો",
+  "add_machine": "મશીન ઉમેરો",
+  "edit_machine": "મશીન સંપાદિત કરો",
+  "add_material": "સામગ્રી ઉમેરો",
+  "edit_material": "સામગ્રી સંપાદિત કરો"
 }
