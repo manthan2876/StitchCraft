@@ -41,9 +41,12 @@ class _OrderListScreenState extends State<OrderListScreen> {
   }
 
   String _getInitialStatusTab(String filter) {
-    if (filter == 'pending') return 'Pending';
-    if (filter == 'completed') return 'Completed';
-    return 'All';
+    if (filter.isEmpty || filter.toLowerCase() == 'all') return 'All';
+    final match = ['All', 'Incoming', 'Measuring', 'Cutting', 'Stitching', 'Checking', 'Ready', 'Delivered', 'Cancelled'].firstWhere(
+      (element) => element.toLowerCase() == filter.toLowerCase(),
+      orElse: () => 'All',
+    );
+    return match;
   }
 
   Future<void> _loadOrders() async {
@@ -109,14 +112,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
     if (_selectedStatusTab != 'All') {
       result = result.where((o) {
         final status = (o['status'] ?? '').toString().toLowerCase();
-        if (_selectedStatusTab == 'Pending') {
-          return status != 'completed' && status != 'delivered';
-        } else if (_selectedStatusTab == 'Completed') {
-          return status == 'completed';
-        } else if (_selectedStatusTab == 'Delivered') {
-          return status == 'delivered';
-        }
-        return true;
+        return status == _selectedStatusTab.toLowerCase();
       }).toList();
     }
 
@@ -165,30 +161,37 @@ class _OrderListScreenState extends State<OrderListScreen> {
           // Status tabs row
           Container(
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: ['All', 'Pending', 'Completed', 'Delivered'].map((tab) {
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: ['All', 'Incoming', 'Measuring', 'Cutting', 'Stitching', 'Checking', 'Ready', 'Delivered', 'Cancelled'].map((tab) {
                 final isSelected = _selectedStatusTab == tab;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedStatusTab = tab;
-                    });
-                    _applyFilters();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.brandPurple : Colors.transparent,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      tab,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : AppTheme.darkGrey,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedStatusTab = tab;
+                      });
+                      _applyFilters();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.brandPurple : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? Colors.transparent : Colors.white10,
+                        ),
+                      ),
+                      child: Text(
+                        tab,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.darkGrey,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ),
@@ -261,14 +264,22 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
   Color _getStatusColor(String status) {
     final s = status.toLowerCase();
-    if (s.contains('pending') || s.contains('incoming')) {
+    if (s.contains('incoming')) {
       return AppTheme.safetyOrange;
-    } else if (s.contains('progress') || s.contains('stitching')) {
+    } else if (s.contains('measuring')) {
       return AppTheme.brandPurple;
-    } else if (s.contains('ready') || s.contains('completed')) {
+    } else if (s.contains('cutting')) {
+      return AppTheme.safetyOrange;
+    } else if (s.contains('stitching')) {
+      return AppTheme.brandPurple;
+    } else if (s.contains('checking')) {
+      return AppTheme.marigold;
+    } else if (s.contains('ready')) {
       return AppTheme.trustGreen;
     } else if (s.contains('delivered')) {
       return AppTheme.navyBlue;
+    } else if (s.contains('cancelled')) {
+      return AppTheme.alertRed;
     }
     return AppTheme.darkGrey;
   }
