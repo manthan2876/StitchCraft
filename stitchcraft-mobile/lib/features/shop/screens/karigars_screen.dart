@@ -169,6 +169,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                             return;
                           }
 
+                          final messenger = ScaffoldMessenger.of(context);
                           Navigator.pop(context);
                           setState(() => _isLoading = true);
 
@@ -199,9 +200,8 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                                     body: body,
                                   );
 
-                            final messenger2 = ScaffoldMessenger.of(context);
                             if (response.statusCode == 200 || response.statusCode == 201) {
-                              messenger2.showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(isEdit ? 'Karigar updated successfully' : 'Karigar added successfully'),
                                   backgroundColor: AppTheme.trustGreen,
@@ -212,7 +212,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                               throw Exception(json.decode(response.body)['message'] ?? 'Error occurred');
                             }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(content: Text('Error saving: $e'), backgroundColor: AppTheme.alertRed),
                             );
                             if (mounted) setState(() => _isLoading = false);

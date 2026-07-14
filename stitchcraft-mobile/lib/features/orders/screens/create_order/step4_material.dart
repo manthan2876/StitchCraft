@@ -131,7 +131,9 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                         child: RadioListTile(
                           title: Text('Customer', style: TextStyle(color: theme.colorScheme.onSurface)),
                           value: 'Customer',
+                          // ignore: deprecated_member_use
                           groupValue: _fabricSource,
+                          // ignore: deprecated_member_use
                           onChanged: (val) => setState(() => _fabricSource = val.toString()),
                           activeColor: AppTheme.brandPurple,
                         ),
@@ -140,7 +142,9 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                         child: RadioListTile(
                           title: Text('Shop', style: TextStyle(color: theme.colorScheme.onSurface)),
                           value: 'Shop',
+                          // ignore: deprecated_member_use
                           groupValue: _fabricSource,
+                          // ignore: deprecated_member_use
                           onChanged: (val) => setState(() => _fabricSource = val.toString()),
                           activeColor: AppTheme.brandPurple,
                         ),
@@ -166,6 +170,7 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                       Switch(
                         value: _needsLining,
                         onChanged: (val) => setState(() => _needsLining = val),
+                        // ignore: deprecated_member_use
                         activeColor: AppTheme.brandPurple,
                       ),
                     ],
@@ -179,6 +184,7 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                             : DropdownButtonFormField<Map<String, dynamic>>(
                                 dropdownColor: AppTheme.darkCard,
                                 decoration: const InputDecoration(labelText: 'Select Lining Stock'),
+                                // ignore: deprecated_member_use
                                 value: _selectedLiningItem,
                                 items: _inventoryItems.map((item) {
                                   final name = item['itemName'] ?? 'Material';

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -28,7 +29,7 @@ class NotificationService {
   // Initialize notifications
   Future<void> init() async {
     if (!isMobile) {
-      print("Notification initialization skipped: not on mobile platform.");
+      developer.log("Notification initialization skipped: not on mobile platform.");
       return;
     }
 
@@ -36,9 +37,9 @@ class NotificationService {
     tz.initializeTimeZones();
     try {
       tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
-      print("Timezone set to Asia/Kolkata");
+      developer.log("Timezone set to Asia/Kolkata");
     } catch (e) {
-      print("Could not set timezone: $e");
+      developer.log("Could not set timezone: $e");
     }
 
     // 2. Local Notifications Setup
@@ -85,9 +86,9 @@ class NotificationService {
     // Get Device Token (Optional: for testing push)
     try {
       String? token = await _firebaseMessaging?.getToken();
-      print("FCM Device Token: $token");
+      developer.log("FCM Device Token: $token");
     } catch (e) {
-      print("Error getting FCM Token: $e");
+      developer.log("Error getting FCM Token: $e");
     }
   }
 
@@ -109,7 +110,7 @@ class NotificationService {
   // Show Instant Notification
   Future<void> showInstantNotification(String title, String body, {int id = 0}) async {
     if (!isMobile) {
-      print("Notification skipped: not on mobile platform.");
+      developer.log("Notification skipped: not on mobile platform.");
       return;
     }
 
@@ -138,13 +139,13 @@ class NotificationService {
   Future<void> scheduleNotification(
       int id, String title, String body, int seconds) async {
     if (!isMobile) {
-      print("Notification skipped: not on mobile platform.");
+      developer.log("Notification skipped: not on mobile platform.");
       return;
     }
 
     final scheduledTime = tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
     
-    print("Scheduling notification (id: $id) for: $scheduledTime (Current local time: ${tz.TZDateTime.now(tz.local)})");
+    developer.log("Scheduling notification (id: $id) for: $scheduledTime (Current local time: ${tz.TZDateTime.now(tz.local)})");
 
     await _localNotificationsPlugin.zonedSchedule(
       id,
@@ -182,11 +183,11 @@ class NotificationService {
 
   // Handle Notification Taps (Local)
   void _onNotificationTapped(NotificationResponse response) {
-    print("Notification Tapped: ${response.payload}");
+    developer.log("Notification Tapped: ${response.payload}");
   }
 
   // Handle Notification Clicks (FCM Background/Terminated)
   void _handleNotificationClick(RemoteMessage message) {
-    print("FCM Message Clicked: ${message.data}");
+    developer.log("FCM Message Clicked: ${message.data}");
   }
 }

@@ -208,6 +208,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                       final qty = double.tryParse(qtyController.text) ?? 0.0;
                       if (name.isEmpty) return;
 
+                      final nav = Navigator.of(context);
                       try {
                         final token = await _authService.getToken();
                         final response = await http.put(
@@ -227,7 +228,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                         );
 
                         if (response.statusCode == 200) {
-                          Navigator.pop(context, true);
+                          nav.pop(true);
                         } else {
                           throw Exception('Failed to update stock');
                         }

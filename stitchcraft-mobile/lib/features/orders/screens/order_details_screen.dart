@@ -62,11 +62,15 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       }
     } catch (e) {
       developer.log("Error loading order details: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading details: $e'), backgroundColor: AppTheme.alertRed),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading details: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -75,6 +79,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final orderId = _order!['_id'] ?? _order!['id'];
 
     setState(() => _isLoading = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.put(
@@ -87,7 +92,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(content: Text('Status updated to $newStatus'), backgroundColor: AppTheme.trustGreen),
         );
         _loadOrderDetails(orderId);
@@ -95,10 +100,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         throw Exception(json.decode(response.body)['message'] ?? 'Failed to update status');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
       );
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -107,7 +114,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     if (noteText.isEmpty || _order == null) return;
     final orderId = _order!['_id'] ?? _order!['id'];
 
-    setState(() => _isLoading = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.post(
@@ -126,10 +133,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         throw Exception(json.decode(response.body)['message'] ?? 'Failed to add note');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error adding note: $e'), backgroundColor: AppTheme.alertRed),
       );
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -139,6 +148,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final amountController = TextEditingController();
     String method = 'Cash';
 
+    final messenger = ScaffoldMessenger.of(context);
     final success = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -164,6 +174,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     dropdownColor: AppTheme.darkCard,
+                    // ignore: deprecated_member_use
                     value: method,
                     decoration: const InputDecoration(
                       labelText: 'Payment Method',
@@ -171,8 +182,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     ),
                     items: const [
                       DropdownMenuItem(value: 'Cash', child: Text('Cash', style: TextStyle(color: Colors.white))),
+                      DropdownMenuItem(value: 'UPI/Online', child: Text('UPI/Online', style: TextStyle(color: Colors.white))),
                       DropdownMenuItem(value: 'Card', child: Text('Card', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Online', child: Text('Online UPI', style: TextStyle(color: Colors.white))),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -219,7 +230,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Payment recorded successfully'), backgroundColor: AppTheme.trustGreen),
         );
         _loadOrderDetails(orderId);
@@ -227,10 +238,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         throw Exception(json.decode(response.body)['message'] ?? 'Failed to record payment');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error recording payment: $e'), backgroundColor: AppTheme.alertRed),
       );
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

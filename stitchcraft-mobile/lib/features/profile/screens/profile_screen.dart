@@ -227,6 +227,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   Future<void> _addShop(String name, String phone, String address) async {
     setState(() => _isLoading = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.post(
@@ -243,7 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Shop registered successfully'), backgroundColor: AppTheme.trustGreen),
         );
         _loadProfile();
@@ -251,15 +252,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         throw Exception('Failed to add shop');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
       );
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _editShop(String id, String name, String phone, String address) async {
     setState(() => _isLoading = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.put(
@@ -276,7 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Shop updated successfully'), backgroundColor: AppTheme.trustGreen),
         );
         _loadProfile();
@@ -284,15 +288,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         throw Exception('Failed to update shop');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
       );
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _deleteShop(String id) async {
     setState(() => _isLoading = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.delete(
@@ -304,7 +311,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Shop deleted successfully'), backgroundColor: AppTheme.trustGreen),
         );
         _loadProfile();
@@ -312,10 +319,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         throw Exception('Failed to delete shop');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
       );
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

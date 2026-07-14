@@ -46,7 +46,7 @@ class SettingsTab extends StatelessWidget {
                 style: TextStyle(color: theme.colorScheme.onSurface),
               ),
               value: isDark,
-              activeColor: AppTheme.brandPurple,
+              activeThumbColor: AppTheme.brandPurple,
               onChanged: (bool val) {
                 themeService.setThemeMode(val ? ThemeMode.dark : ThemeMode.light);
               },

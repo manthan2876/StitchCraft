@@ -92,6 +92,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
   Future<void> _confirmAndCreateOrder() async {
     if (_wizardData == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
     setState(() => _isLoading = true);
 
     try {
@@ -183,19 +185,21 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
           );
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Tailoring Order created successfully!'), backgroundColor: AppTheme.trustGreen),
         );
-        Navigator.popUntil(context, ModalRoute.withName('/home'));
+        nav.popUntil(ModalRoute.withName('/home'));
       } else {
         throw Exception(json.decode(orderResponse.body)['message'] ?? 'Failed to save order');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error creating order: $e'), backgroundColor: AppTheme.alertRed),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -272,6 +276,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                         DropdownButtonFormField<Map<String, dynamic>>(
                           dropdownColor: AppTheme.darkCard,
                           decoration: const InputDecoration(labelText: 'Assign Karigar (Staff)'),
+                          // ignore: deprecated_member_use
                           value: _selectedKarigar,
                           items: _karigars.map((k) {
                             final name = k['name'] ?? 'Staff';
@@ -287,6 +292,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                         DropdownButtonFormField<Map<String, dynamic>>(
                           dropdownColor: AppTheme.darkCard,
                           decoration: const InputDecoration(labelText: 'Assign Sewing Machine'),
+                          // ignore: deprecated_member_use
                           value: _selectedMachine,
                           items: _machines.map((m) {
                             final name = m['name'] ?? 'Machine';

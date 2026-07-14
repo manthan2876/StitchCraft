@@ -60,9 +60,11 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       }
     } catch (e) {
       developer.log("Error loading invoice: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading invoice: $e'), backgroundColor: AppTheme.alertRed),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading invoice: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -106,9 +108,11 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         throw Exception('Could not launch WhatsApp');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error launching WhatsApp: $e'), backgroundColor: AppTheme.alertRed),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error launching WhatsApp: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
     }
   }
 
@@ -146,9 +150,11 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         throw Exception('Could not launch WhatsApp');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error launching WhatsApp: $e'), backgroundColor: AppTheme.alertRed),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error launching WhatsApp: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
     }
   }
 

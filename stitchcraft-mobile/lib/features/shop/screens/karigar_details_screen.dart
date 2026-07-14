@@ -185,6 +185,7 @@ class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
                       final name = nameController.text.trim();
                       if (name.isEmpty) return;
 
+                      final nav = Navigator.of(context);
                       try {
                         final token = await _authService.getToken();
                         final response = await http.put(
@@ -202,7 +203,7 @@ class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
                         );
 
                         if (response.statusCode == 200) {
-                          Navigator.pop(context, true);
+                          nav.pop(true);
                         } else {
                           throw Exception('Failed to update karigar');
                         }

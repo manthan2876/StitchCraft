@@ -56,9 +56,11 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> with Sing
       }
     } catch (e) {
       developer.log("Error loading customer profile: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading customer profile: $e'), backgroundColor: AppTheme.alertRed),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading customer profile: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
