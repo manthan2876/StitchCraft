@@ -17,9 +17,13 @@ const userSchema = new mongoose.Schema(
       ],
       lowercase: true,
     },
+    supabaseId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     password: {
       type: String,
-      required: [true, 'Please add a password'],
     },
     role: {
       type: String,
@@ -56,7 +60,7 @@ const userSchema = new mongoose.Schema(
 
 // Encrypt password using bcrypt
 userSchema.pre('save', async function () {
-  if (!this.isModified('password')) {
+  if (!this.password || !this.isModified('password')) {
     return;
   }
   const salt = await bcrypt.genSalt(10);

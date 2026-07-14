@@ -1,45 +1,109 @@
-/* controllers/authController.js */
 import User from '../models/User.js';
-import {
-  registerShopOwner,
-  loginShopOwner,
-} from '../services/authService.js';
+import Shop from '../models/Shop.js';
+import { supabase } from '../config/supabase.js';
 
 // @desc    Register a new shop owner and create a shop
 // @route   POST /api/auth/register
 // @access  Public
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, password, shopName, phone, address } = req.body;
-    if (!name || !email || !password || !shopName) {
-      return res.status(400).json({ message: 'Please provide name, email, password, and shopName' });
+    const { name, email, shopName, phone, address } = req.body;
+    let token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      return res.status(400).json({ message: 'Supabase authorization token required' });
     }
 
-    const result = await registerShopOwner(name, email, password, shopName, phone, address);
-    res.status(201).json(result);
+    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+    if (error || !supabaseUser) {
+      return res.status(401).json({ message: 'Invalid Supabase token: ' + (error?.message || 'Invalid user') });
+    }
+
+    const emailLower = (email || supabaseUser.email).toLowerCase();
+    let userExists = await User.findOne({ $or: [{ email: emailLower }, { supabaseId: supabaseUser.id }] });
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists in MongoDB database' });
+    }
+
+    const user = new User({
+      name: name || supabaseUser.user_metadata?.name || 'Shop Owner',
+      email: emailLower,
+      role: 'owner',
+      supabaseId: supabaseUser.id,
+      password: 'SUPABASE_MANAGED_PASSWORD_PLACEHOLDER'
+    });
+    await user.save();
+
+    const shop = new Shop({
+      shopName: shopName || `${user.name}'s Shop`,
+      ownerId: user._id,
+      phone: phone || '',
+      address: address || '',
+    });
+    await shop.save();
+
+    user.shopId = shop._id;
+    await user.save();
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      shopId: shop._id,
+      shopName: shop.shopName,
+      token: token,
+    });
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Authenticate user & get token
+// @desc    Authenticate user & get token (checks Supabase token and gets MongoDB details)
 // @route   POST /api/auth/login
 // @access  Public
 export const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
+    let token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(400).json({ message: 'Supabase authorization token required in header' });
     }
 
-    const result = await loginShopOwner(email, password);
-    res.json(result);
-  } catch (error) {
-    console.error('Login error:', error, error.message);
-    if (error.message === 'Invalid email or password' || error.message === 'This account has been permanently deleted.') {
-      return res.status(401).json({ message: error.message });
+    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+    if (error || !supabaseUser) {
+      return res.status(401).json({ message: 'Invalid Supabase token: ' + (error?.message || 'Invalid user') });
     }
+
+    let user = await User.findOne({
+      $or: [
+        { supabaseId: supabaseUser.id },
+        { email: supabaseUser.email.toLowerCase() }
+      ]
+    }).populate('shopId');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User profile not found in MongoDB database' });
+    }
+
+    if (!user.supabaseId) {
+      user.supabaseId = supabaseUser.id;
+      await user.save();
+    }
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      shopId: user.shopId ? user.shopId._id : null,
+      shopName: user.shopId ? user.shopId.shopName : '',
+      token: token,
+    });
+  } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: error.message });
   }
 };

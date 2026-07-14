@@ -62,6 +62,7 @@ dependencies:
   encrypt: ^5.0.3
   image_picker: ^1.0.7
   flutter_native_splash: ^2.4.0
+  supabase_flutter: ^2.16.0
 
 dev_dependencies:
   flutter_test:

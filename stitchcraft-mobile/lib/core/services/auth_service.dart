@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/models/user_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
   final DatabaseService _dbService = DatabaseService();
@@ -14,20 +15,35 @@ class AuthService {
     return 'https://stitchcraft-backend.onrender.com/api';
   }
 
-  // Sign Up
+  // Sign Up via Supabase Auth & provision MongoDB Atlas
   Future<Map<String, dynamic>?> signUp(String email, String password, String name) async {
     try {
       if (email.isEmpty || password.isEmpty) {
         throw Exception('Email and password cannot be empty');
       }
 
+      // 1. Sign up with Supabase Auth
+      final sbResponse = await Supabase.instance.client.auth.signUp(
+        email: email,
+        password: password,
+        data: {'name': name},
+      );
+
+      final String? token = sbResponse.session?.accessToken;
+      if (token == null) {
+        throw Exception('Please verify your email address to complete registration.');
+      }
+
+      // 2. Provision user profile & default shop inside MongoDB Atlas
       final response = await http.post(
         Uri.parse('$baseUrl/auth/register'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: json.encode({
           'name': name,
           'email': email,
-          'password': password,
         }),
       );
 
@@ -47,7 +63,7 @@ class AuthService {
         await _dbService.addUser(newUser);
 
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token'] ?? '');
+        await prefs.setString('token', token);
         await prefs.setString('userId', newUser.id);
         await prefs.setString('userName', newUser.name);
         await prefs.setString('userRole', data['role'] ?? 'staff');
@@ -66,20 +82,31 @@ class AuthService {
     }
   }
 
-  // Login & Save Session
+  // Login via Supabase Auth & sync profile details from MongoDB Atlas
   Future<Map<String, dynamic>?> login(String email, String password) async {
     try {
       if (email.isEmpty || password.isEmpty) {
         throw Exception('Email and password cannot be empty');
       }
 
+      // 1. Authenticate with Supabase Auth
+      final sbResponse = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      final String? token = sbResponse.session?.accessToken;
+      if (token == null) {
+        throw Exception('Failed to obtain authentication token from Supabase');
+      }
+
+      // 2. Fetch corresponding MongoDB Atlas user profile details
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'password': password,
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
       );
 
       final data = json.decode(response.body);
@@ -89,7 +116,6 @@ class AuthService {
         final String userName = data['name'] ?? '';
         final String userEmail = data['email'] ?? email;
         final String role = data['role'] ?? 'staff';
-        final String token = data['token'] ?? '';
         final String? shopId = data['shopId'] is Map ? data['shopId']['_id'] : data['shopId'];
 
         // Save local user copy
@@ -128,9 +154,10 @@ class AuthService {
     }
   }
 
-  // Logout
+  // Logout cleanly from both Supabase Auth and Local Session
   Future<void> logout() async {
     try {
+      await Supabase.instance.client.auth.signOut();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', false);
       await prefs.remove('token');

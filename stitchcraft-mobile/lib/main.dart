@@ -36,9 +36,15 @@ import 'package:stitchcraft/features/orders/screens/customer_list_screen.dart';
 import 'package:stitchcraft/features/orders/screens/invoice_screen.dart';
 import 'package:stitchcraft/features/orders/screens/order_details_screen.dart';
 import 'package:stitchcraft/features/orders/screens/customer_details_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://rbpntprbizoqqittxuqc.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicG50cHJiaXpvcXFpdHR4dXFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NjAzMzcsImV4cCI6MjA5NzMzNjMzN30.HJS3Q2E6B2ex3lO6qZaSgNtYhQJt1KdiVsRJ8tyyus4',
+  );
   
   // Load localizations before run
   await LocalizationService().loadLanguage();
