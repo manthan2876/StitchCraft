@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/widgets/voice_text_field.dart';
@@ -15,6 +18,42 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
   Map<String, dynamic>? _wizardData;
   Map<String, TextEditingController> _controllers = {};
   List<String> _fields = [];
+  String? _samplePhotoPath;
+
+  Future<void> _pickSampleImage() async {
+    final picker = ImagePicker();
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Text('Select Photo Source', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, ImageSource.camera),
+            icon: const Icon(Icons.camera_alt, color: AppTheme.brandPurple),
+            label: const Text('Camera', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, ImageSource.gallery),
+            icon: const Icon(Icons.photo_library, color: AppTheme.brandPurple),
+            label: const Text('Gallery', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (source == null) return;
+    try {
+      final pickedFile = await picker.pickImage(source: source);
+      if (pickedFile != null) {
+        setState(() {
+          _samplePhotoPath = pickedFile.path;
+        });
+      }
+    } catch (e) {
+      developer.log("Error picking sample image: $e");
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -45,13 +84,19 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
   void _onNext() {
     if (_wizardData == null) return;
 
-    final Map<String, double> measurements = {};
-    for (final f in _fields) {
-      final val = double.tryParse(_controllers[f]!.text.trim()) ?? 0.0;
-      measurements[f.toLowerCase()] = val;
+    if (_isBodyMeasurement) {
+      final Map<String, double> measurements = {};
+      for (final f in _fields) {
+        final val = double.tryParse(_controllers[f]!.text.trim()) ?? 0.0;
+        measurements[f.toLowerCase()] = val;
+      }
+      _wizardData!['measurements'] = measurements;
+      _wizardData!.remove('samplePhotoPath');
+    } else {
+      _wizardData!['measurements'] = <String, double>{};
+      _wizardData!['samplePhotoPath'] = _samplePhotoPath;
     }
 
-    _wizardData!['measurements'] = measurements;
     _wizardData!['measurementType'] = _isBodyMeasurement ? 'body' : 'sample';
 
     Navigator.pushNamed(context, '/create_order_step4', arguments: _wizardData);
@@ -89,59 +134,112 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
           ),
           
           Expanded(
-            child: Row(
-              children: [
-                // Guide mannequin view
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: theme.cardTheme.color,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Center(
+            child: _isBodyMeasurement
+                ? Row(
+                    children: [
+                      // Guide mannequin view
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          margin: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: theme.cardTheme.color,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.accessibility_new_outlined,
+                                  size: 80,
+                                  color: AppTheme.brandPurple.withValues(alpha: 0.15),
+                                ),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Body View',
+                                  style: TextStyle(color: AppTheme.darkGrey, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      // Form field list
+                      Expanded(
+                        flex: 3,
+                        child: ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: _fields.map((f) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: VoiceTextField(
+                                label: f,
+                                controller: _controllers[f]!,
+                                keyboardType: TextInputType.number,
+                                hint: '0.0 in',
+                                onMicTap: () {},
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  )
+                : Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            _isBodyMeasurement ? Icons.accessibility_new_outlined : Icons.layers_outlined,
-                            size: 80,
-                            color: AppTheme.brandPurple.withValues(alpha: 0.15),
+                          const Text(
+                            'Please upload or take a photo of the sample garment (Namuna)',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _isBodyMeasurement ? 'Body View' : 'Garment Sample',
-                            style: const TextStyle(color: AppTheme.darkGrey, fontSize: 13),
+                          const SizedBox(height: 24),
+                          GestureDetector(
+                            onTap: _pickSampleImage,
+                            child: Container(
+                              width: double.infinity,
+                              height: 250,
+                              decoration: BoxDecoration(
+                                color: theme.cardTheme.color,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.white10),
+                              ),
+                              child: _samplePhotoPath != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Image.file(
+                                        File(_samplePhotoPath!),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.camera_alt_outlined, size: 50, color: AppTheme.brandPurple),
+                                        const SizedBox(height: 12),
+                                        const Text('Tap to Take/Upload Photo', style: TextStyle(color: AppTheme.darkGrey)),
+                                      ],
+                                    ),
+                            ),
                           ),
+                          if (_samplePhotoPath != null) ...[
+                            const SizedBox(height: 16),
+                            TextButton.icon(
+                              onPressed: _pickSampleImage,
+                              icon: const Icon(Icons.refresh, color: AppTheme.brandPurple),
+                              label: const Text('Change Photo', style: TextStyle(color: AppTheme.brandPurple)),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ),
-                ),
-                
-                // Form field list
-                Expanded(
-                  flex: 3,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: _fields.map((f) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
-                        child: VoiceTextField(
-                          label: f,
-                          controller: _controllers[f]!,
-                          keyboardType: TextInputType.number,
-                          hint: '0.0 in',
-                          onMicTap: () {},
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
           ),
           
           Padding(
