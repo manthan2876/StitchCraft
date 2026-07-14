@@ -6,33 +6,33 @@ import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 
-class InventoryDetailsScreen extends StatefulWidget {
-  const InventoryDetailsScreen({super.key});
+class KarigarDetailsScreen extends StatefulWidget {
+  const KarigarDetailsScreen({super.key});
 
   @override
-  State<InventoryDetailsScreen> createState() => _InventoryDetailsScreenState();
+  State<KarigarDetailsScreen> createState() => _KarigarDetailsScreenState();
 }
 
-class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
+class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
   final _authService = AuthService();
   bool _isLoading = false;
-  Map<String, dynamic>? _item;
+  Map<String, dynamic>? _karigar;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_item == null) {
-      final itemId = ModalRoute.of(context)!.settings.arguments as String;
-      _loadItemDetails(itemId);
+    if (_karigar == null) {
+      final karigarId = ModalRoute.of(context)!.settings.arguments as String;
+      _loadKarigarDetails(karigarId);
     }
   }
 
-  Future<void> _loadItemDetails(String itemId) async {
+  Future<void> _loadKarigarDetails(String karigarId) async {
     setState(() => _isLoading = true);
     try {
       final token = await _authService.getToken();
       final response = await http.get(
-        Uri.parse('${AuthService.baseUrl}/inventory/$itemId'),
+        Uri.parse('${AuthService.baseUrl}/karigars/$karigarId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -41,13 +41,13 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
 
       if (response.statusCode == 200) {
         setState(() {
-          _item = json.decode(response.body);
+          _karigar = json.decode(response.body);
         });
       } else {
-        throw Exception('Failed to load inventory item details');
+        throw Exception('Failed to load karigar details');
       }
     } catch (e) {
-      developer.log("Error loading inventory item: $e");
+      developer.log("Error loading karigar: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
@@ -58,16 +58,16 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     }
   }
 
-  Future<void> _deleteItem() async {
-    if (_item == null) return;
-    final itemId = _item!['_id'] ?? _item!['id'];
+  Future<void> _deleteKarigar() async {
+    if (_karigar == null) return;
+    final karigarId = _karigar!['_id'] ?? _karigar!['id'];
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.darkCard,
-        title: const Text('Delete Material', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to permanently delete this item from your stock?', style: TextStyle(color: Colors.white70)),
+        title: const Text('Delete Karigar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to delete this karigar from the database? This cannot be undone.', style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -89,7 +89,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     try {
       final token = await _authService.getToken();
       final response = await http.delete(
-        Uri.parse('${AuthService.baseUrl}/inventory/$itemId'),
+        Uri.parse('${AuthService.baseUrl}/karigars/$karigarId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -98,11 +98,11 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
 
       if (response.statusCode == 200) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Item deleted successfully'), backgroundColor: AppTheme.trustGreen),
+          const SnackBar(content: Text('Karigar deleted successfully'), backgroundColor: AppTheme.trustGreen),
         );
         nav.pop(true);
       } else {
-        throw Exception('Failed to delete item');
+        throw Exception('Failed to delete karigar');
       }
     } catch (e) {
       messenger.showSnackBar(
@@ -112,15 +112,13 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     }
   }
 
-  Future<void> _editItem() async {
-    if (_item == null) return;
+  Future<void> _editKarigar() async {
+    if (_karigar == null) return;
 
-    final nameController = TextEditingController(text: _item!['itemName']);
-    final typeController = TextEditingController(text: _item!['itemType']);
-    final qtyController = TextEditingController(text: _item!['quantity']?.toString());
-    final costController = TextEditingController(text: _item!['costPerUnit']?.toString());
-    final limitController = TextEditingController(text: _item!['minQuantity']?.toString());
-    final unitController = TextEditingController(text: _item!['unit'] ?? 'meters');
+    final nameController = TextEditingController(text: _karigar!['name']);
+    final phoneController = TextEditingController(text: _karigar!['phone']);
+    final specialtyController = TextEditingController(text: _karigar!['specialty']);
+    String status = _karigar!['status'] ?? 'Active';
 
     final updated = await showModalBottomSheet<bool>(
       context: context,
@@ -134,63 +132,43 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Edit Material Stock Details',
+                'Edit Karigar Profile',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: nameController,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(labelText: 'Item Name'),
+                decoration: const InputDecoration(labelText: 'Full Name'),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: typeController,
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(labelText: 'Type (Lining, Fabric, Thread, Accessories, Other)'),
+                decoration: const InputDecoration(labelText: 'Phone Number'),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: qtyController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'Quantity'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: unitController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'Unit (e.g. meters)'),
-                    ),
-                  ),
-                ],
+              TextField(
+                controller: specialtyController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: 'Specialty (e.g. Shirts, Pants, Suits)'),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: costController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'Cost Per Unit (₹)'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: limitController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: 'Alert Threshold'),
-                    ),
-                  ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                dropdownColor: AppTheme.darkCard,
+                // ignore: deprecated_member_use
+                value: status,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: const [
+                  DropdownMenuItem(value: 'Active', child: Text('Active', style: TextStyle(color: Colors.white))),
+                  DropdownMenuItem(value: 'Inactive', child: Text('Inactive', style: TextStyle(color: Colors.white))),
                 ],
+                onChanged: (val) {
+                  if (val != null) {
+                    status = val;
+                  }
+                },
               ),
               const SizedBox(height: 24),
               Row(
@@ -205,31 +183,28 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandPurple),
                     onPressed: () async {
                       final name = nameController.text.trim();
-                      final qty = double.tryParse(qtyController.text) ?? 0.0;
                       if (name.isEmpty) return;
 
                       try {
                         final token = await _authService.getToken();
                         final response = await http.put(
-                          Uri.parse('${AuthService.baseUrl}/inventory/${_item!['_id']}'),
+                          Uri.parse('${AuthService.baseUrl}/karigars/${_karigar!['_id']}'),
                           headers: {
                             'Content-Type': 'application/json',
                             'Authorization': 'Bearer $token',
                           },
                           body: json.encode({
-                            'itemName': name,
-                            'itemType': typeController.text.trim(),
-                            'quantity': qty,
-                            'unit': unitController.text.trim(),
-                            'costPerUnit': double.tryParse(costController.text) ?? 0.0,
-                            'minQuantity': double.tryParse(limitController.text) ?? 5.0,
+                            'name': name,
+                            'phone': phoneController.text.trim(),
+                            'specialty': specialtyController.text.trim(),
+                            'status': status,
                           }),
                         );
 
                         if (response.statusCode == 200) {
                           Navigator.pop(context, true);
                         } else {
-                          throw Exception('Failed to update stock');
+                          throw Exception('Failed to update karigar');
                         }
                       } catch (e) {
                         developer.log("Error saving edit: $e");
@@ -246,41 +221,36 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     );
 
     if (updated == true && mounted) {
-      _loadItemDetails(_item!['_id'] ?? _item!['id']);
+      _loadKarigarDetails(_karigar!['_id'] ?? _karigar!['id']);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final String title = _item != null ? _item!['itemName'] ?? 'Material' : 'Loading Stock Item...';
-
-    final double quantity = (_item?['quantity'] as num?)?.toDouble() ?? 0.0;
-    final double limit = (_item?['minQuantity'] as num?)?.toDouble() ?? 5.0;
-    final bool isLowStock = quantity <= limit;
-    final String unit = _item?['unit'] ?? 'meters';
+    final String title = _karigar != null ? _karigar!['name'] ?? 'Karigar' : 'Loading Karigar...';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(title),
-        actions: _item != null
+        actions: _karigar != null
             ? [
-                IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _editItem),
-                IconButton(icon: const Icon(Icons.delete_outline, color: AppTheme.alertRed), onPressed: _deleteItem),
+                IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _editKarigar),
+                IconButton(icon: const Icon(Icons.delete_outline, color: AppTheme.alertRed), onPressed: _deleteKarigar),
               ]
             : null,
       ),
-      body: _isLoading && _item == null
+      body: _isLoading && _karigar == null
           ? const Center(child: CircularProgressIndicator())
-          : _item == null
-              ? const Center(child: Text('Failed to load item', style: TextStyle(color: Colors.white)))
+          : _karigar == null
+              ? const Center(child: Text('Failed to load karigar details', style: TextStyle(color: Colors.white)))
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Inventory specs NeoCard
+                      // Profile Card
                       NeoCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,19 +259,24 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  _item!['itemName'] ?? 'Material',
+                                  _karigar!['name'] ?? 'Tailoring Staff',
                                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: (isLowStock ? AppTheme.alertRed : AppTheme.trustGreen).withValues(alpha: 0.15),
+                                    color: ((_karigar!['status'] ?? 'Active').toLowerCase() == 'active'
+                                            ? AppTheme.trustGreen
+                                            : AppTheme.darkGrey)
+                                        .withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    isLowStock ? 'LOW STOCK' : 'IN STOCK',
+                                    (_karigar!['status'] ?? 'Active').toUpperCase(),
                                     style: TextStyle(
-                                      color: isLowStock ? AppTheme.alertRed : AppTheme.trustGreen,
+                                      color: (_karigar!['status'] ?? 'Active').toLowerCase() == 'active'
+                                          ? AppTheme.trustGreen
+                                          : AppTheme.darkGrey,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -310,10 +285,8 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                               ],
                             ),
                             const Divider(color: Colors.white10, height: 24),
-                            _infoRow('Item Category', _item!['itemType'] ?? 'General'),
-                            _infoRow('Quantity Available', '$quantity $unit'),
-                            _infoRow('Cost Per Unit', '₹${_item!['costPerUnit'] ?? 0}/$unit'),
-                            _infoRow('Min Warning Limit', '$limit $unit'),
+                            _infoRow('Phone Number', _karigar!['phone'] ?? 'N/A'),
+                            _infoRow('Specialty Type', _karigar!['specialty'] ?? 'All Categories'),
                           ],
                         ),
                       ),

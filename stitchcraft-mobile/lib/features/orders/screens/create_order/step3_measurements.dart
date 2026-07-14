@@ -12,30 +12,72 @@ class MeasurementInputScreen extends StatefulWidget {
 
 class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
   bool _isBodyMeasurement = true;
-  final Map<String, TextEditingController> _controllers = {
-    'Length': TextEditingController(),
-    'Shoulder': TextEditingController(),
-    'Chest': TextEditingController(),
-    'Waist': TextEditingController(),
-    'Sleeve': TextEditingController(),
-  };
+  Map<String, dynamic>? _wizardData;
+  Map<String, TextEditingController> _controllers = {};
+  List<String> _fields = [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_wizardData == null) {
+      _wizardData = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      _initFields();
+    }
+  }
+
+  void _initFields() {
+    final garment = _wizardData?['garmentType']?.toString().toLowerCase() ?? 'shirt';
+    if (garment.contains('shirt')) {
+      _fields = ['Length', 'Chest', 'Waist', 'Shoulder', 'Sleeve', 'Neck'];
+    } else if (garment.contains('pant') || garment.contains('trouser')) {
+      _fields = ['Length', 'Waist', 'Hip', 'Inseam', 'Thigh', 'Bottom'];
+    } else if (garment.contains('suit') || garment.contains('kurta')) {
+      _fields = ['Length', 'Shoulder', 'Chest', 'Waist', 'Sleeve', 'Collar'];
+    } else {
+      _fields = ['Length', 'Shoulder', 'Chest', 'Waist', 'Sleeve'];
+    }
+
+    _controllers = {
+      for (final f in _fields) f: TextEditingController()
+    };
+  }
+
+  void _onNext() {
+    if (_wizardData == null) return;
+
+    final Map<String, double> measurements = {};
+    for (final f in _fields) {
+      final val = double.tryParse(_controllers[f]!.text.trim()) ?? 0.0;
+      measurements[f.toLowerCase()] = val;
+    }
+
+    _wizardData!['measurements'] = measurements;
+    _wizardData!['measurementType'] = _isBodyMeasurement ? 'body' : 'sample';
+
+    Navigator.pushNamed(context, '/create_order_step4', arguments: _wizardData);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final String garmentTitle = _wizardData?['garmentType'] ?? 'Garment';
+
     return Scaffold(
-      backgroundColor: AppTheme.cream,
-      appBar: AppBar(title: const Text('Measurements')),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text('$garmentTitle Measurements'),
+      ),
       body: Column(
         children: [
-          // Toggle Switch
+          // Toggle Option: Body vs Sample
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Container(
               height: 50,
               decoration: BoxDecoration(
-                color: Theme.of(context).cardTheme.color,
+                color: theme.cardTheme.color,
                 borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: AppTheme.navyBlue),
+                border: Border.all(color: AppTheme.lightGrey),
               ),
               child: Row(
                 children: [
@@ -49,29 +91,29 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
           Expanded(
             child: Row(
               children: [
-                // Visual Guide (Left)
+                // Guide mannequin view
                 Expanded(
-                  flex: 2, // 40%
+                  flex: 2,
                   child: Container(
                     margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardTheme.color,
+                      color: theme.cardTheme.color,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.lightGrey),
+                      border: Border.all(color: Colors.white10),
                     ),
                     child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            _isBodyMeasurement ? Icons.accessibility_new : Icons.layers,
-                            size: 100,
-                            color: AppTheme.navyBlue.withValues(alpha: 0.2),
+                            _isBodyMeasurement ? Icons.accessibility_new_outlined : Icons.layers_outlined,
+                            size: 80,
+                            color: AppTheme.brandPurple.withValues(alpha: 0.15),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           Text(
-                            _isBodyMeasurement ? 'Mannequin View' : 'Folded View',
-                            style: const TextStyle(color: Colors.grey),
+                            _isBodyMeasurement ? 'Body View' : 'Garment Sample',
+                            style: const TextStyle(color: AppTheme.darkGrey, fontSize: 13),
                           ),
                         ],
                       ),
@@ -79,19 +121,19 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
                   ),
                 ),
                 
-                // Inputs (Right)
+                // Form field list
                 Expanded(
-                  flex: 3, // 60%
+                  flex: 3,
                   child: ListView(
                     padding: const EdgeInsets.all(16),
-                    children: _controllers.keys.map((label) {
+                    children: _fields.map((f) {
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
+                        padding: const EdgeInsets.only(bottom: 12.0),
                         child: VoiceTextField(
-                          label: label,
-                          controller: _controllers[label]!,
+                          label: f,
+                          controller: _controllers[f]!,
                           keyboardType: TextInputType.number,
-                          hint: '0.0',
+                          hint: '0.0 in',
                           onMicTap: () {},
                         ),
                       );
@@ -102,14 +144,11 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
             ),
           ),
           
-          // Next Button
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: PrimaryButton(
-              text: 'Next: Material',
-              onPressed: () {
-                 Navigator.pushNamed(context, '/create_order_step3');
-              },
+              text: 'Next: Material & Fabric',
+              onPressed: _onNext,
             ),
           ),
         ],
@@ -128,14 +167,14 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.navyBlue : Colors.transparent,
+            color: isSelected ? AppTheme.brandPurple : Colors.transparent,
             borderRadius: BorderRadius.circular(25),
           ),
           alignment: Alignment.center,
           child: Text(
             title,
             style: TextStyle(
-              color: isSelected ? AppTheme.marigold : AppTheme.navyBlue,
+              color: isSelected ? Colors.white : AppTheme.darkGrey,
               fontWeight: FontWeight.bold,
             ),
           ),

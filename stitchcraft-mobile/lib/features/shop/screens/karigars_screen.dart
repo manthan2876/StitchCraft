@@ -6,6 +6,8 @@ import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 
 class KarigarsScreen extends StatefulWidget {
   const KarigarsScreen({super.key});
@@ -51,54 +53,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
     }
   }
 
-  Future<void> _deleteKarigar(String id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        title: const Text('Delete Karigar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to remove this Karigar? All history will remain scoped to the shop, but they will be unassigned.', style: TextStyle(color: AppTheme.darkGrey)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.darkGrey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
 
-    if (confirm != true) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final token = await _authService.getToken();
-      final response = await http.delete(
-        Uri.parse('${AuthService.baseUrl}/karigars/$id'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Karigar deleted successfully'), backgroundColor: AppTheme.trustGreen),
-        );
-        _loadKarigars();
-      } else {
-        throw Exception(json.decode(response.body)['message'] ?? 'Failed to delete');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
-      );
-      setState(() => _isLoading = false);
-    }
-  }
 
   void _showKarigarForm({Map<String, dynamic>? karigar}) {
     final isEdit = karigar != null;
@@ -244,8 +199,9 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                                     body: body,
                                   );
 
+                            final messenger2 = ScaffoldMessenger.of(context);
                             if (response.statusCode == 200 || response.statusCode == 201) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger2.showSnackBar(
                                 SnackBar(
                                   content: Text(isEdit ? 'Karigar updated successfully' : 'Karigar added successfully'),
                                   backgroundColor: AppTheme.trustGreen,
@@ -259,7 +215,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Error saving: $e'), backgroundColor: AppTheme.alertRed),
                             );
-                            setState(() => _isLoading = false);
+                            if (mounted) setState(() => _isLoading = false);
                           }
                         },
                         child: Text(isEdit ? context.loc.save : context.loc.add, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -275,98 +231,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
     );
   }
 
-  void _showKarigarDetails(Map<String, dynamic> karigar) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final theme = Theme.of(context);
-        final String name = karigar['name'] ?? 'Staff Member';
-        final String phone = karigar['phone'] ?? 'N/A';
-        final String specialty = karigar['specialty'] ?? karigar['specialization'] ?? 'Stitching';
-        final String status = karigar['status'] ?? 'Available';
-        final int activeOrders = (karigar['activeOrders'] as num?)?.toInt() ?? 0;
 
-        return AlertDialog(
-          backgroundColor: AppTheme.darkCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppTheme.lightGrey, width: 0.5),
-          ),
-          title: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.15),
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : 'K',
-                  style: const TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  name,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _detailRow(Icons.phone_outlined, 'Phone', phone),
-              const SizedBox(height: 12),
-              _detailRow(Icons.star_outline, 'Specialty', specialty),
-              const SizedBox(height: 12),
-              _detailRow(Icons.info_outline, 'Status', status),
-              const SizedBox(height: 12),
-              _detailRow(Icons.list_alt_outlined, 'Active Orders', '$activeOrders orders'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _deleteKarigar(karigar['_id']);
-              },
-              child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showKarigarForm(karigar: karigar);
-              },
-              child: const Text('Edit', style: TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close', style: TextStyle(color: AppTheme.darkGrey)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _detailRow(IconData icon, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: AppTheme.darkGrey),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
-              const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -374,9 +239,8 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(context.loc.karigars),
-      ),
+      appBar: CustomAppBar(title: context.loc.karigars, showDrawerButton: true),
+      drawer: const DrawerMenu(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showKarigarForm(),
         backgroundColor: AppTheme.brandPurple,
@@ -403,7 +267,12 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                     final isBusy = status.toLowerCase() == 'busy';
 
                     return NeoCard(
-                      onTap: () => _showKarigarDetails(karigar),
+                      onTap: () async {
+                        final reload = await Navigator.pushNamed(context, '/karigar_details', arguments: karigar['_id'] ?? karigar['id'] ?? '');
+                        if (reload == true) {
+                          _loadKarigars();
+                        }
+                      },
                       child: Row(
                         children: [
                           CircleAvatar(

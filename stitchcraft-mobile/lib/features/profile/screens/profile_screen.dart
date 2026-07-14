@@ -32,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _currentPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
   @override
   void initState() {
@@ -166,6 +167,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   Future<void> _updatePassword() async {
     if (!mounted) return;
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New password and confirm password do not match'), backgroundColor: AppTheme.alertRed),
+      );
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final token = await _authService.getToken();
@@ -184,6 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       if (response.statusCode == 200) {
         _currentPasswordController.clear();
         _newPasswordController.clear();
+        _confirmPasswordController.clear();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Password Changed Successfully!'), backgroundColor: AppTheme.trustGreen),
@@ -215,6 +223,100 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Account deletion request queued. 14-day recovery window active.'), backgroundColor: AppTheme.alertRed),
     );
+  }
+
+  Future<void> _addShop(String name, String phone, String address) async {
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authService.getToken();
+      final response = await http.post(
+        Uri.parse('${AuthService.baseUrl}/shops'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'shopName': name,
+          'phone': phone,
+          'address': address,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shop registered successfully'), backgroundColor: AppTheme.trustGreen),
+        );
+        _loadProfile();
+      } else {
+        throw Exception('Failed to add shop');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
+      );
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _editShop(String id, String name, String phone, String address) async {
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authService.getToken();
+      final response = await http.put(
+        Uri.parse('${AuthService.baseUrl}/shops/$id'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'shopName': name,
+          'phone': phone,
+          'address': address,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shop updated successfully'), backgroundColor: AppTheme.trustGreen),
+        );
+        _loadProfile();
+      } else {
+        throw Exception('Failed to update shop');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
+      );
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _deleteShop(String id) async {
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authService.getToken();
+      final response = await http.delete(
+        Uri.parse('${AuthService.baseUrl}/shops/$id'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shop deleted successfully'), backgroundColor: AppTheme.trustGreen),
+        );
+        _loadProfile();
+      } else {
+        throw Exception('Failed to delete shop');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
+      );
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -317,6 +419,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     children: [
                       ProfileTab(
                         nameController: _nameController,
+                        email: _userProfile?['email'] ?? '',
+                        role: _userProfile?['role']?.toString().toUpperCase() ?? 'OWNER',
                         isSaving: _isSaving,
                         onSave: _updateProfile,
                       ),
@@ -327,6 +431,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           await _profileService.switchShop(shopId);
                           _loadProfile();
                         },
+                        onAddShop: _addShop,
+                        onEditShop: _editShop,
+                        onDeleteShop: _deleteShop,
                       ),
                       SettingsTab(
                         onDownloadData: _downloadData,
@@ -335,6 +442,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       SecurityTab(
                         currentPasswordController: _currentPasswordController,
                         newPasswordController: _newPasswordController,
+                        confirmPasswordController: _confirmPasswordController,
                         isSaving: _isSaving,
                         onUpdatePassword: _updatePassword,
                       ),

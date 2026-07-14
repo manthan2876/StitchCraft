@@ -48,9 +48,11 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
       }
     } catch (e) {
       developer.log("Error loading machine: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -82,6 +84,8 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
     if (confirm != true) return;
 
     setState(() => _isLoading = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.delete(
@@ -93,18 +97,18 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Machine deleted successfully'), backgroundColor: AppTheme.trustGreen),
         );
-        Navigator.pop(context, true); // Pop details screen and reload list
+        nav.pop(true);
       } else {
         throw Exception('Failed to delete machine');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
       );
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -154,6 +158,7 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     dropdownColor: AppTheme.darkCard,
+                    // ignore: deprecated_member_use
                     value: status,
                     decoration: const InputDecoration(labelText: 'Status'),
                     items: const [
@@ -219,7 +224,7 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
       },
     );
 
-    if (updated == true) {
+    if (updated == true && mounted) {
       _loadMachineDetails(_machine!['_id'] ?? _machine!['id']);
     }
   }

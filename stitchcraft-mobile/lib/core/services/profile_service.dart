@@ -38,7 +38,7 @@ class ProfileService {
 
         if (!isDefaultAvatar) {
           try {
-            final encodedPath = Uri.encodeComponent(avatarPath!);
+            final encodedPath = Uri.encodeComponent(avatarPath);
             final viewUrlResponse = await http.get(
               Uri.parse('${AuthService.baseUrl}/upload/view-url/profile-images/$encodedPath'),
               headers: {

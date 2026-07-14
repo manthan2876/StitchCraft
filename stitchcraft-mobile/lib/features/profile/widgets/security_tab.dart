@@ -4,6 +4,7 @@ import 'package:stitchcraft/core/widgets/primary_button.dart';
 class SecurityTab extends StatelessWidget {
   final TextEditingController currentPasswordController;
   final TextEditingController newPasswordController;
+  final TextEditingController confirmPasswordController;
   final bool isSaving;
   final VoidCallback onUpdatePassword;
 
@@ -11,6 +12,7 @@ class SecurityTab extends StatelessWidget {
     super.key,
     required this.currentPasswordController,
     required this.newPasswordController,
+    required this.confirmPasswordController,
     required this.isSaving,
     required this.onUpdatePassword,
   });
@@ -37,6 +39,13 @@ class SecurityTab extends StatelessWidget {
             obscureText: true,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(labelText: 'New Password'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: confirmPasswordController,
+            obscureText: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(labelText: 'Confirm New Password'),
           ),
           const SizedBox(height: 24),
           PrimaryButton(

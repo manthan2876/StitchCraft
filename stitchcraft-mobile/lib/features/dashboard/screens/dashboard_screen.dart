@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
-import 'package:stitchcraft/core/services/sync_service.dart';
+import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
-import 'package:stitchcraft/core/services/profile_service.dart';
+
 import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 import 'package:stitchcraft/features/dashboard/widgets/line_chart_painter.dart';
 import 'package:stitchcraft/features/dashboard/widgets/metric_card.dart';
@@ -18,20 +18,15 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final _syncService = SyncService();
   final _localDb = LocalDatabaseService();
-  final _profileService = ProfileService();
   
-  bool _isSyncing = false;
-  int _pendingSyncCount = 0;
   String _timeFilter = 'Weekly';
   
   double _cashReserve = 0.0;
   int _pendingOrdersCount = 0;
   List<double> _weeklyGraphPoints = [0, 0, 0, 0, 0, 0, 0];
+  List<String> _graphLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  String? _avatarUrl;
-  String? _initials;
 
   @override
   void initState() {
@@ -39,102 +34,133 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _fetchDashboardData();
   }
 
-  Future<void> _fetchDashboardData() async {
-    // 1. Fetch Profile Photo details
-    final profile = await _profileService.fetchProfile();
-    if (profile != null && mounted) {
-      setState(() {
-        _avatarUrl = profile['avatar'] as String?;
-        final name = profile['name'] as String? ?? 'Masterji Ramesh';
-        _initials = name
-            .split(' ')
-            .map((n) => n.isNotEmpty ? n[0] : '')
-            .join('')
-            .toUpperCase();
-        if (_initials!.length > 2) {
-          _initials = _initials!.substring(0, 2);
-        }
-      });
-    }
 
-    // 2. Fetch Sync Status
-    final status = await _syncService.getSyncStatus();
-    if (!mounted) return;
-    setState(() {
-      _pendingSyncCount = status['pendingCount'] ?? 0;
-    });
+
 
     // 3. Fetch SQLite Metrics
     final expenses = await _localDb.getAllExpenses();
     final orders = await _localDb.getAllOrders();
 
+    final now = DateTime.now();
+    List<dynamic> filteredOrders = [];
+    List<dynamic> filteredExpenses = [];
+    List<double> graphPoints = [];
+    List<String> labels = [];
+
+    if (_timeFilter == 'Today') {
+      filteredOrders = orders.where((o) {
+        final orderDateMs = o['order_date'] as int?;
+        if (orderDateMs == null) return false;
+        final date = DateTime.fromMillisecondsSinceEpoch(orderDateMs);
+        return date.isAfter(now.subtract(const Duration(hours: 24)));
+      }).toList();
+
+      filteredExpenses = expenses.where((e) {
+        final expDateMs = e['expense_date'] as int?;
+        if (expDateMs == null) return false;
+        final date = DateTime.fromMillisecondsSinceEpoch(expDateMs);
+        return date.isAfter(now.subtract(const Duration(hours: 24)));
+      }).toList();
+
+      graphPoints = List.filled(6, 0.0);
+      for (final o in filteredOrders) {
+        final dateMs = o['order_date'] as int;
+        final date = DateTime.fromMillisecondsSinceEpoch(dateMs);
+        final hourDiff = now.difference(date).inHours;
+        if (hourDiff >= 0 && hourDiff < 24) {
+          final slotIndex = 5 - (hourDiff ~/ 4);
+          if (slotIndex >= 0 && slotIndex < 6) {
+            graphPoints[slotIndex] += 1.0;
+          }
+        }
+      }
+      labels = ['12am', '4am', '8am', '12pm', '4pm', '8pm'];
+
+    } else if (_timeFilter == 'Weekly') {
+      filteredOrders = orders.where((o) {
+        final orderDateMs = o['order_date'] as int?;
+        if (orderDateMs == null) return false;
+        final date = DateTime.fromMillisecondsSinceEpoch(orderDateMs);
+        return date.isAfter(now.subtract(const Duration(days: 7)));
+      }).toList();
+
+      filteredExpenses = expenses.where((e) {
+        final expDateMs = e['expense_date'] as int?;
+        if (expDateMs == null) return false;
+        final date = DateTime.fromMillisecondsSinceEpoch(expDateMs);
+        return date.isAfter(now.subtract(const Duration(days: 7)));
+      }).toList();
+
+      graphPoints = List.filled(7, 0.0);
+      for (final o in filteredOrders) {
+        final dateMs = o['order_date'] as int;
+        final date = DateTime.fromMillisecondsSinceEpoch(dateMs);
+        final dayDiff = now.difference(date).inDays;
+        if (dayDiff >= 0 && dayDiff < 7) {
+          final slotIndex = 6 - dayDiff;
+          if (slotIndex >= 0 && slotIndex < 7) {
+            graphPoints[slotIndex] += 1.0;
+          }
+        }
+      }
+      labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    } else { // Monthly
+      filteredOrders = orders.where((o) {
+        final orderDateMs = o['order_date'] as int?;
+        if (orderDateMs == null) return false;
+        final date = DateTime.fromMillisecondsSinceEpoch(orderDateMs);
+        return date.isAfter(now.subtract(const Duration(days: 30)));
+      }).toList();
+
+      filteredExpenses = expenses.where((e) {
+        final expDateMs = e['expense_date'] as int?;
+        if (expDateMs == null) return false;
+        final date = DateTime.fromMillisecondsSinceEpoch(expDateMs);
+        return date.isAfter(now.subtract(const Duration(days: 30)));
+      }).toList();
+
+      graphPoints = List.filled(4, 0.0);
+      for (final o in filteredOrders) {
+        final dateMs = o['order_date'] as int;
+        final date = DateTime.fromMillisecondsSinceEpoch(dateMs);
+        final dayDiff = now.difference(date).inDays;
+        if (dayDiff >= 0 && dayDiff < 28) {
+          final slotIndex = 3 - (dayDiff ~/ 7);
+          if (slotIndex >= 0 && slotIndex < 4) {
+            graphPoints[slotIndex] += 1.0;
+          }
+        }
+      }
+      labels = ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'];
+    }
+
     double totalRevenue = 0.0;
-    for (final o in orders) {
+    for (final o in filteredOrders) {
       totalRevenue += (o['total_amount'] as num?)?.toDouble() ?? 0.0;
     }
 
     double totalExpense = 0.0;
-    for (final e in expenses) {
+    for (final e in filteredExpenses) {
       totalExpense += (e['amount'] as num?)?.toDouble() ?? 0.0;
     }
 
-    final pending = orders.where((o) {
+    final pending = filteredOrders.where((o) {
       final s = o['status']?.toString().toLowerCase() ?? '';
       return s != 'completed' && s != 'delivered';
     }).length;
-
-    // 4. Compile Graph Points (Last 7 Days)
-    final List<double> graphPoints = [0, 0, 0, 0, 0, 0, 0];
-    final now = DateTime.now();
-    for (final o in orders) {
-      final orderDateMs = o['order_date'] as int?;
-      if (orderDateMs != null) {
-        final orderDate = DateTime.fromMillisecondsSinceEpoch(orderDateMs);
-        final difference = now.difference(orderDate).inDays;
-        if (difference >= 0 && difference < 7) {
-          final dayIndex = 6 - difference;
-          graphPoints[dayIndex] += 1.0;
-        }
-      }
-    }
 
     if (mounted) {
       setState(() {
         _cashReserve = totalRevenue - totalExpense;
         _pendingOrdersCount = pending;
         _weeklyGraphPoints = graphPoints;
+        _graphLabels = labels;
       });
     }
   }
 
-  Future<void> _triggerSync() async {
-    setState(() => _isSyncing = true);
-    try {
-      await _syncService.syncAll();
-      await _fetchDashboardData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sync Complete! All local records synchronized.'),
-            backgroundColor: AppTheme.trustGreen,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sync Failed: $e'),
-            backgroundColor: AppTheme.alertRed,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSyncing = false);
-      }
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -143,49 +169,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(context.loc.dashboard_title),
-        actions: [
-          IconButton(
-            icon: _isSyncing
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                  )
-                : Badge(
-                    label: Text('$_pendingSyncCount'),
-                    isLabelVisible: _pendingSyncCount > 0,
-                    child: const Icon(Icons.sync),
-                  ),
-            onPressed: _isSyncing ? null : _triggerSync,
-          ),
-          GestureDetector(
-            onTap: () async {
-              await Navigator.pushNamed(context, '/profile');
-              _fetchDashboardData();
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Center(
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppTheme.brandPurple,
-                  backgroundImage: _avatarUrl != null && _avatarUrl!.isNotEmpty
-                      ? NetworkImage(_avatarUrl!)
-                      : null,
-                  child: _avatarUrl == null || _avatarUrl!.isEmpty
-                      ? Text(
-                          _initials ?? 'MR',
-                          style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
-                        )
-                      : null,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      appBar: const CustomAppBar(title: 'StitchCraft Dashboard', showDrawerButton: true),
       drawer: const DrawerMenu(),
       body: RefreshIndicator(
         onRefresh: _fetchDashboardData,
@@ -207,6 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         setState(() {
                           _timeFilter = filter;
                         });
+                        _fetchDashboardData();
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -286,7 +271,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                        children: _graphLabels
                             .map((label) => Text(
                                   label,
                                   style: theme.textTheme.labelSmall,

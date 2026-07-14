@@ -6,6 +6,8 @@ import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -51,76 +53,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  Future<void> _deleteItem(String id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        title: const Text('Delete Stock Item', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to remove this inventory item? This cannot be undone.', style: TextStyle(color: AppTheme.darkGrey)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.darkGrey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final token = await _authService.getToken();
-      final response = await http.delete(
-        Uri.parse('${AuthService.baseUrl}/inventory/$id'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item deleted successfully'), backgroundColor: AppTheme.trustGreen),
-        );
-        _loadInventory();
-      } else {
-        throw Exception(json.decode(response.body)['message'] ?? 'Failed to delete');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
-      );
-      setState(() => _isLoading = false);
-    }
-  }
 
 
-
-  Widget _detailRow(IconData icon, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: AppTheme.darkGrey),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
-              const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   Future<void> _showItemForm({Map<String, dynamic>? item}) async {
     final isEdit = item != null;
@@ -256,9 +190,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(context.loc.inventory_stock),
-      ),
+      appBar: CustomAppBar(title: context.loc.inventory_stock, showDrawerButton: true),
+      drawer: const DrawerMenu(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showItemForm(),
         backgroundColor: AppTheme.brandPurple,

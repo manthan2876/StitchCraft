@@ -6,6 +6,8 @@ import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 
 class MachinesScreen extends StatefulWidget {
   const MachinesScreen({super.key});
@@ -51,54 +53,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
     }
   }
 
-  Future<void> _deleteMachine(String id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        title: const Text('Delete Machine', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to remove this Machine? All history will remain scoped to the shop.', style: TextStyle(color: AppTheme.darkGrey)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.darkGrey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
 
-    if (confirm != true) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final token = await _authService.getToken();
-      final response = await http.delete(
-        Uri.parse('${AuthService.baseUrl}/machines/$id'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Machine deleted successfully'), backgroundColor: AppTheme.trustGreen),
-        );
-        _loadMachines();
-      } else {
-        throw Exception(json.decode(response.body)['message'] ?? 'Failed to delete');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
-      );
-      setState(() => _isLoading = false);
-    }
-  }
 
   void _showMachineForm({Map<String, dynamic>? machine}) {
     final isEdit = machine != null;
@@ -212,6 +167,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
                             return;
                           }
 
+                          final outerMessenger = ScaffoldMessenger.of(context);
                           Navigator.pop(context);
                           setState(() => _isLoading = true);
 
@@ -243,7 +199,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
                                   );
 
                             if (response.statusCode == 200 || response.statusCode == 201) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              outerMessenger.showSnackBar(
                                 SnackBar(
                                   content: Text(isEdit ? 'Machine updated successfully' : 'Machine registered successfully'),
                                   backgroundColor: AppTheme.trustGreen,
@@ -254,10 +210,10 @@ class _MachinesScreenState extends State<MachinesScreen> {
                               throw Exception(json.decode(response.body)['message'] ?? 'Error occurred');
                             }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            outerMessenger.showSnackBar(
                               SnackBar(content: Text('Error saving: $e'), backgroundColor: AppTheme.alertRed),
                             );
-                            setState(() => _isLoading = false);
+                            if (mounted) setState(() => _isLoading = false);
                           }
                         },
                         child: Text(isEdit ? context.loc.save : context.loc.add, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -275,25 +231,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
 
 
 
-  Widget _detailRow(IconData icon, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: AppTheme.darkGrey),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
-              const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -301,9 +239,8 @@ class _MachinesScreenState extends State<MachinesScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(context.loc.machines),
-      ),
+      appBar: CustomAppBar(title: context.loc.machines, showDrawerButton: true),
+      drawer: const DrawerMenu(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showMachineForm(),
         backgroundColor: AppTheme.brandPurple,
