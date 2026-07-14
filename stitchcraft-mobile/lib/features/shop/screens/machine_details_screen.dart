@@ -61,6 +61,8 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
   Future<void> _deleteMachine() async {
     if (_machine == null) return;
     final machineId = _machine!['_id'] ?? _machine!['id'];
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -84,8 +86,6 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
     if (confirm != true) return;
 
     setState(() => _isLoading = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final nav = Navigator.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.delete(

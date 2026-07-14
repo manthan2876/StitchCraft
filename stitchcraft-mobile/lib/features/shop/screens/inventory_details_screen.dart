@@ -61,6 +61,8 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
   Future<void> _deleteItem() async {
     if (_item == null) return;
     final itemId = _item!['_id'] ?? _item!['id'];
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -84,8 +86,6 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
     if (confirm != true) return;
 
     setState(() => _isLoading = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final nav = Navigator.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.delete(

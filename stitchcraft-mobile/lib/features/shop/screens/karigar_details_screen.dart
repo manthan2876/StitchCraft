@@ -61,6 +61,8 @@ class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
   Future<void> _deleteKarigar() async {
     if (_karigar == null) return;
     final karigarId = _karigar!['_id'] ?? _karigar!['id'];
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -84,8 +86,6 @@ class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
     if (confirm != true) return;
 
     setState(() => _isLoading = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final nav = Navigator.of(context);
     try {
       final token = await _authService.getToken();
       final response = await http.delete(
