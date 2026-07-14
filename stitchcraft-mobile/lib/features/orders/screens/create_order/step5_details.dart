@@ -204,6 +204,15 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
         }
       }
 
+      // Upload fabric photo if present
+      String fabricImageUrl = '';
+      if (_wizardData!['fabricPhotoPath'] != null) {
+        final uploaded = await _uploadFile(_wizardData!['fabricPhotoPath'] as String, 'maap-images');
+        if (uploaded != null) {
+          fabricImageUrl = uploaded;
+        }
+      }
+
       // 2. Prepare payload details
       final double price = double.tryParse(_priceController.text.trim()) ?? 0.0;
       final double advance = double.tryParse(_advanceController.text.trim()) ?? 0.0;
@@ -224,6 +233,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
         'measurements': _wizardData!['measurements'] ?? {},
         'measurementType': _wizardData!['measurementType'] == 'body' ? 'Measurements' : 'Maap',
         'maapImageUrl': maapImageUrl,
+        'fabricImageUrl': fabricImageUrl,
         'deliveryDate': _dueDate.toIso8601String().split('T')[0], // YYYY-MM-DD
         'status': 'Incoming',
         'needsAster': _wizardData!['needsLining'] ?? false,

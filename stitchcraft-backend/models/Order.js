@@ -20,6 +20,7 @@ const orderSchema = new mongoose.Schema(
     asterDeducted: { type: Boolean, default: false },
     measurementType: { type: String, enum: ['Maap', 'Measurements'], default: 'Maap' },
     maapImageUrl: { type: String, default: '' },
+    fabricImageUrl: { type: String, default: '' },
     assignedKarigar: { type: mongoose.Schema.Types.ObjectId, ref: 'Karigar', default: null },
     assignedMachine: { type: mongoose.Schema.Types.ObjectId, ref: 'Machine', default: null },
     shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true },

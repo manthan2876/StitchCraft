@@ -160,6 +160,7 @@ export const createOrderService = async (reqBody, shopId, userId) => {
     assignedMachine,
     measurementType,
     maapImageUrl,
+    fabricImageUrl,
   } = reqBody;
 
   const customerObj = await resolveCustomer(reqBody, shopId);
@@ -201,6 +202,7 @@ export const createOrderService = async (reqBody, shopId, userId) => {
     asterSellingPrice: needsAster ? (Number(asterSellingPrice) || 0) : 0,
     measurementType: measurementType || 'Maap',
     maapImageUrl: maapImageUrl || '',
+    fabricImageUrl: fabricImageUrl || '',
     assignedKarigar: assignedKarigar || null,
     assignedMachine: assignedMachine || null,
     measurementsSnapshot,
@@ -263,6 +265,7 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
     assignedMachine,
     measurementType,
     maapImageUrl,
+    fabricImageUrl,
   } = reqBody;
 
   if (deliveryDate) {
@@ -277,6 +280,7 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
   if (asterSellingPrice !== undefined) order.asterSellingPrice = Number(asterSellingPrice) || 0;
   if (measurementType !== undefined) order.measurementType = measurementType;
   if (maapImageUrl !== undefined) order.maapImageUrl = maapImageUrl;
+  if (fabricImageUrl !== undefined) order.fabricImageUrl = fabricImageUrl;
   if (assignedKarigar !== undefined) order.assignedKarigar = assignedKarigar || null;
   if (assignedMachine !== undefined) order.assignedMachine = assignedMachine || null;
 

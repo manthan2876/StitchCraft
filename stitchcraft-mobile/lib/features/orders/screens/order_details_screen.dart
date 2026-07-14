@@ -19,6 +19,52 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   bool _isLoading = false;
   Map<String, dynamic>? _order;
   final _noteController = TextEditingController();
+  String? _resolvedMaapUrl;
+  String? _resolvedFabricUrl;
+
+  Future<void> _resolveUrls() async {
+    if (_order == null) return;
+    final maapPath = _order!['maapImageUrl'] as String?;
+    final fabricPath = _order!['fabricImageUrl'] as String?;
+    final token = await _authService.getToken();
+    if (token == null) return;
+
+    if (maapPath != null && maapPath.isNotEmpty) {
+      try {
+        final encodedPath = Uri.encodeComponent(maapPath);
+        final response = await http.get(
+          Uri.parse('${AuthService.baseUrl}/upload/view-url/maap-images/$encodedPath'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          setState(() {
+            _resolvedMaapUrl = data['signedUrl'] as String?;
+          });
+        }
+      } catch (e) {
+        developer.log("Error loading maap view url: $e");
+      }
+    }
+
+    if (fabricPath != null && fabricPath.isNotEmpty) {
+      try {
+        final encodedPath = Uri.encodeComponent(fabricPath);
+        final response = await http.get(
+          Uri.parse('${AuthService.baseUrl}/upload/view-url/maap-images/$encodedPath'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          setState(() {
+            _resolvedFabricUrl = data['signedUrl'] as String?;
+          });
+        }
+      } catch (e) {
+        developer.log("Error loading fabric view url: $e");
+      }
+    }
+  }
 
   // Status options matching backend Order stages
   final List<String> _statuses = [
@@ -57,6 +103,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         setState(() {
           _order = json.decode(response.body);
         });
+        await _resolveUrls();
       } else {
         throw Exception('Failed to load order details');
       }
@@ -355,6 +402,29 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         const SizedBox(height: 16),
                       ],
 
+                      // Captured Images Section
+                      if ((_resolvedMaapUrl != null && _resolvedMaapUrl!.isNotEmpty) ||
+                          (_resolvedFabricUrl != null && _resolvedFabricUrl!.isNotEmpty)) ...[
+                        const Text('Captured Photos', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                        const SizedBox(height: 8),
+                        NeoCard(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                if (_resolvedMaapUrl != null && _resolvedMaapUrl!.isNotEmpty) ...[
+                                  _buildPhotoCard('Sample (Namuna)', _resolvedMaapUrl!),
+                                  const SizedBox(width: 16),
+                                ],
+                                if (_resolvedFabricUrl != null && _resolvedFabricUrl!.isNotEmpty)
+                                  _buildPhotoCard('Fabric Specimen', _resolvedFabricUrl!),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
                       // Invoices & Payments summary
                       const Text('Financial Summary', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
                       const SizedBox(height: 8),
@@ -493,19 +563,27 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   List<Widget> _buildMeasurementChips(Map<String, dynamic> measurements) {
     final chips = <Widget>[];
-    measurements.forEach((key, val) {
-      if (val != null && val is num && val > 0) {
-        chips.add(
-          Chip(
-            backgroundColor: AppTheme.lightGrey,
-            label: Text(
-              '${key.toUpperCase()}: $val"',
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+
+    void processMap(Map<dynamic, dynamic> map, {String prefix = ''}) {
+      map.forEach((key, val) {
+        if (val is Map) {
+          processMap(val, prefix: '${key.toString().toUpperCase()} ');
+        } else if (val != null && val is num && val > 0) {
+          chips.add(
+            Chip(
+              backgroundColor: AppTheme.lightGrey,
+              label: Text(
+                '$prefix${key.toString().toUpperCase()}: $val"',
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
             ),
-          ),
-        );
-      }
-    });
+          );
+        }
+      });
+    }
+
+    processMap(measurements);
+
     if (chips.isEmpty) {
       chips.add(const Text('No measurement values saved', style: TextStyle(color: AppTheme.darkGrey)));
     }
@@ -524,5 +602,36 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       return AppTheme.brandPurple;
     }
     return AppTheme.darkGrey;
+  }
+
+  Widget _buildPhotoCard(String title, String url) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: 180,
+            height: 180,
+            color: Colors.white.withValues(alpha: 0.05),
+            child: Image.network(
+              url,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return const Center(child: CircularProgressIndicator());
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(
+                  child: Icon(Icons.broken_image_outlined, color: AppTheme.alertRed, size: 36),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
