@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
-import 'package:stitchcraft/core/models/order_model.dart';
-import 'package:stitchcraft/core/services/pdf_service.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 
 class InvoiceScreen extends StatelessWidget {
@@ -44,7 +42,9 @@ class InvoiceScreen extends StatelessWidget {
               return NeoCard(
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(4),
-                  onTap: () => PdfService.generateInvoice(order),
+                  onTap: () {
+                    Navigator.pushNamed(context, '/invoice_details', arguments: order.id);
+                  },
                   leading: CircleAvatar(
                     backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.15),
                     child: const Icon(Icons.receipt_long, color: AppTheme.brandPurple),

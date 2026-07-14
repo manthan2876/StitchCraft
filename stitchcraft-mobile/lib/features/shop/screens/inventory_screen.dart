@@ -100,79 +100,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  void _showItemDetails(Map<String, dynamic> item) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final theme = Theme.of(context);
-        final String name = item['itemName'] ?? 'Material';
-        final String type = item['itemType'] ?? 'General';
-        final double quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
-        final double price = (item['costPerUnit'] as num?)?.toDouble() ?? 0.0;
-        final String unit = item['unit'] ?? 'meters';
 
-        return AlertDialog(
-          backgroundColor: AppTheme.darkCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppTheme.lightGrey, width: 0.5),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1D2939),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.inventory, color: AppTheme.brandPurple, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  name,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _detailRow(Icons.category_outlined, 'Category', type),
-              const SizedBox(height: 12),
-              _detailRow(Icons.production_quantity_limits, 'Current Stock', '$quantity $unit'),
-              const SizedBox(height: 12),
-              _detailRow(Icons.attach_money, 'Unit Cost', '₹$price / $unit'),
-              const SizedBox(height: 12),
-              _detailRow(Icons.description_outlined, 'Description', item['description'] ?? 'No description'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _deleteItem(item['_id']);
-              },
-              child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showItemForm(item: item);
-              },
-              child: const Text('Edit', style: TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close', style: TextStyle(color: AppTheme.darkGrey)),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   Widget _detailRow(IconData icon, String label, String value) {
     return Row(
@@ -359,7 +287,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     final String unit = item['unit'] ?? 'meters';
 
                     return NeoCard(
-                      onTap: () => _showItemDetails(item),
+                      onTap: () async {
+                        final reload = await Navigator.pushNamed(context, '/inventory_details', arguments: item['_id'] ?? item['id'] ?? '');
+                        if (reload == true) {
+                          _loadInventory();
+                        }
+                      },
                       child: Row(
                         children: [
                           Container(

@@ -273,79 +273,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
     );
   }
 
-  void _showMachineDetails(Map<String, dynamic> machine) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final theme = Theme.of(context);
-        final String name = machine['name'] ?? 'Sewing Machine';
-        final String type = machine['type'] ?? 'General';
-        final String status = machine['status'] ?? 'Active';
-        final String serialNumber = machine['serialNumber'] ?? 'N/A';
-        final String assignedTo = machine['assignedTo']?['name'] ?? 'Unassigned';
 
-        return AlertDialog(
-          backgroundColor: AppTheme.darkCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppTheme.lightGrey, width: 0.5),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1D2939),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.settings, color: AppTheme.brandPurple, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  name,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _detailRow(Icons.category_outlined, 'Machine Type', type),
-              const SizedBox(height: 12),
-              _detailRow(Icons.person_outline, 'Assigned Operator', assignedTo),
-              const SizedBox(height: 12),
-              _detailRow(Icons.info_outline, 'Status', status),
-              const SizedBox(height: 12),
-              _detailRow(Icons.numbers_outlined, 'Serial Number', serialNumber),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _deleteMachine(machine['_id']);
-              },
-              child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showMachineForm(machine: machine);
-              },
-              child: const Text('Edit', style: TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close', style: TextStyle(color: AppTheme.darkGrey)),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   Widget _detailRow(IconData icon, String label, String value) {
     return Row(
@@ -402,7 +330,12 @@ class _MachinesScreenState extends State<MachinesScreen> {
                     final isMaintenance = status.toLowerCase() == 'maintenance';
 
                     return NeoCard(
-                      onTap: () => _showMachineDetails(machine),
+                      onTap: () async {
+                        final reload = await Navigator.pushNamed(context, '/machine_details', arguments: machine['_id'] ?? machine['id'] ?? '');
+                        if (reload == true) {
+                          _loadMachines();
+                        }
+                      },
                       child: Row(
                         children: [
                           Container(
