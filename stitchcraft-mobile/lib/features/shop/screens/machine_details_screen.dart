@@ -186,7 +186,7 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
                         onPressed: () async {
                           final name = nameController.text.trim();
                           if (name.isEmpty) return;
-
+                          final innerNav = Navigator.of(context);
                           try {
                             final token = await _authService.getToken();
                             final response = await http.put(
@@ -204,7 +204,7 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
                             );
 
                             if (response.statusCode == 200) {
-                              Navigator.pop(context, true);
+                              innerNav.pop(true);
                             } else {
                               throw Exception('Failed to update machine');
                             }

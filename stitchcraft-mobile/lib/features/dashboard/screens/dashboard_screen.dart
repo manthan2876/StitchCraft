@@ -34,10 +34,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _fetchDashboardData();
   }
 
-
-
-
-    // 3. Fetch SQLite Metrics
+  Future<void> _fetchDashboardData() async {
+    // Fetch SQLite Metrics
     final expenses = await _localDb.getAllExpenses();
     final orders = await _localDb.getAllOrders();
 
