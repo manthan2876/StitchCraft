@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
@@ -29,6 +30,69 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
   List<dynamic> _machines = [];
   Map<String, dynamic>? _selectedMachine;
+
+  String _mapApparelType(String garmentType) {
+    final lower = garmentType.toLowerCase();
+    if (lower.contains('shirt')) return 'Shirt';
+    if (lower.contains('pant') || lower.contains('trouser')) return 'Pants';
+    if (lower.contains('kurta') || lower.contains('kurti')) return 'Kurta';
+    if (lower.contains('blouse')) return 'Blouse';
+    if (lower.contains('lehenga')) return 'Lehenga';
+    return 'Suit'; // Default fallback for Suit, Safari, Baba Suit, Frock, School Uniform, Salwar
+  }
+
+  Future<String?> _uploadFile(String localPath, String bucketName) async {
+    try {
+      final file = File(localPath);
+      if (!await file.exists()) return null;
+
+      final bytes = await file.readAsBytes();
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${localPath.split(Platform.pathSeparator).last}';
+      final token = await _authService.getToken();
+      if (token == null) return null;
+
+      // 1. Get signed upload URL from backend
+      final urlResponse = await http.post(
+        Uri.parse('${AuthService.baseUrl}/upload/get-upload-url'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'bucketName': bucketName,
+          'fileName': fileName,
+        }),
+      );
+
+      if (urlResponse.statusCode != 200 && urlResponse.statusCode != 201) {
+        throw Exception("Failed to get upload URL: ${urlResponse.body}");
+      }
+
+      final urlData = json.decode(urlResponse.body);
+      final signedUrl = urlData['signedUrl'] as String?;
+      if (signedUrl == null) {
+        throw Exception("Signed URL not found in response: ${urlResponse.body}");
+      }
+
+      // 2. Put bytes directly to Supabase storage
+      final uploadResponse = await http.put(
+        Uri.parse(signedUrl),
+        headers: {
+          'Content-Type': 'image/jpeg',
+        },
+        body: bytes,
+      );
+
+      if (uploadResponse.statusCode == 200 || uploadResponse.statusCode == 201) {
+        return fileName;
+      } else {
+        throw Exception("Supabase upload failed: ${uploadResponse.body}");
+      }
+    } catch (e) {
+      developer.log("Error uploading file: $e");
+      return null;
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -131,27 +195,45 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
         throw Exception('Customer profile is missing or failed to initialize');
       }
 
+      // Upload sample photo if present
+      String maapImageUrl = '';
+      if (_wizardData!['samplePhotoPath'] != null) {
+        final uploaded = await _uploadFile(_wizardData!['samplePhotoPath'] as String, 'maap-images');
+        if (uploaded != null) {
+          maapImageUrl = uploaded;
+        }
+      }
+
       // 2. Prepare payload details
       final double price = double.tryParse(_priceController.text.trim()) ?? 0.0;
       final double advance = double.tryParse(_advanceController.text.trim()) ?? 0.0;
+      final String rawGarmentType = _wizardData!['garmentType'] ?? 'Shirt';
 
       final orderPayload = {
-        'customer': customerId,
+        'customerId': customerId,
         'customerName': _wizardData!['newCustomer'] != null
             ? _wizardData!['newCustomer']['name']
             : _wizardData!['customer']['name'],
         'customerPhone': _wizardData!['newCustomer'] != null
             ? _wizardData!['newCustomer']['phone']
             : _wizardData!['customer']['phone'],
-        'garmentType': _wizardData!['garmentType'],
+        'apparelType': _mapApparelType(rawGarmentType),
         'price': price,
-        'advance': advance,
+        'advancePaid': advance,
         'fabric': _wizardData!['fabricSource'] ?? 'Customer',
         'measurements': _wizardData!['measurements'] ?? {},
-        'measurementType': _wizardData!['measurementType'] ?? 'body',
-        'dueDate': _dueDate.toIso8601String(),
-        'status': 'pending',
-        'paymentStatus': advance >= price ? 'paid' : (advance > 0 ? 'partially_paid' : 'unpaid'),
+        'measurementType': _wizardData!['measurementType'] == 'body' ? 'Measurements' : 'Maap',
+        'maapImageUrl': maapImageUrl,
+        'deliveryDate': _dueDate.toIso8601String().split('T')[0], // YYYY-MM-DD
+        'status': 'Incoming',
+        'needsAster': _wizardData!['needsLining'] ?? false,
+        'asterQuantity': _wizardData!['needsLining'] == true ? (_wizardData!['liningQtyUsed'] ?? 0) : 0,
+        'asterInventoryItem': (_wizardData!['needsLining'] == true && _wizardData!['liningItem'] != null)
+            ? _wizardData!['liningItem']['_id']
+            : null,
+        'asterSellingPrice': (_wizardData!['needsLining'] == true && _wizardData!['liningItem'] != null)
+            ? (_wizardData!['liningItem']['costPerUnit'] ?? 0)
+            : 0,
         if (_selectedKarigar != null) 'assignedKarigar': _selectedKarigar!['_id'],
         if (_selectedMachine != null) 'assignedMachine': _selectedMachine!['_id'],
       };

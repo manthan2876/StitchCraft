@@ -85,15 +85,29 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
     if (_wizardData == null) return;
 
     if (_isBodyMeasurement) {
-      final Map<String, double> measurements = {};
+      final Map<String, double> values = {};
       for (final f in _fields) {
         final val = double.tryParse(_controllers[f]!.text.trim()) ?? 0.0;
-        measurements[f.toLowerCase()] = val;
+        String key = f.toLowerCase();
+        if (key == 'hip') key = 'hips';
+        if (key == 'sleeve') key = 'sleeves';
+        values[key] = val;
       }
-      _wizardData!['measurements'] = measurements;
+
+      final garment = _wizardData?['garmentType']?.toString().toLowerCase() ?? 'shirt';
+      final Map<String, dynamic> structured = {};
+      if (garment.contains('shirt')) {
+        structured['shirt'] = values;
+      } else if (garment.contains('pant') || garment.contains('trouser')) {
+        structured['pant'] = values;
+      } else {
+        structured['others'] = values.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+      }
+
+      _wizardData!['measurements'] = structured;
       _wizardData!.remove('samplePhotoPath');
     } else {
-      _wizardData!['measurements'] = <String, double>{};
+      _wizardData!['measurements'] = <String, dynamic>{};
       _wizardData!['samplePhotoPath'] = _samplePhotoPath;
     }
 
