@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
@@ -25,6 +27,42 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
 
   List<dynamic> _inventoryItems = [];
   Map<String, dynamic>? _selectedLiningItem;
+  String? _fabricPhotoPath;
+
+  Future<void> _pickFabricImage() async {
+    final picker = ImagePicker();
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Text('Select Fabric Photo Source', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, ImageSource.camera),
+            icon: const Icon(Icons.camera_alt, color: AppTheme.brandPurple),
+            label: const Text('Camera', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, ImageSource.gallery),
+            icon: const Icon(Icons.photo_library, color: AppTheme.brandPurple),
+            label: const Text('Gallery', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (source == null) return;
+    try {
+      final pickedFile = await picker.pickImage(source: source);
+      if (pickedFile != null) {
+        setState(() {
+          _fabricPhotoPath = pickedFile.path;
+        });
+      }
+    } catch (e) {
+      developer.log("Error picking fabric image: $e");
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -76,6 +114,8 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
 
     _wizardData!['fabricSource'] = _fabricSource;
     _wizardData!['needsLining'] = _needsLining;
+    _wizardData!['fabricPhotoPath'] = _fabricPhotoPath;
+
     if (_needsLining && _selectedLiningItem != null) {
       _wizardData!['liningItem'] = _selectedLiningItem;
       _wizardData!['liningQtyUsed'] = _liningLength;
@@ -107,21 +147,32 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
             NeoCard(
               child: Column(
                 children: [
-                  Container(
-                    height: 140,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: theme.cardTheme.color?.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.camera_alt_outlined, size: 36, color: AppTheme.brandPurple),
-                        const SizedBox(height: 8),
-                        Text('Take Fabric Photo', style: TextStyle(color: theme.colorScheme.onSurface)),
-                      ],
+                  GestureDetector(
+                    onTap: _pickFabricImage,
+                    child: Container(
+                      height: 140,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: theme.cardTheme.color?.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: _fabricPhotoPath != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                File(_fabricPhotoPath!),
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.camera_alt_outlined, size: 36, color: AppTheme.brandPurple),
+                                const SizedBox(height: 8),
+                                Text('Take Fabric Photo', style: TextStyle(color: theme.colorScheme.onSurface)),
+                              ],
+                            ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -183,6 +234,7 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                             ? const Text('No lining materials found in stock.', style: TextStyle(color: AppTheme.darkGrey))
                             : DropdownButtonFormField<Map<String, dynamic>>(
                                 dropdownColor: AppTheme.darkCard,
+                                isExpanded: true,
                                 decoration: const InputDecoration(labelText: 'Select Lining Stock'),
                                 // ignore: deprecated_member_use
                                 value: _selectedLiningItem,
@@ -195,6 +247,8 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                                     child: Text(
                                       '$name (Stock: $qty $unit)',
                                       style: const TextStyle(color: Colors.white),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     ),
                                   );
                                 }).toList(),
