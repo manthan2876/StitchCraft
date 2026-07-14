@@ -16,7 +16,7 @@ import 'package:stitchcraft/features/auth/screens/role_selection_screen.dart';
 import 'package:stitchcraft/features/shop/screens/shop_setup_screen.dart';
 
 // Dashboard
-import 'package:stitchcraft/features/dashboard/screens/dashboard_screen.dart';
+import 'package:stitchcraft/features/dashboard/screens/main_navigation_container.dart';
 
 // Orders
 import 'package:stitchcraft/features/orders/screens/create_order/step1_garment.dart';
@@ -106,7 +106,7 @@ class StitchCraftApp extends StatelessWidget {
                 '/login': (context) => const LoginScreen(),
                 '/role_selection': (context) => const RoleSelectionScreen(),
                 '/shop_setup': (context) => const ShopSetupScreen(),
-                '/home': (context) => const DashboardScreen(),
+                '/home': (context) => const MainNavigationContainer(),
                 
                 // Order Wizard
                 '/create_order_step1': (context) => const GarmentSelectionScreen(),

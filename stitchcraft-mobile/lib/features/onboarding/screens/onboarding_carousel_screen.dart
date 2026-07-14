@@ -78,19 +78,16 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
               ),
             ),
             
-            // Indicators
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _onboardingData.length,
-                (index) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: _currentPage == index ? 24 : 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: _currentPage == index ? AppTheme.brandPurple : AppTheme.darkGrey,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
+            // Progressive Progress Bar (starts at 33% / 1 of 3)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: (_currentPage + 1) / _onboardingData.length,
+                  backgroundColor: AppTheme.lightGrey,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                  minHeight: 6,
                 ),
               ),
             ),

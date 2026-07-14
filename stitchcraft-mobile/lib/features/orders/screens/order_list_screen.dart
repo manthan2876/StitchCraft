@@ -12,10 +12,13 @@ class OrderListScreen extends StatefulWidget {
   final String title;
   final String statusFilter;
 
+  final bool isTab;
+
   const OrderListScreen({
     super.key,
     this.title = 'Orders',
     this.statusFilter = 'all',
+    this.isTab = false,
   });
 
   @override
@@ -137,8 +140,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: CustomAppBar(title: widget.title, showDrawerButton: true),
-      drawer: const DrawerMenu(),
+      appBar: CustomAppBar(title: widget.title, showDrawerButton: !widget.isTab),
+      drawer: widget.isTab ? null : const DrawerMenu(),
       body: Column(
         children: [
           // Sticky Search bar and Tabs Filter

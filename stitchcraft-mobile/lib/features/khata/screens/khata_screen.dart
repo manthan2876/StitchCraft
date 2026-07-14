@@ -11,7 +11,8 @@ import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 
 class KhataScreen extends StatefulWidget {
   final int initialTabIndex;
-  const KhataScreen({super.key, this.initialTabIndex = 0});
+  final bool isTab;
+  const KhataScreen({super.key, this.initialTabIndex = 0, this.isTab = false});
 
   @override
   State<KhataScreen> createState() => _KhataScreenState();
@@ -81,7 +82,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: CustomAppBar(
         title: context.loc.khata_ledger,
-        showDrawerButton: true,
+        showDrawerButton: !widget.isTab,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
@@ -93,7 +94,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
           ],
         ),
       ),
-      drawer: const DrawerMenu(),
+      drawer: widget.isTab ? null : const DrawerMenu(),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddExpenseModal,
         backgroundColor: AppTheme.brandPurple,

@@ -11,7 +11,8 @@ import 'package:stitchcraft/features/dashboard/widgets/metric_card.dart';
 import 'package:stitchcraft/features/dashboard/widgets/action_card.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final bool isTab;
+  const DashboardScreen({super.key, this.isTab = false});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -167,8 +168,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: const CustomAppBar(title: 'StitchCraft Dashboard', showDrawerButton: true),
-      drawer: const DrawerMenu(),
+      appBar: CustomAppBar(title: 'StitchCraft Dashboard', showDrawerButton: !widget.isTab),
+      drawer: widget.isTab ? null : const DrawerMenu(),
       body: RefreshIndicator(
         onRefresh: _fetchDashboardData,
         child: SingleChildScrollView(

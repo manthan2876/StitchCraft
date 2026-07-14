@@ -7,13 +7,16 @@ import 'dart:developer' as developer;
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/profile_service.dart';
+import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
 import 'package:stitchcraft/features/profile/widgets/profile_tab.dart';
 import 'package:stitchcraft/features/profile/widgets/shops_tab.dart';
 import 'package:stitchcraft/features/profile/widgets/settings_tab.dart';
 import 'package:stitchcraft/features/profile/widgets/security_tab.dart';
+import 'package:stitchcraft/features/profile/widgets/shop_manage_tab.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool isTab;
+  const ProfileScreen({super.key, this.isTab = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -37,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadProfile();
   }
 
@@ -341,8 +344,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Profile & Settings'),
+      appBar: CustomAppBar(
+        title: 'Settings & Hub',
+        showDrawerButton: !widget.isTab,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
@@ -352,6 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           tabs: const [
             Tab(text: 'Profile'),
             Tab(text: 'Shops'),
+            Tab(text: 'Manage'),
             Tab(text: 'Settings'),
             Tab(text: 'Security'),
           ],
@@ -444,6 +449,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         onEditShop: _editShop,
                         onDeleteShop: _deleteShop,
                       ),
+                      const ShopManageTab(),
                       SettingsTab(
                         onDownloadData: _downloadData,
                         onDeleteAccount: _deleteAccount,

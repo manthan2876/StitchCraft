@@ -60,7 +60,11 @@ class _GarmentSelectionScreenState extends State<GarmentSelectionScreen> with Si
       itemBuilder: (context, index) {
         return NeoCard(
           onTap: () {
-            Navigator.pushNamed(context, '/create_order_step2', arguments: {'garmentType': items[index]});
+            Navigator.pushNamed(
+              context,
+              '/create_order_step2',
+              arguments: <String, dynamic>{'garmentType': items[index]},
+            );
           },
           padding: EdgeInsets.zero,
           child: Column(
