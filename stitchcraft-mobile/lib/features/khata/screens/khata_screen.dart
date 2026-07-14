@@ -6,6 +6,9 @@ import 'package:stitchcraft/features/khata/widgets/add_expense_bottom_sheet.dart
 import 'package:stitchcraft/features/khata/widgets/expenses_list.dart';
 import 'package:stitchcraft/features/khata/widgets/income_list.dart';
 
+import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
+
 class KhataScreen extends StatefulWidget {
   final int initialTabIndex;
   const KhataScreen({super.key, this.initialTabIndex = 0});
@@ -76,8 +79,9 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(context.loc.khata_ledger),
+      appBar: CustomAppBar(
+        title: context.loc.khata_ledger,
+        showDrawerButton: true,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
@@ -89,6 +93,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
           ],
         ),
       ),
+      drawer: const DrawerMenu(),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddExpenseModal,
         backgroundColor: AppTheme.brandPurple,

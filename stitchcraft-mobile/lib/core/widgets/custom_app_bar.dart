@@ -7,18 +7,22 @@ import 'package:stitchcraft/core/services/profile_service.dart';
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   final bool showDrawerButton;
+  final PreferredSizeWidget? bottom;
 
   const CustomAppBar({
     super.key,
     required this.title,
     this.showDrawerButton = true,
+    this.bottom,
   });
 
   @override
   State<CustomAppBar> createState() => _CustomAppBarState();
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(
+        kToolbarHeight + (bottom?.preferredSize.height ?? 0.0),
+      );
 }
 
 class _CustomAppBarState extends State<CustomAppBar> {
@@ -92,6 +96,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
   Widget build(BuildContext context) {
     return AppBar(
       title: Text(widget.title),
+      bottom: widget.bottom,
       leading: widget.showDrawerButton
           ? IconButton(
               icon: const Icon(Icons.menu),
