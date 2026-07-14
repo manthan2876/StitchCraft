@@ -21,6 +21,34 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   final _noteController = TextEditingController();
   String? _resolvedMaapUrl;
   String? _resolvedFabricUrl;
+  List<dynamic> _karigars = [];
+  List<dynamic> _machines = [];
+
+  Future<void> _loadStaffAndMachines() async {
+    try {
+      final token = await _authService.getToken();
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+
+      final staffResponse = await http.get(Uri.parse('${AuthService.baseUrl}/karigars'), headers: headers);
+      if (staffResponse.statusCode == 200) {
+        setState(() {
+          _karigars = json.decode(staffResponse.body) as List;
+        });
+      }
+
+      final machResponse = await http.get(Uri.parse('${AuthService.baseUrl}/machines'), headers: headers);
+      if (machResponse.statusCode == 200) {
+        setState(() {
+          _machines = json.decode(machResponse.body) as List;
+        });
+      }
+    } catch (e) {
+      developer.log("Error loading staff/machines: $e");
+    }
+  }
 
   Future<void> _resolveUrls() async {
     if (_order == null) return;
@@ -83,6 +111,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     super.didChangeDependencies();
     if (_order == null) {
       final orderId = ModalRoute.of(context)!.settings.arguments as String;
+      _loadStaffAndMachines();
       _loadOrderDetails(orderId);
     }
   }
@@ -294,6 +323,232 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
+  Future<void> _editOrder() async {
+    if (_order == null) return;
+
+    final priceController = TextEditingController(text: _order!['price']?.toString() ?? '0');
+    DateTime dueDate = _order!['deliveryDate'] != null ? DateTime.parse(_order!['deliveryDate']) : DateTime.now();
+
+    // Find initially selected staff and machine
+    Map<String, dynamic>? selectedKarigar;
+    if (_order!['assignedKarigar'] != null) {
+      final karigarId = _order!['assignedKarigar']['_id'] ?? _order!['assignedKarigar']['id'];
+      selectedKarigar = _karigars.firstWhere(
+        (k) => (k['_id'] ?? k['id']) == karigarId,
+        orElse: () => null,
+      );
+    }
+
+    Map<String, dynamic>? selectedMachine;
+    if (_order!['assignedMachine'] != null) {
+      final machineId = _order!['assignedMachine']['_id'] ?? _order!['assignedMachine']['id'];
+      selectedMachine = _machines.firstWhere(
+        (m) => (m['_id'] ?? m['id']) == machineId,
+        orElse: () => null,
+      );
+    }
+
+    final success = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.darkCard,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('Edit Order Details', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+
+                  // Price
+                  TextField(
+                    controller: priceController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(labelText: 'Total Price (₹)'),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Due Date Selector
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Delivery Date', style: TextStyle(color: AppTheme.darkGrey, fontSize: 12)),
+                    subtitle: Text(DateFormat('dd MMMM yyyy (EEEE)').format(dueDate), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    trailing: const Icon(Icons.calendar_today, color: AppTheme.brandPurple),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: dueDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setModalState(() {
+                          dueDate = picked;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Assigned Karigar
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    dropdownColor: AppTheme.darkCard,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Assign Karigar (Staff)'),
+                    // ignore: deprecated_member_use
+                    value: selectedKarigar,
+                    items: _karigars.map((k) {
+                      return DropdownMenuItem(
+                        value: k as Map<String, dynamic>,
+                        child: Text(k['name'] ?? 'Staff', style: const TextStyle(color: Colors.white)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setModalState(() {
+                        selectedKarigar = val;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Assigned Machine
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    dropdownColor: AppTheme.darkCard,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Assign Sewing Machine'),
+                    // ignore: deprecated_member_use
+                    value: selectedMachine,
+                    items: _machines.map((m) {
+                      return DropdownMenuItem(
+                        value: m as Map<String, dynamic>,
+                        child: Text(m['name'] ?? 'Machine', style: const TextStyle(color: Colors.white)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setModalState(() {
+                        selectedMachine = val;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandPurple),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (success != true) return;
+
+    final price = double.tryParse(priceController.text) ?? 0.0;
+    final orderId = _order!['_id'] ?? _order!['id'];
+
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authService.getToken();
+      final response = await http.put(
+        Uri.parse('${AuthService.baseUrl}/orders/$orderId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'price': price,
+          'deliveryDate': dueDate.toIso8601String(),
+          'assignedKarigar': selectedKarigar != null ? (selectedKarigar!['_id'] ?? selectedKarigar!['id']) : null,
+          'assignedMachine': selectedMachine != null ? (selectedMachine!['_id'] ?? selectedMachine!['id']) : null,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Order updated successfully'), backgroundColor: AppTheme.trustGreen),
+        );
+        _loadOrderDetails(orderId);
+      } else {
+        throw Exception(json.decode(response.body)['message'] ?? 'Failed to update order');
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error updating order: $e'), backgroundColor: AppTheme.alertRed),
+      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _deleteOrder() async {
+    if (_order == null) return;
+    final orderId = _order!['_id'] ?? _order!['id'];
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Text('Delete Order', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to delete this order? This action cannot be undone.', style: TextStyle(color: AppTheme.darkGrey)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    setState(() => _isLoading = true);
+    try {
+      final token = await _authService.getToken();
+      final response = await http.delete(
+        Uri.parse('${AuthService.baseUrl}/orders/$orderId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Order deleted successfully'), backgroundColor: AppTheme.trustGreen),
+        );
+        nav.pop(); // Go back to orders list
+      } else {
+        throw Exception(json.decode(response.body)['message'] ?? 'Failed to delete order');
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error deleting order: $e'), backgroundColor: AppTheme.alertRed),
+      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -305,6 +560,16 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         title: Text(title),
         actions: _order != null
             ? [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                  onPressed: _editOrder,
+                  tooltip: 'Edit Order',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: AppTheme.alertRed),
+                  onPressed: _deleteOrder,
+                  tooltip: 'Delete Order',
+                ),
                 PopupMenuButton<String>(
                   color: AppTheme.darkCard,
                   onSelected: _updateStatus,
