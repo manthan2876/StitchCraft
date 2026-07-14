@@ -40,6 +40,11 @@ export const OrderDetails = () => {
     handleRecordPayment,
     handleDeleteOrder,
     handleStatusChange,
+    noteText,
+    setNoteText,
+    noteLoading,
+    noteError,
+    handleAddNote,
   } = useOrderDetails();
 
   // Translation helper with fallback
@@ -514,6 +519,58 @@ export const OrderDetails = () => {
             </div>
           </Card>
         </div>
+      </div>
+
+      {/* ── INTERNAL NOTES ── */}
+      <div className="bg-bg-card border border-border-subtle rounded-2xl p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-text-main">🗒️ Internal Notes</h3>
+            <p className="text-[10px] text-text-muted mt-0.5 font-semibold">Private notes only visible to you</p>
+          </div>
+          <span className="text-[10px] font-bold text-text-muted bg-bg-secondary border border-border-subtle rounded-full px-2.5 py-1">
+            {(order.notes || []).length} {(order.notes || []).length === 1 ? 'note' : 'notes'}
+          </span>
+        </div>
+
+        {/* Add Note Form */}
+        <form onSubmit={handleAddNote} className="flex gap-2">
+          <input
+            type="text"
+            value={noteText}
+            onChange={e => setNoteText(e.target.value)}
+            placeholder="Add a note (e.g. customer wants border embroidery)..."
+            maxLength={300}
+            className="flex-1 bg-bg-input border border-border-subtle rounded-xl px-3 py-2 text-xs text-text-main placeholder-text-muted outline-none focus:border-color-accent-purple transition-all"
+          />
+          <button
+            type="submit"
+            disabled={noteLoading || !noteText.trim()}
+            className="px-4 py-2 bg-color-accent-purple text-white-forced rounded-xl text-xs font-bold hover:bg-color-accent-purple/90 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          >
+            {noteLoading ? '...' : 'Add'}
+          </button>
+        </form>
+        {noteError && <p className="text-xs text-rose-500 font-semibold -mt-2">{noteError}</p>}
+
+        {/* Notes Timeline */}
+        {(order.notes || []).length > 0 ? (
+          <div className="flex flex-col gap-2.5">
+            {[...(order.notes || [])].reverse().map((note, idx) => (
+              <div key={idx} className="flex gap-3 bg-bg-secondary border border-border-subtle rounded-xl p-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-color-accent-purple mt-1.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-text-main leading-relaxed">{note.text}</p>
+                  <p className="text-[10px] text-text-muted mt-1 font-semibold">
+                    {new Date(note.addedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-text-muted text-center py-4 font-semibold">No notes yet. Add the first one above.</p>
+        )}
       </div>
 
       <PaymentModal

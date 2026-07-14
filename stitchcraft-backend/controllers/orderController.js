@@ -222,3 +222,26 @@ export const deleteOrder = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Add an internal note to an order
+// @route   POST /api/orders/:id/notes
+// @access  Private
+export const addNoteToOrder = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: 'Note text is required' });
+    }
+
+    const order = await findOrderScoped(req.params.id, req.user.shopId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    order.notes.push({ text: text.trim(), addedAt: new Date() });
+    await order.save();
+
+    res.status(201).json({ notes: order.notes });
+  } catch (error) {
+    console.error('Add note error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

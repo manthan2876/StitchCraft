@@ -8,6 +8,7 @@ import {
   updateOrder,
   recordOrderPayment,
   deleteOrder,
+  addNoteToOrder,
 } from '../controllers/orderController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -26,5 +27,6 @@ router.route('/:id')
   .delete(deleteOrder);
 
 router.post('/:id/payments', recordOrderPayment);
+router.post('/:id/notes', addNoteToOrder);
 
 export default router;

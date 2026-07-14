@@ -95,3 +95,16 @@ linux/flutter/ephemeral/
 *.swp
 *.lock
 *.DS_Store
+
+# Firebase & Service configurations (API Keys & Secrets)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+lib/firebase_options_*.dart
+
+# Keystores and private signing keys
+*.jks
+*.keystore
+*.p12
+*.pem
+*.developerprofile

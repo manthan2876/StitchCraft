@@ -22,6 +22,11 @@ export const useOrderDetails = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  // Notes states
+  const [noteText, setNoteText] = useState('');
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteError, setNoteError] = useState('');
+
   const fetchOrderDetails = async () => {
     setLoading(true);
     try {
@@ -100,6 +105,22 @@ export const useOrderDetails = () => {
     }
   };
 
+  const handleAddNote = async (e) => {
+    e.preventDefault();
+    if (!noteText.trim()) return;
+    setNoteLoading(true);
+    setNoteError('');
+    try {
+      const result = await api.post(`/orders/${id}/notes`, { text: noteText.trim() });
+      setOrder(prev => ({ ...prev, notes: result.notes }));
+      setNoteText('');
+    } catch (err) {
+      setNoteError(err.message || 'Failed to add note.');
+    } finally {
+      setNoteLoading(false);
+    }
+  };
+
   return {
     id,
     order,
@@ -113,6 +134,7 @@ export const useOrderDetails = () => {
     setPayType,
     paymentLoading,
     paymentError,
+    setPaymentError,
     isDeleteModalOpen,
     setIsDeleteModalOpen,
     deleteLoading,
@@ -120,5 +142,11 @@ export const useOrderDetails = () => {
     handleRecordPayment,
     handleDeleteOrder,
     handleStatusChange,
+    noteText,
+    setNoteText,
+    noteLoading,
+    noteError,
+    handleAddNote,
   };
 };
+

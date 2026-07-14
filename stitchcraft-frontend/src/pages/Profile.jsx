@@ -55,6 +55,8 @@ export const Profile = () => {
     conflictsList,
     resolutions,
     setResolutions,
+    settings,
+    setSettings,
     shops,
     shopsLoading,
     isShopModalOpen,

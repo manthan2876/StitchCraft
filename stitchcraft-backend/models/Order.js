@@ -28,6 +28,12 @@ const orderSchema = new mongoose.Schema(
       pant: { type: Object, default: null },
       others: { type: String, default: '' },
     },
+    notes: [
+      {
+        text: { type: String, required: true },
+        addedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

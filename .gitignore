@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production build output
+dist/
+build/
+
+# Local Environment Variables / API Keys / Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDE/Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+
+# Mobile application specific secrets (if root-level tracking occurs)
+stitchcraft-mobile/android/app/google-services.json
+stitchcraft-mobile/ios/Runner/GoogleService-Info.plist
+stitchcraft-mobile/lib/firebase_options.dart
+stitchcraft-mobile/android/local.properties
+stitchcraft-mobile/android/key.properties
+*.keystore
+*.jks
