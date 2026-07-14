@@ -134,6 +134,16 @@ class LocalDatabaseService {
     await db!.update(table, {'sync_status': 2}, where: '$idColumn = ?', whereArgs: [id]);
   }
 
+  Future<void> deleteRecordPermanently(String table, String id, {String idColumn = 'id'}) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      _webDb[table]!.removeWhere((item) => item[idColumn] == id);
+      return;
+    }
+    final db = await database;
+    await db!.delete(table, where: '$idColumn = ?', whereArgs: [id]);
+  }
+
   // ============== USER CRUD ==============
   Future<void> insertUser(Map<String, dynamic> user) => insertRecord('users', user);
   Future<Map<String, dynamic>?> getUser(String id) => getRecordById('users', id);
@@ -170,6 +180,7 @@ class LocalDatabaseService {
   // ============== ORDER CRUD ==============
   Future<void> insertOrder(Map<String, dynamic> order) => insertRecord('orders', order);
   Future<List<Map<String, dynamic>>> getAllOrders() => getRecords('orders', orderBy: 'order_date DESC');
+  Future<void> deleteOrder(String id) => deleteRecordPermanently('orders', id);
 
   // ============== EXPENSE CRUD ==============
   Future<void> insertExpense(Map<String, dynamic> expense) => insertRecord('expenses', expense);

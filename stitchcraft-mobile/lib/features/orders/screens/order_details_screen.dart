@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
@@ -16,6 +17,7 @@ class OrderDetailsScreen extends StatefulWidget {
 
 class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   final _authService = AuthService();
+  final _localDb = LocalDatabaseService();
   bool _isLoading = false;
   Map<String, dynamic>? _order;
   final _noteController = TextEditingController();
@@ -532,6 +534,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       );
 
       if (response.statusCode == 200) {
+        await _localDb.deleteOrder(orderId);
         messenger.showSnackBar(
           const SnackBar(content: Text('Order deleted successfully'), backgroundColor: AppTheme.trustGreen),
         );

@@ -168,6 +168,23 @@ class SyncService {
       final List<dynamic> remoteData = json.decode(response.body);
       developer.log('Pulled ${remoteData.length} records from server for $table', name: 'SyncService');
 
+      // 2a. Prune local database of orphaned records deleted on the server
+      final localRecords = await _localDb.getRecords(table);
+      final remoteIds = remoteData.map<String>((rawRecord) {
+        final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(rawRecord);
+        return (remoteRecord['_id'] ?? remoteRecord['id'] ?? '').toString();
+      }).toSet();
+
+      for (final localRec in localRecords) {
+        final id = localRec['id'] as String;
+        final syncStatus = localRec['sync_status'] as int;
+        if (syncStatus == 0 && !remoteIds.contains(id)) {
+          developer.log('Deleting orphaned local record $id from table $table', name: 'SyncService');
+          await _localDb.deleteRecordPermanently(table, id);
+        }
+      }
+
+      // 2b. Insert or replace remote records
       for (final rawRecord in remoteData) {
         final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(rawRecord);
         final String id = remoteRecord['_id'] ?? remoteRecord['id'] ?? '';
