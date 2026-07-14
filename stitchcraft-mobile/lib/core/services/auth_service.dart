@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/models/user_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 class AuthService {
   final DatabaseService _dbService = DatabaseService();
