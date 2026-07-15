@@ -6,7 +6,6 @@ import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
-import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 
 class OrderListScreen extends StatefulWidget {
   final String title;
@@ -136,8 +135,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: CustomAppBar(title: widget.title, showDrawerButton: !widget.isTab),
-      drawer: widget.isTab ? null : const DrawerMenu(),
+      appBar: CustomAppBar(title: widget.title),
       body: Column(
         children: [
           // Sticky Search bar and Tabs Filter

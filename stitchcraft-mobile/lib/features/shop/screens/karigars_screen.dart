@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
-import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 
 class KarigarsScreen extends StatefulWidget {
   const KarigarsScreen({super.key});
@@ -239,8 +238,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: CustomAppBar(title: context.loc.karigars, showDrawerButton: true),
-      drawer: const DrawerMenu(),
+      appBar: CustomAppBar(title: context.loc.karigars),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showKarigarForm(),
         backgroundColor: AppTheme.brandPurple,

@@ -35,6 +35,7 @@ import 'package:stitchcraft/features/shop/screens/inventory_screen.dart';
 import 'package:stitchcraft/features/shop/screens/karigars_screen.dart';
 import 'package:stitchcraft/features/shop/screens/machines_screen.dart';
 import 'package:stitchcraft/features/profile/screens/profile_screen.dart';
+import 'package:stitchcraft/features/shop/screens/shop_hub_screen.dart';
 import 'package:stitchcraft/features/orders/screens/customer_list_screen.dart';
 import 'package:stitchcraft/features/orders/screens/invoice_screen.dart';
 import 'package:stitchcraft/features/orders/screens/order_details_screen.dart';
@@ -122,6 +123,7 @@ class StitchCraftApp extends StatelessWidget {
                 '/karigars': (context) => const KarigarsScreen(),
                 '/machines': (context) => const MachinesScreen(),
                 '/profile': (context) => const ProfileScreen(),
+                '/shop_hub': (context) => const ShopHubScreen(),
                 '/customers': (context) => const CustomerListScreen(),
                 '/order_details': (context) => const OrderDetailsScreen(),
                 '/customer_details': (context) => const CustomerDetailsScreen(),

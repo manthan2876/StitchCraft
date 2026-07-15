@@ -3,7 +3,6 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
-import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 
 class RepairDashboard extends StatefulWidget {
   const RepairDashboard({super.key});
@@ -36,8 +35,7 @@ class _RepairDashboardState extends State<RepairDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.cream,
-      appBar: const CustomAppBar(title: 'Fast Lane Repairs', showDrawerButton: true),
-      drawer: const DrawerMenu(),
+      appBar: const CustomAppBar(title: 'Fast Lane Repairs'),
       body: Column(
         children: [
           Expanded(

@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
-import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -190,8 +189,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: CustomAppBar(title: context.loc.inventory_stock, showDrawerButton: true),
-      drawer: const DrawerMenu(),
+      appBar: CustomAppBar(title: context.loc.inventory_stock),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showItemForm(),
         backgroundColor: AppTheme.brandPurple,

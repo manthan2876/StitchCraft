@@ -12,7 +12,6 @@ import 'package:stitchcraft/features/profile/widgets/profile_tab.dart';
 import 'package:stitchcraft/features/profile/widgets/shops_tab.dart';
 import 'package:stitchcraft/features/profile/widgets/settings_tab.dart';
 import 'package:stitchcraft/features/profile/widgets/security_tab.dart';
-import 'package:stitchcraft/features/profile/widgets/shop_manage_tab.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isTab;
@@ -40,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadProfile();
   }
 
@@ -356,7 +355,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           tabs: const [
             Tab(text: 'Profile'),
             Tab(text: 'Shops'),
-            Tab(text: 'Manage'),
             Tab(text: 'Settings'),
             Tab(text: 'Security'),
           ],
@@ -449,7 +447,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         onEditShop: _editShop,
                         onDeleteShop: _deleteShop,
                       ),
-                      const ShopManageTab(),
                       SettingsTab(
                         onDownloadData: _downloadData,
                         onDeleteAccount: _deleteAccount,

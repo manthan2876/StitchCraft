@@ -12,7 +12,7 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   const CustomAppBar({
     super.key,
     required this.title,
-    this.showDrawerButton = true,
+    this.showDrawerButton = false,
     this.bottom,
   });
 

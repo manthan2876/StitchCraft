@@ -4,7 +4,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/features/dashboard/screens/dashboard_screen.dart';
 import 'package:stitchcraft/features/orders/screens/order_list_screen.dart';
 import 'package:stitchcraft/features/khata/screens/khata_screen.dart';
-import 'package:stitchcraft/features/profile/screens/profile_screen.dart';
+import 'package:stitchcraft/features/shop/screens/shop_hub_screen.dart';
 
 class MainNavigationContainer extends StatefulWidget {
   const MainNavigationContainer({super.key});
@@ -24,7 +24,7 @@ class _MainNavigationContainerState extends State<MainNavigationContainer> {
       const DashboardScreen(isTab: true),
       const OrderListScreen(title: 'Orders', statusFilter: 'all', isTab: true),
       const KhataScreen(initialTabIndex: 0, isTab: true),
-      const ProfileScreen(isTab: true),
+      const ShopHubScreen(isTab: true),
     ];
   }
 

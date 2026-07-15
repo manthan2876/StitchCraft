@@ -5,7 +5,6 @@ import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
-import 'package:stitchcraft/features/dashboard/widgets/drawer_menu.dart';
 import 'package:stitchcraft/features/dashboard/widgets/line_chart_painter.dart';
 import 'package:stitchcraft/features/dashboard/widgets/metric_card.dart';
 import 'package:stitchcraft/features/dashboard/widgets/action_card.dart';
@@ -168,8 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: CustomAppBar(title: 'StitchCraft Dashboard', showDrawerButton: !widget.isTab),
-      drawer: widget.isTab ? null : const DrawerMenu(),
+      appBar: const CustomAppBar(title: 'StitchCraft Dashboard'),
       body: RefreshIndicator(
         onRefresh: _fetchDashboardData,
         child: SingleChildScrollView(
