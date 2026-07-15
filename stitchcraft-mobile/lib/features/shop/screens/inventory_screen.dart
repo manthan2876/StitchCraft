@@ -206,7 +206,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
                   ),
                 )
-              : ListView.builder(
+              : RefreshIndicator(
+            onRefresh: _loadInventory,
+            color: AppTheme.brandPurple,
+            child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: _items.length,
                   itemBuilder: (context, index) {
@@ -280,6 +284,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     );
                   },
                 ),
+              ),
     );
   }
 }

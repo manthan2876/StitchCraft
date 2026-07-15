@@ -118,7 +118,7 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
     final nameController = TextEditingController(text: _machine!['name']);
     final typeController = TextEditingController(text: _machine!['type']);
     final serialController = TextEditingController(text: _machine!['serialNumber']);
-    String status = _machine!['status'] ?? 'Active';
+    String status = _machine!['status'] ?? 'Working';
 
     final updated = await showModalBottomSheet<bool>(
       context: context,
@@ -162,9 +162,9 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
                     value: status,
                     decoration: const InputDecoration(labelText: 'Status'),
                     items: const [
-                      DropdownMenuItem(value: 'Active', child: Text('Active', style: TextStyle(color: Colors.white))),
+                      DropdownMenuItem(value: 'Working', child: Text('Working', style: TextStyle(color: Colors.white))),
                       DropdownMenuItem(value: 'Maintenance', child: Text('Maintenance', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Inactive', child: Text('Inactive', style: TextStyle(color: Colors.white))),
+                      DropdownMenuItem(value: 'Broken', child: Text('Broken', style: TextStyle(color: Colors.white))),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -269,13 +269,13 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: _getStatusColor(_machine!['status'] ?? 'Active').withValues(alpha: 0.15),
+                                    color: _getStatusColor(_machine!['status'] ?? 'Working').withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    (_machine!['status'] ?? 'Active').toUpperCase(),
+                                    (_machine!['status'] ?? 'Working').toUpperCase(),
                                     style: TextStyle(
-                                      color: _getStatusColor(_machine!['status'] ?? 'Active'),
+                                      color: _getStatusColor(_machine!['status'] ?? 'Working'),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -310,11 +310,11 @@ class _MachineDetailsScreenState extends State<MachineDetailsScreen> {
 
   Color _getStatusColor(String status) {
     final s = status.toLowerCase();
-    if (s.contains('active')) {
+    if (s.contains('working') || s.contains('active')) {
       return AppTheme.trustGreen;
     } else if (s.contains('maintenance')) {
       return AppTheme.safetyOrange;
     }
-    return AppTheme.darkGrey;
+    return AppTheme.alertRed;
   }
 }

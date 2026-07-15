@@ -60,7 +60,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
     final nameController = TextEditingController(text: isEdit ? machine['name'] : '');
     final typeController = TextEditingController(text: isEdit ? machine['type'] : 'Single Needle');
     final serialController = TextEditingController(text: isEdit ? machine['serialNumber'] : '');
-    String status = isEdit ? (machine['status'] ?? 'Active') : 'Active';
+    String status = isEdit ? (machine['status'] ?? 'Working') : 'Working';
 
     showModalBottomSheet(
       context: context,
@@ -130,9 +130,9 @@ class _MachinesScreenState extends State<MachinesScreen> {
                         value: status,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         items: const [
-                          DropdownMenuItem(value: 'Active', child: Text('Active')),
+                          DropdownMenuItem(value: 'Working', child: Text('Working')),
                           DropdownMenuItem(value: 'Maintenance', child: Text('Maintenance')),
-                          DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
+                          DropdownMenuItem(value: 'Broken', child: Text('Broken')),
                         ],
                         onChanged: (val) {
                           if (val != null) {
@@ -255,16 +255,20 @@ class _MachinesScreenState extends State<MachinesScreen> {
                     style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
                   ),
                 )
-              : ListView.builder(
+              : RefreshIndicator(
+            onRefresh: _loadMachines,
+            color: AppTheme.brandPurple,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: _machines.length,
                   itemBuilder: (context, index) {
                     final machine = _machines[index];
                     final String name = machine['name'] ?? 'Sewing Machine';
                     final String type = machine['type'] ?? 'General';
-                    final String status = machine['status'] ?? 'Active';
+                    final String status = machine['status'] ?? 'Working';
                     final String assignedTo = machine['assignedTo']?['name'] ?? 'None';
-                    final isMaintenance = status.toLowerCase() == 'maintenance';
+                    final isWorking = status.toLowerCase() == 'working';
 
                     return NeoCard(
                       onTap: () async {
@@ -302,15 +306,15 @@ class _MachinesScreenState extends State<MachinesScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isMaintenance
-                                  ? AppTheme.alertRed.withValues(alpha: 0.15)
-                                  : AppTheme.trustGreen.withValues(alpha: 0.15),
+                              color: isWorking
+                                  ? AppTheme.trustGreen.withValues(alpha: 0.15)
+                                  : AppTheme.alertRed.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               status.toUpperCase(),
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: isMaintenance ? AppTheme.alertRed : AppTheme.trustGreen,
+                                color: isWorking ? AppTheme.trustGreen : AppTheme.alertRed,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -320,6 +324,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
                     );
                   },
                 ),
+              ),
     );
   }
 }

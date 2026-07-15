@@ -12,8 +12,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController(text: 'ramesh@stitchcraft.com');
-  final TextEditingController _passwordController = TextEditingController(text: '1234');
+  final TextEditingController _emailController = TextEditingController(text: '');
+  final TextEditingController _passwordController = TextEditingController(text: '');
   final _authService = AuthService();
   bool _isLoading = false;
 

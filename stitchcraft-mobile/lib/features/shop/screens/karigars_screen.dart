@@ -60,9 +60,9 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
     final nameController = TextEditingController(text: isEdit ? karigar['name'] : '');
     final phoneController = TextEditingController(text: isEdit ? karigar['phone'] : '');
     final specialtyController = TextEditingController(
-      text: isEdit ? (karigar['specialty'] ?? karigar['specialization'] ?? 'Stitching') : 'Stitching',
+      text: isEdit ? (karigar['specialization'] ?? karigar['specialty'] ?? 'Stitching') : 'Stitching',
     );
-    String status = isEdit ? (karigar['status'] ?? 'Available') : 'Available';
+    String status = isEdit ? (karigar['status'] ?? 'Active') : 'Active';
 
     showModalBottomSheet(
       context: context,
@@ -133,8 +133,8 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                         value: status,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         items: const [
-                          DropdownMenuItem(value: 'Available', child: Text('Available')),
-                          DropdownMenuItem(value: 'Busy', child: Text('Busy')),
+                          DropdownMenuItem(value: 'Active', child: Text('Active')),
+                          DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
                         ],
                         onChanged: (val) {
                           if (val != null) {
@@ -178,7 +178,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                             final body = json.encode({
                               'name': name,
                               'phone': phone,
-                              'specialty': specialty,
+                              'specialization': specialty,
                               'status': status,
                             });
 
@@ -255,16 +255,20 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                     style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
                   ),
                 )
-              : ListView.builder(
+              : RefreshIndicator(
+            onRefresh: _loadKarigars, // Link to your existing load method
+            color: AppTheme.brandPurple,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: _karigars.length,
                   itemBuilder: (context, index) {
                     final karigar = _karigars[index];
                     final String name = karigar['name'] ?? 'Staff Member';
-                    final String specialty = karigar['specialty'] ?? 'Stitching';
-                    final String status = karigar['status'] ?? 'Available';
+                    final String specialty = karigar['specialization'] ?? karigar['specialty'] ?? 'Stitching';
+                    final String status = karigar['status'] ?? 'Active';
                     final int activeOrders = (karigar['activeOrders'] as num?)?.toInt() ?? 0;
-                    final isBusy = status.toLowerCase() == 'busy';
+                    final isInactive = status.toLowerCase() == 'inactive';
 
                     return NeoCard(
                       onTap: () async {
@@ -308,7 +312,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: isBusy
+                                  color: isInactive
                                       ? AppTheme.safetyOrange.withValues(alpha: 0.15)
                                       : AppTheme.trustGreen.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(20),
@@ -316,7 +320,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                                 child: Text(
                                   status.toUpperCase(),
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: isBusy ? AppTheme.safetyOrange : AppTheme.trustGreen,
+                                    color: isInactive ? AppTheme.safetyOrange : AppTheme.trustGreen,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -333,6 +337,7 @@ class _KarigarsScreenState extends State<KarigarsScreen> {
                     );
                   },
                 ),
+              ),
     );
   }
 }

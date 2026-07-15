@@ -28,6 +28,10 @@ export const Signup = () => {
       setErrorMsg('Name, Email, Password, and Shop Name are required.');
       return;
     }
+    if (password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long.');
+      return;
+    }
 
     try {
       await register(name, email, password, shopName, phone, address);
@@ -91,7 +95,7 @@ export const Signup = () => {
                   type="password"
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setErrorMsg(''); }}
-                  placeholder="Min 4 characters"
+                  placeholder="Min 6 characters"
                   className="w-full pl-11 pr-4 py-2.5 bg-bg-input border border-border-subtle rounded-lg text-text-main placeholder:text-text-muted/40 outline-none focus:border-color-accent-purple text-sm transition-all"
                 />
               </div>

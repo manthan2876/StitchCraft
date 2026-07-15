@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/services/database_service.dart';
 import 'dart:developer' as developer;
 
 class SyncService {
@@ -163,6 +164,8 @@ class SyncService {
         'Authorization': 'Bearer $token',
       },
     );
+    developer.log('Response Status: ${response.statusCode}');
+    developer.log('Response Body: ${response.body}');
 
     if (response.statusCode == 200) {
       final List<dynamic> remoteData = json.decode(response.body);
@@ -213,6 +216,7 @@ class SyncService {
           sqliteRecord['status'] = remoteRecord['status'] ?? 'Incoming';
           sqliteRecord['total_amount'] = (remoteRecord['price'] as num?)?.toDouble() ?? 0.0;
           sqliteRecord['description'] = remoteRecord['fabric'] ?? '';
+          sqliteRecord['fabric_photo_url'] = remoteRecord['fabricImageUrl'] ?? '';
           sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
         } else if (table == 'expenses') {
           sqliteRecord['category'] = remoteRecord['category'] ?? 'General';
@@ -225,6 +229,9 @@ class SyncService {
         }
 
         await _localDb.insertRecord(table, sqliteRecord);
+        if (table == 'orders') DatabaseService.orderSignal.add(null);
+        if (table == 'customers') DatabaseService.customerSignal.add(null);
+        if (table == 'expenses') DatabaseService.expenseSignal.add(null);
       }
     } else {
       developer.log('Failed to pull records for $table: ${response.statusCode} - ${response.body}', name: 'SyncService');

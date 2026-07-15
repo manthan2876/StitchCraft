@@ -211,7 +211,11 @@ class _OrderListScreenState extends State<OrderListScreen> {
                           style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
                         ),
                       )
-                    : ListView.builder(
+          : RefreshIndicator(
+              onRefresh: _loadOrders, // This calls your existing loading logic
+              color: AppTheme.brandPurple,
+              child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _filteredOrders.length,
                         itemBuilder: (context, index) {
@@ -256,6 +260,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                           );
                         },
                       ),
+            ),
           ),
         ],
       ),

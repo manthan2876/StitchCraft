@@ -64,7 +64,7 @@ export const AuthProvider = ({ children }) => {
         email,
         password,
         options: {
-          data: { name }
+          data: { name, shopName, phone, address }
         }
       });
 

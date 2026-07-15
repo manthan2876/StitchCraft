@@ -117,7 +117,7 @@ class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
 
     final nameController = TextEditingController(text: _karigar!['name']);
     final phoneController = TextEditingController(text: _karigar!['phone']);
-    final specialtyController = TextEditingController(text: _karigar!['specialty']);
+    final specialtyController = TextEditingController(text: _karigar!['specialization'] ?? _karigar!['specialty']);
     String status = _karigar!['status'] ?? 'Active';
 
     final updated = await showModalBottomSheet<bool>(
@@ -197,7 +197,7 @@ class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
                           body: json.encode({
                             'name': name,
                             'phone': phoneController.text.trim(),
-                            'specialty': specialtyController.text.trim(),
+                            'specialization': specialtyController.text.trim(),
                             'status': status,
                           }),
                         );
@@ -287,7 +287,7 @@ class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
                             ),
                             const Divider(color: Colors.white10, height: 24),
                             _infoRow('Phone Number', _karigar!['phone'] ?? 'N/A'),
-                            _infoRow('Specialty Type', _karigar!['specialty'] ?? 'All Categories'),
+                            _infoRow('Specialty Type', _karigar!['specialization'] ?? _karigar!['specialty'] ?? 'All Categories'),
                           ],
                         ),
                       ),

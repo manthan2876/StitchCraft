@@ -65,34 +65,34 @@ class ShopManageTab extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: AppTheme.brandPurple.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   item['icon'],
-                  size: 28,
+                  size: 24,
                   color: AppTheme.brandPurple,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 item['title'],
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: Text(
                   item['subtitle'],
                   textAlign: TextAlign.center,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    fontSize: 11,
+                    fontSize: 10,
                     color: AppTheme.darkGrey,
                   ),
                   maxLines: 2,

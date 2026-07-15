@@ -30,6 +30,7 @@ extension OrderDbExtension on DatabaseService {
       'labor_cost': updatedOrder.laborCost,
       'material_cost': updatedOrder.materialCost,
       'overhead_cost': updatedOrder.overheadCost,
+      'fabric_photo_url': updatedOrder.fabricPhotoUrl,
       'style_attributes_json': jsonEncode(updatedOrder.styleAttributes),
       'sync_status': updatedOrder.syncStatus,
       'updated_at': updatedOrder.updatedAt.millisecondsSinceEpoch,
@@ -113,6 +114,7 @@ extension OrderDbExtension on DatabaseService {
       'labor_cost': updatedOrder.laborCost,
       'material_cost': updatedOrder.materialCost,
       'overhead_cost': updatedOrder.overheadCost,
+      'fabric_photo_url': updatedOrder.fabricPhotoUrl,
       'style_attributes_json': jsonEncode(updatedOrder.styleAttributes),
       'sync_status': updatedOrder.syncStatus,
       'updated_at': updatedOrder.updatedAt.millisecondsSinceEpoch,
@@ -184,6 +186,7 @@ extension OrderDbExtension on DatabaseService {
             data['laborCost'] = m['labor_cost'];
             data['materialCost'] = m['material_cost'];
             data['overheadCost'] = m['overhead_cost'];
+            data['fabricPhotoUrl'] = m['fabric_photo_url'];
             data['styleAttributes'] = m['style_attributes_json'] != null 
                 ? Map<String, String>.from(jsonDecode(m['style_attributes_json'])) 
                 : <String, String>{};

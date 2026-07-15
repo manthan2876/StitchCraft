@@ -39,7 +39,7 @@ class LocalDatabaseService {
     return await openDatabase(
       path,
       password: 'stitchcraft_secure_key_2026', // SRS ARCH-002: Encryption at Rest
-      version: 4, // Incremented for new tables
+      version: 5, // Incremented for new tables
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -47,6 +47,10 @@ class LocalDatabaseService {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     developer.log('Upgrading database from version $oldVersion to $newVersion...', name: 'LocalDatabaseService');
+    if (oldVersion < 5) {
+    // Add the missing column to your orders table
+    await db.execute('ALTER TABLE orders ADD COLUMN fabric_photo_url TEXT');
+  }
     for (int version = oldVersion + 1; version <= newVersion; version++) {
       final statements = upgradeTableStatements[version];
       if (statements != null) {
