@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
@@ -227,10 +228,15 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
                               child: _samplePhotoPath != null
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(16),
-                                      child: Image.file(
-                                        File(_samplePhotoPath!),
-                                        fit: BoxFit.cover,
-                                      ),
+                                      child: kIsWeb
+                                          ? Image.network(
+                                              _samplePhotoPath!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.file(
+                                              File(_samplePhotoPath!),
+                                              fit: BoxFit.cover,
+                                            ),
                                     )
                                   : Column(
                                       mainAxisAlignment: MainAxisAlignment.center,

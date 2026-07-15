@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
@@ -160,10 +161,15 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                       child: _fabricPhotoPath != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.file(
-                                File(_fabricPhotoPath!),
-                                fit: BoxFit.cover,
-                              ),
+                              child: kIsWeb
+                                  ? Image.network(
+                                      _fabricPhotoPath!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.file(
+                                      File(_fabricPhotoPath!),
+                                      fit: BoxFit.cover,
+                                    ),
                             )
                           : Column(
                               mainAxisAlignment: MainAxisAlignment.center,
