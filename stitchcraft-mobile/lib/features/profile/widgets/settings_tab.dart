@@ -6,11 +6,13 @@ import 'package:stitchcraft/core/services/theme_service.dart';
 class SettingsTab extends StatelessWidget {
   final VoidCallback onDownloadData;
   final VoidCallback onDeleteAccount;
+  final VoidCallback onLogout;
 
   const SettingsTab({
     super.key,
     required this.onDownloadData,
     required this.onDeleteAccount,
+    required this.onLogout,
   });
 
   @override
@@ -66,6 +68,21 @@ class SettingsTab extends StatelessWidget {
               leading: const Icon(Icons.delete_forever_outlined, color: AppTheme.alertRed),
               title: Text(context.loc.delete_account, style: const TextStyle(color: AppTheme.alertRed)),
               onTap: onDeleteAccount,
+            ),
+            const Divider(color: Colors.white10),
+
+            // Logout Tile
+            const SizedBox(height: 8),
+            ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: AppTheme.alertRed.withValues(alpha: 0.08),
+              leading: const Icon(Icons.logout_rounded, color: AppTheme.alertRed),
+              title: const Text(
+                'Logout',
+                style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.alertRed),
+              onTap: onLogout,
             ),
           ],
         );

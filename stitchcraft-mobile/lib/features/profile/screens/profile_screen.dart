@@ -215,6 +215,42 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to logout?', style: TextStyle(color: AppTheme.darkGrey)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout', style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    if (!mounted) return;
+
+    try {
+      await _authService.logout();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Logout failed: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
+    }
+  }
+
   Future<void> _downloadData() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Triggered data download check. Backup file generated.'), backgroundColor: AppTheme.trustGreen),
@@ -422,6 +458,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           ],
                         ),
                       ),
+                      // Logout button at end of row
+                      IconButton(
+                        icon: const Icon(Icons.logout_rounded, color: AppTheme.alertRed),
+                        tooltip: 'Logout',
+                        onPressed: _logout,
+                      ),
                     ],
                   ),
                 ),
@@ -450,6 +492,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       SettingsTab(
                         onDownloadData: _downloadData,
                         onDeleteAccount: _deleteAccount,
+                        onLogout: _logout,
                       ),
                       SecurityTab(
                         currentPasswordController: _currentPasswordController,
