@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:stitchcraft/core/services/notification_service.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
@@ -38,9 +40,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
 
       if (response.statusCode == 200) {
+        final list = json.decode(response.body) as List;
         setState(() {
-          _notifications = json.decode(response.body) as List;
+          _notifications = list;
         });
+
+        final prefs = await SharedPreferences.getInstance();
+        final alertedIds = prefs.getStringList('alerted_notification_ids') ?? [];
+        final List<String> newAlertedIds = List.from(alertedIds);
+        bool updated = false;
+
+        for (final n in list) {
+          final String id = n['_id'] ?? '';
+          final String message = n['message'] ?? '';
+          final bool isRead = n['read'] ?? false;
+          if (!isRead && !alertedIds.contains(id)) {
+            await NotificationService().showInstantNotification("StitchCraft Alert", message, id: id.hashCode);
+            newAlertedIds.add(id);
+            updated = true;
+          }
+        }
+        if (updated) {
+          await prefs.setStringList('alerted_notification_ids', newAlertedIds);
+        }
       }
     } catch (e) {
       debugPrint("Error fetching notifications: $e");
@@ -121,11 +143,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 : _buildNotificationsList(),
       ),
       floatingActionButton: _notifications.any((n) => n['read'] == false)
-          ? FloatingActionButton.extended(
+          ? FloatingActionButton(
               onPressed: _markAllAsRead,
               backgroundColor: AppTheme.brandPurple,
-              icon: const Icon(Icons.done_all, color: Colors.white),
-              label: const Text('Mark All Read', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              tooltip: 'Mark All Read',
+              child: const Icon(Icons.done_all, color: Colors.white),
             )
           : null,
     );

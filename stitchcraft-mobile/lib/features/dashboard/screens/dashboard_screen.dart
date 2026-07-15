@@ -1,8 +1,13 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/services/notification_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 import 'package:stitchcraft/features/dashboard/widgets/line_chart_painter.dart';
@@ -155,6 +160,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _weeklyGraphPoints = graphPoints;
         _graphLabels = labels;
       });
+    }
+    _checkNewNotifications();
+  }
+
+  Future<void> _checkNewNotifications() async {
+    try {
+      final token = await AuthService().getToken();
+      if (token == null) return;
+      final response = await http.get(
+        Uri.parse('${AuthService.baseUrl}/notifications'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        final list = json.decode(response.body) as List;
+        final prefs = await SharedPreferences.getInstance();
+        final alertedIds = prefs.getStringList('alerted_notification_ids') ?? [];
+        final List<String> newAlertedIds = List.from(alertedIds);
+        bool updated = false;
+
+        for (final n in list) {
+          final String id = n['_id'] ?? '';
+          final String message = n['message'] ?? '';
+          final bool isRead = n['read'] ?? false;
+          if (!isRead && !alertedIds.contains(id)) {
+            await NotificationService().showInstantNotification("StitchCraft Alert", message, id: id.hashCode);
+            newAlertedIds.add(id);
+            updated = true;
+          }
+        }
+        if (updated) {
+          await prefs.setStringList('alerted_notification_ids', newAlertedIds);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking new notifications: $e");
     }
   }
 

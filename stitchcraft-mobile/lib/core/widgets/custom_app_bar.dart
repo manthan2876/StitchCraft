@@ -111,12 +111,6 @@ class _CustomAppBarState extends State<CustomAppBar> {
           },
         ),
         IconButton(
-          icon: const Icon(Icons.chat_bubble_outline_rounded),
-          onPressed: () {
-            Navigator.pushNamed(context, '/chat');
-          },
-        ),
-        IconButton(
           icon: _isSyncing
               ? const SizedBox(
                   width: 20,

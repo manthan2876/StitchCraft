@@ -8,6 +8,7 @@ import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:stitchcraft/core/services/pdf_service.dart';
 
 class InvoiceDetailsScreen extends StatefulWidget {
   const InvoiceDetailsScreen({super.key});
@@ -158,6 +159,16 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     }
   }
 
+  Future<void> _downloadInvoicePdf() async {
+    if (_order == null) return;
+    await PdfService.generateInvoiceFromMap(_order!, _shopName, share: false);
+  }
+
+  Future<void> _sendInvoicePdf() async {
+    if (_order == null) return;
+    await PdfService.generateInvoiceFromMap(_order!, _shopName, share: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -286,6 +297,36 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                               onPressed: _sendReminderWhatsApp,
                               icon: const Icon(Icons.notifications_active, color: Colors.white),
                               label: const Text('Send Reminder', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('PDF Document Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white10,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onPressed: _downloadInvoicePdf,
+                              icon: const Icon(Icons.download, color: Colors.white),
+                              label: const Text('Download PDF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white10,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onPressed: _sendInvoicePdf,
+                              icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                              label: const Text('Send PDF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],

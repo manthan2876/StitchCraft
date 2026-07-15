@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
@@ -566,6 +567,58 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
+  Future<void> _sendWhatsAppStatusUpdate() async {
+    if (_order == null) return;
+    final String customerName = _order!['customerName'] ?? 'Customer';
+    final String customerPhone = _order!['customerPhone'] ?? _order!['customer']?['phone'] ?? '';
+    final String orderId = _order!['_id'] ?? _order!['id'] ?? '';
+    final String status = _order!['status'] ?? 'pending';
+
+    if (customerPhone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number linked to this customer'), backgroundColor: AppTheme.alertRed),
+      );
+      return;
+    }
+
+    String message = "Hello $customerName, here is an update on your tailoring order #$orderId:\n\n"
+        "Status: *${status.toUpperCase()}*\n\n"
+        "We will notify you of further progress. Thank you!";
+
+    if (status.toLowerCase() == 'trial ready') {
+      message = "Hello $customerName, friendly update: your tailoring order #$orderId is *READY FOR TRIAL*. Please drop by when convenient!\n\n"
+          "Thank you!";
+    } else if (status.toLowerCase() == 'ready' || status.toLowerCase() == 'ready to deliver') {
+      message = "Hello $customerName, great news! Your tailoring order #$orderId is *READY FOR PICKUP*.\n\n"
+          "Thank you!";
+    }
+
+    final String cleanPhone = customerPhone.replaceAll(RegExp(r'\D'), '');
+    final String targetPhone = cleanPhone.startsWith('91') || cleanPhone.length != 10 ? cleanPhone : '91$cleanPhone';
+
+    final String url = "https://wa.me/$targetPhone?text=${Uri.encodeComponent(message)}";
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw Exception('Could not launch WhatsApp');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error launching WhatsApp: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
+    }
+  }
+
+  void _openInvoiceShare() {
+    if (_order == null) return;
+    final orderId = _order!['_id'] ?? _order!['id'] ?? '';
+    Navigator.pushNamed(context, '/invoice_details', arguments: orderId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -818,6 +871,46 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                 IconButton(
                                   icon: const Icon(Icons.send, color: AppTheme.brandPurple),
                                   onPressed: _addNote,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      NeoCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'WhatsApp Customer Updates',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF25D366),
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    onPressed: _sendWhatsAppStatusUpdate,
+                                    icon: const Icon(Icons.notifications_active_outlined, color: Colors.white),
+                                    label: const Text('Send Status', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.brandPurple,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    onPressed: _openInvoiceShare,
+                                    icon: const Icon(Icons.receipt_long_outlined, color: Colors.white),
+                                    label: const Text('View Invoice', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  ),
                                 ),
                               ],
                             ),
