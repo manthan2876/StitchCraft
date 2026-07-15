@@ -48,9 +48,13 @@ class LocalDatabaseService {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     developer.log('Upgrading database from version $oldVersion to $newVersion...', name: 'LocalDatabaseService');
     if (oldVersion < 5) {
-    // Add the missing column to your orders table
-    await db.execute('ALTER TABLE orders ADD COLUMN fabric_photo_url TEXT');
-  }
+      // Add the missing column to your orders table only if it doesn't already exist
+      final columns = await db.rawQuery('PRAGMA table_info(orders)');
+      final hasColumn = columns.any((column) => column['name'] == 'fabric_photo_url');
+      if (!hasColumn) {
+        await db.execute('ALTER TABLE orders ADD COLUMN fabric_photo_url TEXT');
+      }
+    }
     for (int version = oldVersion + 1; version <= newVersion; version++) {
       final statements = upgradeTableStatements[version];
       if (statements != null) {
