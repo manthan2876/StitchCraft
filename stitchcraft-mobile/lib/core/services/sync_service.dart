@@ -142,7 +142,13 @@ class SyncService {
           );
 
           if (response.statusCode == 200 || response.statusCode == 201) {
-            await _localDb.updateSyncStatus(table, id, 0); 
+            final responseData = json.decode(response.body);
+            final serverId = responseData['_id'] ?? responseData['id'];
+            if (serverId != null && serverId != id) {
+              await _localDb.updateRecordId(table, id, serverId);
+            } else {
+              await _localDb.updateSyncStatus(table, id, 0);
+            }
             developer.log('Successfully pushed $id to server for $table', name: 'SyncService');
           } else {
             developer.log('Failed to push $id: ${response.statusCode} - ${response.body}', name: 'SyncService');

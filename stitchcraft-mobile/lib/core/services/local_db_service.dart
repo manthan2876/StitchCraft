@@ -221,4 +221,55 @@ class LocalDatabaseService {
     final db = await database;
     return await db!.query(table, where: 'sync_status != 0');
   }
+
+  Future<void> updateRecordId(String table, String oldId, String newId) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final list = _webDb[table]!;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i]['id'] == oldId) {
+          final updated = Map<String, dynamic>.from(list[i]);
+          updated['id'] = newId;
+          updated['sync_status'] = 0;
+          list[i] = updated;
+          break;
+        }
+      }
+      if (table == 'orders') {
+        if (_webDb['measurements'] != null) {
+          for (final m in _webDb['measurements']!) {
+            if (m['order_id'] == oldId) {
+              m['order_id'] = newId;
+            }
+          }
+        }
+      } else if (table == 'customers') {
+        if (_webDb['measurements'] != null) {
+          for (final m in _webDb['measurements']!) {
+            if (m['customer_id'] == oldId) {
+              m['customer_id'] = newId;
+            }
+          }
+        }
+        if (_webDb['orders'] != null) {
+          for (final o in _webDb['orders']!) {
+            if (o['customer_id'] == oldId) {
+              o['customer_id'] = newId;
+            }
+          }
+        }
+      }
+      return;
+    }
+    final db = await database;
+    await db!.transaction((txn) async {
+      await txn.update(table, {'id': newId, 'sync_status': 0}, where: 'id = ?', whereArgs: [oldId]);
+      if (table == 'orders') {
+        await txn.update('measurements', {'order_id': newId}, where: 'order_id = ?', whereArgs: [oldId]);
+      } else if (table == 'customers') {
+        await txn.update('measurements', {'customer_id': newId}, where: 'customer_id = ?', whereArgs: [oldId]);
+        await txn.update('orders', {'customer_id': newId}, where: 'customer_id = ?', whereArgs: [oldId]);
+      }
+    });
+  }
 }

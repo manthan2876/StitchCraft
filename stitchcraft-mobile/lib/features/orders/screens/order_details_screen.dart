@@ -119,7 +119,19 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Future<void> _loadOrderDetails(String orderId) async {
-    setState(() => _isLoading = true);
+    // 1. Try loading from local database first for instant load
+    try {
+      final localOrder = await _localDb.getRecordById('orders', orderId);
+      if (localOrder != null) {
+        setState(() {
+          _order = _mapSqliteOrderToBackend(localOrder);
+        });
+      }
+    } catch (e) {
+      developer.log("Error loading local order details: $e");
+    }
+
+    setState(() => _isLoading = _order == null);
     try {
       final token = await _authService.getToken();
       final response = await http.get(
@@ -136,11 +148,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         });
         await _resolveUrls();
       } else {
-        throw Exception('Failed to load order details');
+        if (_order == null) {
+          throw Exception('Failed to load order details (Status: ${response.statusCode}, Body: ${response.body})');
+        }
       }
     } catch (e) {
-      developer.log("Error loading order details: $e");
-      if (mounted) {
+      developer.log("Error loading order details from server: $e");
+      if (_order == null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading details: $e'), backgroundColor: AppTheme.alertRed),
         );
@@ -901,5 +915,68 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         ),
       ],
     );
+  }
+
+  Map<String, dynamic> _mapSqliteOrderToBackend(Map<String, dynamic> m) {
+    final Map<String, dynamic> data = {};
+    data['_id'] = m['id'];
+    data['id'] = m['id'];
+    data['customerName'] = m['customer_name'] ?? 'Walk-in Customer';
+    
+    // Resolve customer object
+    data['customer'] = {
+      '_id': m['customer_id'] ?? '',
+      'id': m['customer_id'] ?? '',
+      'name': m['customer_name'] ?? 'Walk-in Customer',
+    };
+    
+    // Status
+    data['status'] = m['status'] ?? 'Incoming';
+    
+    // Price
+    data['price'] = (m['total_amount'] as num?)?.toDouble() ?? 0.0;
+    
+    // Dates
+    if (m['order_date'] != null) {
+      data['date'] = DateTime.fromMillisecondsSinceEpoch(m['order_date'] as int).toUtc().toIso8601String();
+    }
+    if (m['due_date'] != null) {
+      data['deliveryDate'] = DateTime.fromMillisecondsSinceEpoch(m['due_date'] as int).toUtc().toIso8601String();
+    }
+    
+    // Apparel/Garment Type
+    final itemTypesStr = m['item_types'] as String?;
+    final itemTypesList = itemTypesStr != null ? itemTypesStr.split(',').where((e) => e.isNotEmpty).toList() : [];
+    data['garmentType'] = itemTypesList.isNotEmpty ? itemTypesList.first : 'Custom Order';
+    data['apparelType'] = data['garmentType'];
+    
+    // Fabric
+    data['fabric'] = m['description'] ?? '';
+    
+    // Fabric image
+    data['fabricImageUrl'] = m['fabric_photo_url'] ?? '';
+    
+    // Payment mock
+    data['payment'] = {
+      'paidAmount': (m['advance_amount'] as num?)?.toDouble() ?? 0.0,
+      'balanceAmount': ((m['total_amount'] as num?)?.toDouble() ?? 0.0) - ((m['advance_amount'] as num?)?.toDouble() ?? 0.0),
+    };
+    
+    // Default empty lists for relation population
+    data['assignedKarigar'] = null;
+    data['assignedMachine'] = null;
+    data['asterInventoryItem'] = null;
+    data['notes'] = [];
+    
+    // Try to parse style attributes
+    if (m['style_attributes_json'] != null) {
+      try {
+        data['styleAttributes'] = jsonDecode(m['style_attributes_json']);
+      } catch (e) {
+        data['styleAttributes'] = {};
+      }
+    }
+    
+    return data;
   }
 }
