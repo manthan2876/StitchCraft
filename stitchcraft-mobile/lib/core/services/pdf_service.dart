@@ -2,6 +2,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class PdfService {
   static Future<void> generateInvoiceFromMap(
@@ -290,7 +293,15 @@ class PdfService {
     final String filename = 'invoice_${shortId.toLowerCase()}.pdf';
 
     if (share) {
-      await Printing.sharePdf(bytes: pdfBytes, filename: filename);
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/$filename');
+      await file.writeAsBytes(pdfBytes);
+
+      // This opens the native share sheet where the user selects "WhatsApp"
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Here is your invoice #$invoiceNumber.',
+      );
     } else {
       await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdfBytes, name: filename);
     }

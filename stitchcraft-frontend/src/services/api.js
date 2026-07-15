@@ -24,6 +24,15 @@ const handleResponse = async (res) => {
 };
 
 export const api = {
+  getPublic: async (endpoint) => {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(res);
+  },
   get: async (endpoint) => {
     const res = await fetch(`${API_URL}${endpoint}`, { headers: getHeaders() });
     return handleResponse(res);
@@ -50,5 +59,5 @@ export const api = {
       headers: getHeaders()
     });
     return handleResponse(res);
-  }
+  },
 };

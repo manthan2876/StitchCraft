@@ -26,7 +26,7 @@ export const PublicInvoice = () => {
     const fetchPublicInvoice = async () => {
       try {
         // Fetch from unauthenticated public guest endpoint
-        const data = await api.get(`/orders/public/${id}`);
+        const data = await api.getPublic(`/orders/public/${id}`);
         setOrder(data);
       } catch (err) {
         console.error('Failed to load guest invoice details:', err);
@@ -88,7 +88,8 @@ export const PublicInvoice = () => {
 
   return (
     <div className="w-screen min-h-screen bg-bg-primary p-4 sm:p-8 select-none text-left">
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @media print {
           /* Hide sidebar, topbar, buttons, back links, and other non-print elements */
           .print-hidden-element, button, a {

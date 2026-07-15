@@ -9,8 +9,10 @@ plugins {
 
 android {
     namespace = "com.example.stitchcraft"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
+
+    buildToolsVersion = "34.0.0"
 
     val keystoreProperties = Properties()
     val keystorePropertiesFile = rootProject.projectDir.resolve("key.properties")
@@ -28,13 +30,12 @@ android {
     }
 
     compileOptions {
-        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
