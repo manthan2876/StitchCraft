@@ -138,4 +138,34 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get edit_material => 'सामग्री संपादित करें';
+
+  @override
+  String get recent_orders => 'हाल के ऑर्डर';
+
+  @override
+  String get quick_actions => 'त्वरित कार्रवाई';
+
+  @override
+  String get notifications => 'सूचनाएं';
+
+  @override
+  String get chat => 'दुकान चैट';
+
+  @override
+  String get shop_hub => 'दुकान हब';
+
+  @override
+  String get register_order => 'ऑर्डर दर्ज करें';
+
+  @override
+  String get manage_ledger => 'लेजर प्रबंधित करें';
+
+  @override
+  String get staff_directory => 'स्टाफ निर्देशिका';
+
+  @override
+  String get track_stock => 'स्टॉक ट्रैक करें';
+
+  @override
+  String get ready_deliveries => 'डिलिवरी के लिए तैयार';
 }

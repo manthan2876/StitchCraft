@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
 import 'package:stitchcraft/features/profile/widgets/shop_manage_tab.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class ShopHubScreen extends StatelessWidget {
   final bool isTab;
@@ -12,7 +13,7 @@ class ShopHubScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: CustomAppBar(
-        title: 'Shop Hub',
+        title: context.loc.shop_hub,
         showDrawerButton: !isTab,
       ),
       body: const ShopManageTab(),

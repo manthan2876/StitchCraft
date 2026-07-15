@@ -292,28 +292,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     ActionCard(
                       title: context.loc.new_order,
-                      subtitle: 'ગ્રાહકનો નવો ઓર્ડર',
+                      subtitle: context.loc.register_order,
                       icon: Icons.content_cut,
                       color: AppTheme.brandPurple,
                       onTap: () => Navigator.pushNamed(context, '/create_order_step1'),
                     ),
                     ActionCard(
                       title: context.loc.khata_ledger,
-                      subtitle: 'ખાતાવહી હિસાબ',
+                      subtitle: context.loc.manage_ledger,
                       icon: Icons.menu_book,
                       color: AppTheme.trustGreen,
                       onTap: () => Navigator.pushNamed(context, '/khata'),
                     ),
                     ActionCard(
                       title: context.loc.inventory_stock,
-                      subtitle: 'કાપડ અને મટીરીયલ',
+                      subtitle: context.loc.track_stock,
                       icon: Icons.inventory_2_outlined,
                       color: AppTheme.safetyOrange,
                       onTap: () => Navigator.pushNamed(context, '/inventory'),
                     ),
                     ActionCard(
                       title: context.loc.tailoring_staff,
-                      subtitle: 'કારીગરો અને મશીન',
+                      subtitle: context.loc.staff_directory,
                       icon: Icons.engineering_outlined,
                       color: AppTheme.brandPurple,
                       onTap: () => Navigator.pushNamed(context, '/karigars'),

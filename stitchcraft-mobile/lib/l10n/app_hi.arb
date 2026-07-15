@@ -42,5 +42,15 @@
   "add_machine": "मशीन जोड़ें",
   "edit_machine": "मशीन संपादित करें",
   "add_material": "सामग्री जोड़ें",
-  "edit_material": "सामग्री संपादित करें"
+  "edit_material": "सामग्री संपादित करें",
+  "recent_orders": "हाल के ऑर्डर",
+  "quick_actions": "त्वरित कार्रवाई",
+  "notifications": "सूचनाएं",
+  "chat": "दुकान चैट",
+  "shop_hub": "दुकान हब",
+  "register_order": "ऑर्डर दर्ज करें",
+  "manage_ledger": "लेजर प्रबंधित करें",
+  "staff_directory": "स्टाफ निर्देशिका",
+  "track_stock": "स्टॉक ट्रैक करें",
+  "ready_deliveries": "डिलिवरी के लिए तैयार"
 }

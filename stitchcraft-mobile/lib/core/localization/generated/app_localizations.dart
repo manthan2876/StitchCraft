@@ -357,6 +357,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Edit Material Info'**
   String get edit_material;
+
+  /// No description provided for @recent_orders.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Orders'**
+  String get recent_orders;
+
+  /// No description provided for @quick_actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Actions'**
+  String get quick_actions;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @chat.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop Chat'**
+  String get chat;
+
+  /// No description provided for @shop_hub.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop Hub'**
+  String get shop_hub;
+
+  /// No description provided for @register_order.
+  ///
+  /// In en, this message translates to:
+  /// **'Register Order'**
+  String get register_order;
+
+  /// No description provided for @manage_ledger.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Ledger'**
+  String get manage_ledger;
+
+  /// No description provided for @staff_directory.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff Directory'**
+  String get staff_directory;
+
+  /// No description provided for @track_stock.
+  ///
+  /// In en, this message translates to:
+  /// **'Track Stock'**
+  String get track_stock;
+
+  /// No description provided for @ready_deliveries.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to Deliver'**
+  String get ready_deliveries;
 }
 
 class _AppLocalizationsDelegate

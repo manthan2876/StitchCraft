@@ -42,5 +42,15 @@
   "add_machine": "મશીન ઉમેરો",
   "edit_machine": "મશીન સંપાદિત કરો",
   "add_material": "સામગ્રી ઉમેરો",
-  "edit_material": "સામગ્રી સંપાદિત કરો"
+  "edit_material": "સામગ્રી સંપાદિત કરો",
+  "recent_orders": "તાજેતરના ઓર્ડર",
+  "quick_actions": "ઝડપી પ્રક્રિયા",
+  "notifications": "નોટિફિકેશન",
+  "chat": "શોપ ચેટ",
+  "shop_hub": "શોપ હબ",
+  "register_order": "ઓર્ડર બનાવો",
+  "manage_ledger": "ખાતાવહી મેનેજ કરો",
+  "staff_directory": "સ્ટાફ ડિરેક્ટરી",
+  "track_stock": "સ્ટોક ટ્રેક કરો",
+  "ready_deliveries": "ડિલિવરી માટે તૈયાર"
 }

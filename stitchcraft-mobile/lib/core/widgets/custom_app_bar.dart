@@ -105,6 +105,18 @@ class _CustomAppBarState extends State<CustomAppBar> {
           : null,
       actions: [
         IconButton(
+          icon: const Icon(Icons.notifications_none_rounded),
+          onPressed: () {
+            Navigator.pushNamed(context, '/notifications');
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.chat_bubble_outline_rounded),
+          onPressed: () {
+            Navigator.pushNamed(context, '/chat');
+          },
+        ),
+        IconButton(
           icon: _isSyncing
               ? const SizedBox(
                   width: 20,

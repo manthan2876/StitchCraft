@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
@@ -43,11 +44,17 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
   Future<String?> _uploadFile(String localPath, String bucketName) async {
     try {
-      final file = File(localPath);
-      if (!await file.exists()) return null;
+      final Uint8List bytes;
+      if (kIsWeb) {
+        final response = await http.get(Uri.parse(localPath));
+        bytes = response.bodyBytes;
+      } else {
+        final file = File(localPath);
+        if (!await file.exists()) return null;
+        bytes = await file.readAsBytes();
+      }
 
-      final bytes = await file.readAsBytes();
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${localPath.split(Platform.pathSeparator).last}';
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${localPath.split('/').last.split('\\').last}';
       final token = await _authService.getToken();
       if (token == null) return null;
 

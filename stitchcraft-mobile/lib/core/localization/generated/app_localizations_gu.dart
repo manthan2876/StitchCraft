@@ -137,4 +137,34 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get edit_material => 'સામગ્રી સંપાદિત કરો';
+
+  @override
+  String get recent_orders => 'તાજેતરના ઓર્ડર';
+
+  @override
+  String get quick_actions => 'ઝડપી પ્રક્રિયા';
+
+  @override
+  String get notifications => 'નોટિફિકેશન';
+
+  @override
+  String get chat => 'શોપ ચેટ';
+
+  @override
+  String get shop_hub => 'શોપ હબ';
+
+  @override
+  String get register_order => 'ઓર્ડર બનાવો';
+
+  @override
+  String get manage_ledger => 'ખાતાવહી મેનેજ કરો';
+
+  @override
+  String get staff_directory => 'સ્ટાફ ડિરેક્ટરી';
+
+  @override
+  String get track_stock => 'સ્ટોક ટ્રેક કરો';
+
+  @override
+  String get ready_deliveries => 'ડિલિવરી માટે તૈયાર';
 }

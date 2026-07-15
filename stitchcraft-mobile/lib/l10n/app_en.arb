@@ -42,5 +42,15 @@
   "add_machine": "Add Machine",
   "edit_machine": "Edit Machine Info",
   "add_material": "Add Material",
-  "edit_material": "Edit Material Info"
+  "edit_material": "Edit Material Info",
+  "recent_orders": "Recent Orders",
+  "quick_actions": "Quick Actions",
+  "notifications": "Notifications",
+  "chat": "Shop Chat",
+  "shop_hub": "Shop Hub",
+  "register_order": "Register Order",
+  "manage_ledger": "Manage Ledger",
+  "staff_directory": "Staff Directory",
+  "track_stock": "Track Stock",
+  "ready_deliveries": "Ready to Deliver"
 }

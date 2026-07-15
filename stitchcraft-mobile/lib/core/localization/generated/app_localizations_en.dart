@@ -138,4 +138,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get edit_material => 'Edit Material Info';
+
+  @override
+  String get recent_orders => 'Recent Orders';
+
+  @override
+  String get quick_actions => 'Quick Actions';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get chat => 'Shop Chat';
+
+  @override
+  String get shop_hub => 'Shop Hub';
+
+  @override
+  String get register_order => 'Register Order';
+
+  @override
+  String get manage_ledger => 'Manage Ledger';
+
+  @override
+  String get staff_directory => 'Staff Directory';
+
+  @override
+  String get track_stock => 'Track Stock';
+
+  @override
+  String get ready_deliveries => 'Ready to Deliver';
 }
