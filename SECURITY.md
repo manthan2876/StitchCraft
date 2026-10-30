@@ -47,3 +47,8 @@ Historical Firebase secret alerts also require external key rotation or
 revocation by the project owner. They cannot be resolved by code changes alone;
 do not attempt to dismiss an alert without first invalidating the affected key
 in Google/Firebase.
+
+After a security fix is merged, re-run CodeQL and review each alert against the
+current source before dismissing a stale or false-positive result. Record the
+alert number, the affected query or endpoint, and the validation evidence in
+the tracking issue.

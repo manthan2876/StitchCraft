@@ -179,7 +179,7 @@ export const importAllDataService = async (user, data, resolutions) => {
       const existing = await Model.findOne({ _id: item._id, shopId });
       if (existing) {
         if (choice === 'backup' || !choice) {
-          await Model.replaceOne({ _id: item._id }, item);
+          await Model.replaceOne({ _id: item._id, shopId }, item);
         }
       } else {
         await Model.create(item);
