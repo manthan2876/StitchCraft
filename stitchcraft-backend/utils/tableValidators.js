@@ -4,7 +4,7 @@
  * Validates entity records before writing to database (app_records or domain tables).
  */
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/;
 const PHONE_REGEX = /^[0-9+]{10,15}$/;
 
 export class ValidationError extends Error {
@@ -35,7 +35,8 @@ export const validateDocument = (collection, doc) => {
         errors.name = 'User name must be at least 2 characters';
       }
       if (doc.email) {
-        if (!EMAIL_REGEX.test(doc.email.trim())) {
+        const clean = doc.email.trim();
+        if (clean.length > 254 || !EMAIL_REGEX.test(clean)) {
           errors.email = 'Valid email address is required';
         }
       }
@@ -73,8 +74,11 @@ export const validateDocument = (collection, doc) => {
       } else {
         errors.phone = 'Customer phone number is required';
       }
-      if (doc.email && doc.email.trim() && !EMAIL_REGEX.test(doc.email.trim())) {
-        errors.email = 'Invalid customer email address';
+      if (doc.email && doc.email.trim()) {
+        const clean = doc.email.trim();
+        if (clean.length > 254 || !EMAIL_REGEX.test(clean)) {
+          errors.email = 'Invalid customer email address';
+        }
       }
       break;
     }
