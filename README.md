@@ -1,280 +1,135 @@
 # 🧵 StitchCraft
 
-**StitchCraft** is a full-stack tailor shop management platform built for Indian masterji shops. It helps tailors manage orders, customers, karigars, machines, inventory, payments, and the khata (ledger) — all in one place, with a web dashboard and a Flutter mobile app.
+[![CI](https://github.com/manthan2876/StitchCraft/actions/workflows/ci.yml/badge.svg)](https://github.com/manthan2876/StitchCraft/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/manthan2876/StitchCraft/actions/workflows/codeql.yml/badge.svg)](https://github.com/manthan2876/StitchCraft/actions/workflows/codeql.yml)
 
----
+StitchCraft is a full-stack tailor shop management platform for Indian masterji
+shops. It helps teams manage customers, orders, measurements, karigars,
+machines, inventory, payments, deliveries, and the khata ledger from a web
+dashboard and a Flutter mobile app.
 
-## 🏗️ Architecture & Tech Stack
+## Architecture
 
-The platform is split into three components:
+| Component | Technology | Directory |
+| --- | --- | --- |
+| Backend API | Node.js, Express, MongoDB/Mongoose, Supabase integrations | [`stitchcraft-backend/`](./stitchcraft-backend/) |
+| Web dashboard | React, Vite, Tailwind CSS | [`stitchcraft-frontend/`](./stitchcraft-frontend/) |
+| Mobile app | Flutter, Dart, Firebase, Supabase, SQLite | [`stitchcraft-mobile/`](./stitchcraft-mobile/) |
 
-| Component | Technology |
-|---|---|
-| **Backend** | Node.js + Express.js + MongoDB (Mongoose) |
-| **Web Frontend** | React 19 + Vite + TailwindCSS v4 |
-| **Mobile App** | Flutter (Dart) + Firebase + SQLite (local) |
-| **Auth & Storage** | Supabase (JWT auth + profile image bucket) |
-| **Deployment** | Render (backend) + Vercel (frontend) |
+The backend owns authentication, business rules, and persistence. The web
+dashboard and mobile app consume the backend API and provide tailored workflows
+for shop owners and staff. The mobile app also supports offline data and
+device-native notifications where configured.
 
----
+See the [architecture guide](./docs/ARCHITECTURE.md) for boundaries,
+integration points, and deployment notes.
 
-## ✨ Features
+## Repository layout
 
-### 🧾 Order Management
-- Multi-step order creation wizard (garment → measurements → material)
-- Full order lifecycle: `Incoming → Measuring → Cutting → Stitching → Checking → Ready → Delivered → Cancelled`
-- Auto-generated order IDs (e.g. `ORD-901`)
-- Edit order details, assign karigar & machine
-- Internal notes/comments timeline per order
-
-### 👥 Customers & Karigars
-- Customer profiles with measurement history (shirt + pant)
-- Maap image upload (stored in Supabase)
-- Karigar (tailor worker) profiles with performance tracking
-- Machine registry
-
-### 💰 Payments & Khata (Ledger)
-- Payment recording per order (Cash / UPI / Card)
-- Ledger view with income and expense tracking
-- Full transaction history per order
-
-### 🧾 Invoices
-- Auto-generated invoices per order
-- Shareable public invoice link (`/invoice/share/:id`) — no login required for customers
-
-### 📦 Inventory
-- Track fabric, accessories, and lining (astar) stock
-- Automatic deduction for astar when linked to an order
-
-### 🔔 Notifications
-- In-app notifications for payment events and status changes
-
-### 🏪 Shop Management
-- Multi-shop support — one account can manage multiple shops
-- Shop switching from Profile
-
-### 🌐 Internationalization
-- Full i18n support: **English**, **Hindi (हिन्दी)**, **Gujarati (ગુજરાતી)**
-
-### 🎨 Theme
-- Light / Dark mode toggle, persisted per user
-
----
-
-## 📂 Repository Structure
-
-```
-StitchCraft/
-├── stitchcraft-backend/     # Node.js REST API
-│   ├── controllers/         # Route handlers (orders, karigars, inventory, etc.)
-│   ├── models/              # Mongoose models (Order, Customer, Karigar, ...)
-│   ├── routes/              # Express route definitions
-│   ├── services/            # Business logic (order, ledger, account)
-│   ├── middleware/          # JWT auth middleware
-│   ├── config/              # DB connection
-│   ├── seed.js              # Database seeding script
-│   └── server.js            # App entry point
-│
-├── stitchcraft-frontend/    # React web dashboard
-│   └── src/
-│       ├── pages/           # Full-page views (Dashboard, Orders, Karigars, ...)
-│       ├── features/        # Feature-scoped hooks & components
-│       │   ├── orders/
-│       │   ├── profile/
-│       │   ├── dashboard/
-│       │   └── inventory/
-│       ├── components/      # Shared UI components (Card, Layout, ...)
-│       ├── context/         # Auth, Theme, Language context providers
-│       ├── services/        # API client + Supabase helpers
-│       └── utils/           # Formatters, helpers
-│
-├── stitchcraft-mobile/      # Flutter mobile app
-│   └── lib/
-│       ├── features/        # Feature modules
-│       │   ├── auth/        # Login, role selection
-│       │   ├── orders/      # Order list, create (3-step wizard), invoices
-│       │   ├── shop/        # Inventory, karigars, machines
-│       │   ├── khata/       # Expenses & income ledger (local SQLite)
-│       │   ├── repairs/     # Repair dashboard
-│       │   ├── dashboard/
-│       │   └── profile/
-│       └── core/            # Theme, localization, services
-│
-├── render.yaml              # Render.com backend deployment config
-└── vercel.json              # Vercel frontend deployment config
+```text
+.
+├── .github/                 # CI, CodeQL, Dependabot, and contribution templates
+├── docs/                    # Architecture and development documentation
+├── stitchcraft-backend/     # Express API and data services
+├── stitchcraft-frontend/    # React/Vite web dashboard
+├── stitchcraft-mobile/      # Flutter mobile application
+├── render.yaml              # Backend deployment configuration
+└── vercel.json              # Repository/web deployment configuration
 ```
 
----
-
-## 🚀 Getting Started
+## Local development
 
 ### Prerequisites
 
-| Tool | Version |
-|---|---|
-| Node.js | v18+ |
-| npm | v9+ |
-| Flutter SDK | v3.10+ |
-| MongoDB Atlas | (cloud) or local MongoDB |
+- Node.js 22 or newer and npm
+- Flutter SDK compatible with the Dart constraint in
+  [`pubspec.yaml`](./stitchcraft-mobile/pubspec.yaml)
+- MongoDB and/or the configured Supabase project
+- Firebase project credentials for mobile features
 
----
-
-## ⚙️ 1. Backend Setup
+### Backend
 
 ```bash
 cd stitchcraft-backend
 npm install
+# Create .env locally and add the required values.
+npm run dev
 ```
 
-Create your `.env` file:
+Configure the variables expected by
+[`config/db.js`](./stitchcraft-backend/config/db.js),
+[`config/supabase.js`](./stitchcraft-backend/config/supabase.js), and the
+authentication middleware. Never commit the resulting `.env` file.
 
-```env
-PORT=5000
-NODE_ENV=development
-MONGO_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_super_secret_jwt_key
-
-# Supabase (for profile image uploads)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-```
-
-Start the dev server:
-
-```bash
-npm run dev        # Development (nodemon hot-reload)
-npm start          # Production
-```
-
-Seed the database with sample data (optional):
-
-```bash
-npm run seed
-```
-
-The backend runs on **http://localhost:5000**.
-
----
-
-## 🖥️ 2. Frontend Setup
+### Web dashboard
 
 ```bash
 cd stitchcraft-frontend
-npm install
+npm ci
+npm run dev
 ```
 
-Create your `.env` file:
+Use `npm run lint` and `npm run build` before submitting frontend changes.
+The production build is enforced in CI; existing lint findings should be
+addressed in focused frontend cleanup changes.
 
-```env
-VITE_API_URL=http://localhost:5000/api
-
-# Supabase (for avatar uploads from the web)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-Start the dev server:
-
-```bash
-npm run dev        # Development (Vite HMR)
-npm run build      # Production build
-npm run preview    # Preview production build locally
-```
-
-The frontend runs on **http://localhost:5173**.
-
----
-
-## 📱 3. Mobile App Setup
+### Mobile app
 
 ```bash
 cd stitchcraft-mobile
 flutter pub get
+cp lib/firebase_options.dart.example lib/firebase_options.dart
+# Replace the example values with credentials for your Firebase project.
+flutter run
 ```
 
-The mobile app uses **Firebase** for push notifications. Place your `google-services.json` (Android) and `GoogleService-Info.plist` (iOS) in the appropriate platform directories.
+The generated Firebase configuration and platform signing files are ignored by
+Git. See the [mobile README](./stitchcraft-mobile/README.md) for platform
+setup details.
 
-The API base URL is configured in:
-```
-stitchcraft-mobile/lib/core/config/
-```
+## Verification
 
-Run the app:
+Run the checks relevant to the area you changed:
 
 ```bash
-flutter run                    # Run on connected device / emulator
-flutter build apk              # Build Android APK
-flutter build ios              # Build iOS
+# Backend syntax verification
+cd stitchcraft-backend
+for file in $(find . -maxdepth 1 -name '*.js' -o -path './config/*.js' -o -path './controllers/*.js' -o -path './middleware/*.js' -o -path './models/*.js' -o -path './routes/*.js' -o -path './services/*.js'); do
+  node --check "$file"
+done
+
+# Frontend
+cd ../stitchcraft-frontend
+npm ci
+npm run lint
+npm run build
+
+# Mobile
+cd ../stitchcraft-mobile
+flutter pub get
+flutter analyze
+flutter test
 ```
 
----
+Pull requests should describe user-visible changes, configuration or migration
+requirements, and the validation performed. See
+[`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
-## 🌐 Deployment
+## Deployment
 
-### Backend → Render
-The `render.yaml` at the repo root configures automatic deployment to [Render.com](https://render.com):
-- **Build command**: `npm install`
-- **Start command**: `npm start`
-- Set all environment variables in the Render dashboard.
+- The backend deployment is described in [`render.yaml`](./render.yaml).
+- Frontend deployment settings live in
+  [`stitchcraft-frontend/vercel.json`](./stitchcraft-frontend/vercel.json).
+- Production credentials must be stored in the hosting provider's secret
+  manager, never in the repository.
 
-### Frontend → Vercel
-The `vercel.json` at the repo root configures deployment to [Vercel](https://vercel.com):
-- Set `VITE_API_URL` to your Render backend URL (e.g. `https://stitchcraft-backend.onrender.com/api`)
-- Vercel auto-detects Vite and handles SPA routing.
+## Security
 
----
+Please report vulnerabilities privately as described in
+[`SECURITY.md`](./SECURITY.md). Do not open a public issue for a security
+vulnerability.
 
-## 📡 Key API Endpoints
+## License
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/auth/register` | Register a new user |
-| `POST` | `/api/auth/login` | Login, returns JWT |
-| `GET` | `/api/orders` | Get all orders (filtered by shop) |
-| `POST` | `/api/orders` | Create a new order |
-| `PUT` | `/api/orders/:id` | Update order status / details |
-| `POST` | `/api/orders/:id/payments` | Record a payment |
-| `POST` | `/api/orders/:id/notes` | Add an internal note to an order |
-| `GET` | `/api/orders/public/:id` | Public invoice (no auth) |
-| `GET` | `/api/customers` | List all customers |
-| `GET` | `/api/karigars` | List all karigars |
-| `GET` | `/api/inventory` | List inventory items |
-| `GET` | `/api/dashboard` | Aggregated dashboard stats |
-| `GET` | `/api/ledger` | Ledger entries |
-
----
-
-## 🗃️ Data Models
-
-| Model | Key Fields |
-|---|---|
-| `User` | name, email, phone, role, shopId |
-| `Shop` | shopName, phone, address, plan |
-| `Order` | orderId, customer, apparelType, status, deliveryDate, price, karigar, machine, notes[] |
-| `Customer` | name, phone, address |
-| `Measurement` | customerId, shirt{}, pant{} |
-| `Karigar` | name, phone, specialization |
-| `Machine` | name, type, status |
-| `Inventory` | itemName, itemType, quantity, costPerUnit |
-| `Payment` | orderId, paidAmount, totalAmount, balanceAmount |
-| `Transaction` | orderId, amount, paymentType, type |
-| `LedgerEntry` | shopId, type, amount, description |
-| `Notification` | shopId, message, isRead |
-
----
-
-## 🌍 Supported Languages
-
-| Language | Code |
-|---|---|
-| English | `en` |
-| Hindi | `hi` |
-| Gujarati | `gu` |
-
-Language is persisted per user via `localStorage` (web) and `SharedPreferences` (mobile).
-
----
-
-## 📝 License
-
-This project is private and proprietary. All rights reserved.
+No license has been declared for this repository. Do not redistribute or
+reuse the source without permission from the project owner.

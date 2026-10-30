@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest an improvement for StitchCraft
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Target component
+      options:
+        - Backend API
+        - Web dashboard
+        - Mobile app
+        - Cross-platform workflow
+        - Documentation or developer experience
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

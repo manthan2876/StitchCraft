@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'stitchcraft-backend/**'
+      - 'stitchcraft-frontend/**'
+      - 'stitchcraft-mobile/**'
+      - 'docs/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend syntax
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stitchcraft-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Check JavaScript syntax
+        run: |
+          find . -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stitchcraft-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: stitchcraft-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  mobile:
+    name: Mobile analysis and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stitchcraft-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Configure Firebase placeholder
+        run: cp lib/firebase_options.dart.example lib/firebase_options.dart
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
