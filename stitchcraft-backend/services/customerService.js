@@ -3,10 +3,10 @@ import Customer from '../models/Customer.js';
 import Measurement from '../models/Measurement.js';
 import Order from '../models/Order.js';
 import Payment from '../models/Payment.js';
-import mongoose from 'mongoose';
+import { isValidIdentifier } from '../utils/identifiers.js';
 
 export const findCustomerScoped = async (id, shopId) => {
-  const query = typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)
+  const query = isValidIdentifier(id)
     ? { _id: id, shopId }
     : { customerId: typeof id === 'string' ? id : '', shopId };
   return await Customer.findOne(query);
@@ -85,13 +85,13 @@ export const updateCustomerService = async (customerId, reqBody, shopId) => {
   if (measurements) {
     if (measurements.shirt) {
       measurementsRecord.shirt = {
-        ...measurementsRecord.shirt.toObject(),
+        ...(measurementsRecord.shirt?.toObject?.() || measurementsRecord.shirt || {}),
         ...measurements.shirt,
       };
     }
     if (measurements.pant) {
       measurementsRecord.pant = {
-        ...measurementsRecord.pant.toObject(),
+        ...(measurementsRecord.pant?.toObject?.() || measurementsRecord.pant || {}),
         ...measurements.pant,
       };
     }

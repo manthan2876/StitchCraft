@@ -1,5 +1,4 @@
 /* src/pages/Profile.jsx */
-import React from 'react';
 import Card from '../components/common/Card';
 import { MdEdit, MdLogout } from 'react-icons/md';
 

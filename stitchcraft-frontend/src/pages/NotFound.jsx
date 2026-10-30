@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/common/Button';
 import { GiScissors } from 'react-icons/gi';

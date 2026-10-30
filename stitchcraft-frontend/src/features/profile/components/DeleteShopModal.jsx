@@ -1,5 +1,4 @@
 /* src/features/profile/components/DeleteShopModal.jsx */
-import React from 'react';
 import { MdClose, MdDelete } from 'react-icons/md';
 
 export const DeleteShopModal = ({

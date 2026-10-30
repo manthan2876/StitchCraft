@@ -1,5 +1,4 @@
 /* src/features/dashboard/components/DashboardCalendar.jsx */
-import React from 'react';
 import { MdChevronLeft, MdChevronRight, MdClose } from 'react-icons/md';
 import Card from '../../../components/common/Card';
 

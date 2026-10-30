@@ -4,15 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
+import 'package:stitchcraft/core/config/api_config.dart';
 import 'dart:developer' as developer;
 
 class SyncService {
   final _localDb = LocalDatabaseService();
 
-  static String get baseUrl {
-    // Point directly to production Render backend server
-    return 'https://stitchcraft-backend.onrender.com/api';
-  }
+  static String get baseUrl => ApiConfig.baseUrl;
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

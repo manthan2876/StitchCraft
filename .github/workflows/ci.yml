@@ -66,6 +66,8 @@ jobs:
           cache: true
       - name: Configure Firebase placeholder
         run: cp lib/firebase_options.dart.example lib/firebase_options.dart
+      - name: Configure mobile environment placeholder
+        run: cp .env.example .env
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test

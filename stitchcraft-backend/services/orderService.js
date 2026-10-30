@@ -1,5 +1,4 @@
 /* services/orderService.js */
-import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import Customer from '../models/Customer.js';
 import Payment from '../models/Payment.js';
@@ -8,11 +7,12 @@ import Notification from '../models/Notification.js';
 import Measurement from '../models/Measurement.js';
 import Inventory from '../models/Inventory.js';
 import Transaction from '../models/Transaction.js';
+import { isValidIdentifier } from '../utils/identifiers.js';
 
 export const ASTAR_DEDUCT_STATUSES = ['Stitching', 'Checking', 'Ready', 'Delivered'];
 
 export const findOrderScoped = async (id, shopId) => {
-  const query = typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)
+  const query = isValidIdentifier(id)
     ? { _id: id, shopId }
     : { orderId: typeof id === 'string' ? id : '', shopId };
   return await Order.findOne(query)
@@ -55,7 +55,7 @@ export const resolveCustomer = async (reqBody, shopId) => {
   let customerObj = null;
 
   if (customerId) {
-    const custQuery = mongoose.Types.ObjectId.isValid(customerId)
+    const custQuery = isValidIdentifier(customerId)
       ? { _id: customerId, shopId }
       : { customerId, shopId };
     customerObj = await Customer.findOne(custQuery);
@@ -96,13 +96,13 @@ export const updateCustomerMeasurements = async (customerId, measurements, shopI
 
   if (measurements.shirt) {
     measurementRecord.shirt = {
-      ...measurementRecord.shirt.toObject(),
+      ...(measurementRecord.shirt?.toObject?.() || measurementRecord.shirt || {}),
       ...measurements.shirt,
     };
   }
   if (measurements.pant) {
     measurementRecord.pant = {
-      ...measurementRecord.pant.toObject(),
+      ...(measurementRecord.pant?.toObject?.() || measurementRecord.pant || {}),
       ...measurements.pant,
     };
   }

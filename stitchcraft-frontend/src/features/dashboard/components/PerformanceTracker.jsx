@@ -1,5 +1,4 @@
 /* src/features/dashboard/components/PerformanceTracker.jsx */
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { GiSewingMachine } from 'react-icons/gi';
 import Card from '../../../components/common/Card';

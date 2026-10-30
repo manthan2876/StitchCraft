@@ -1,6 +1,5 @@
 import Inventory from '../models/Inventory.js';
 import LedgerEntry from '../models/LedgerEntry.js';
-import mongoose from 'mongoose';
 import { escapeRegex } from '../middleware/securityMiddleware.js';
 
 // @desc    Create a new inventory item

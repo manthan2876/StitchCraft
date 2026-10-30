@@ -1,16 +1,6 @@
 /* controllers/profileController.js */
 import User from '../models/User.js';
 import Shop from '../models/Shop.js';
-import jwt from 'jsonwebtoken';
-
-// Generate JWT token including shopId in payload
-const generateToken = (id, shopId) => {
-  return jwt.sign(
-    { id, shopId },
-    process.env.JWT_SECRET,
-    { expiresIn: '30d' }
-  );
-};
 
 // @desc    Get user profile
 // @route   GET /api/auth/profile
@@ -100,7 +90,6 @@ export const switchActiveShop = async (req, res) => {
       avatar: user.avatar,
       shopId: shop._id,
       shopName: shop.shopName,
-      token: generateToken(user._id, shop._id), // return new token
     });
   } catch (error) {
     console.error('Switch shop error:', error);

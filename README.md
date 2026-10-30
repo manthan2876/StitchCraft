@@ -12,7 +12,7 @@ dashboard and a Flutter mobile app.
 
 | Component | Technology | Directory |
 | --- | --- | --- |
-| Backend API | Node.js, Express, MongoDB/Mongoose, Supabase integrations | [`stitchcraft-backend/`](./stitchcraft-backend/) |
+| Backend API | Node.js, Express, Supabase PostgreSQL, Supabase Auth/Storage | [`stitchcraft-backend/`](./stitchcraft-backend/) |
 | Web dashboard | React, Vite, Tailwind CSS | [`stitchcraft-frontend/`](./stitchcraft-frontend/) |
 | Mobile app | Flutter, Dart, Firebase, Supabase, SQLite | [`stitchcraft-mobile/`](./stitchcraft-mobile/) |
 
@@ -44,7 +44,7 @@ integration points, and deployment notes.
 - Node.js 22 or newer and npm
 - Flutter SDK compatible with the Dart constraint in
   [`pubspec.yaml`](./stitchcraft-mobile/pubspec.yaml)
-- MongoDB and/or the configured Supabase project
+- The configured Supabase project
 - Firebase project credentials for mobile features
 
 ### Backend
@@ -78,14 +78,13 @@ addressed in focused frontend cleanup changes.
 ```bash
 cd stitchcraft-mobile
 flutter pub get
-cp lib/firebase_options.dart.example lib/firebase_options.dart
-# Replace the example values with credentials for your Firebase project.
+# Add native Firebase configuration only if Firebase-backed notifications are enabled.
 flutter run
 ```
 
-The generated Firebase configuration and platform signing files are ignored by
-Git. See the [mobile README](./stitchcraft-mobile/README.md) for platform
-setup details.
+The mobile app loads Supabase and backend settings from the ignored
+`stitchcraft-mobile/.env` file. See the [mobile README](./stitchcraft-mobile/README.md)
+for environment and optional Firebase platform setup details.
 
 ## Verification
 

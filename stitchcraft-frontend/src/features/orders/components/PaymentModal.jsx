@@ -1,4 +1,3 @@
-import React from 'react';
 import { MdClose, MdPayments } from 'react-icons/md';
 
 export const PaymentModal = ({

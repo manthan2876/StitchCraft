@@ -1,5 +1,4 @@
 /* src/features/dashboard/components/WeeklyStitchingChart.jsx */
-import React from 'react';
 import Card from '../../../components/common/Card';
 import { getSvgPath } from '../../../utils/svgHelpers';
 import { formatCurrency } from '../../../utils/formatters';

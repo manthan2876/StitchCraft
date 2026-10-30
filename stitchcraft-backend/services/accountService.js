@@ -12,7 +12,7 @@ import Measurement from '../models/Measurement.js';
 import Transaction from '../models/Transaction.js';
 import Notification from '../models/Notification.js';
 import ActionLog from '../models/ActionLog.js';
-import mongoose from 'mongoose';
+import { isValidIdentifier } from '../utils/identifiers.js';
 
 export const getRecordSummary = (modelName, doc) => {
   switch (modelName) {
@@ -174,10 +174,7 @@ export const importAllDataService = async (user, data, resolutions) => {
         continue;
       }
 
-      const itemId = typeof item._id === 'string' &&
-        mongoose.Types.ObjectId.isValid(item._id)
-        ? new mongoose.Types.ObjectId(item._id)
-        : null;
+      const itemId = isValidIdentifier(item._id) ? item._id : null;
       if (!itemId) continue;
 
       const choice = resolutionMap.get(itemId.toString());

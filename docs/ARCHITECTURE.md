@@ -6,7 +6,7 @@ StitchCraft is organized as three deployable clients/services:
 
 ```text
 Flutter mobile app ─┐
-                    ├──> Express API ───> MongoDB / Supabase
+                    ├──> Express API ───> Supabase PostgreSQL
 React web dashboard ─┘          └───────> external storage/services
 ```
 
@@ -40,7 +40,7 @@ so the same behavior can be tested without rendering the full application.
 
 The repository includes templates, not production credentials. Local values
 belong in ignored environment files. Firebase platform configuration,
-application signing keys, and generated `firebase_options.dart` files are
+application signing keys, and generated Firebase configuration files are
 ignored. Rotate a credential immediately if it is ever committed.
 
 ## Deployment

@@ -1,4 +1,4 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import supabase from '../services/supabase';
 
 export const AuthContext = createContext();
@@ -17,6 +17,29 @@ export const AuthProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active || !session) return;
+      localStorage.setItem('stitchcraft_token', session.access_token);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session) {
+          localStorage.removeItem('stitchcraft_token');
+          return;
+        }
+        localStorage.setItem('stitchcraft_token', session.access_token);
+      },
+    );
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const login = async (email, password) => {
     setLoading(true);
     try {
@@ -29,7 +52,7 @@ export const AuthProvider = ({ children }) => {
       if (sbError) throw sbError;
       const token = sbData.session.access_token;
 
-      // 2. Exchange token with backend for MongoDB Atlas user details
+      // Provision/fetch the application profile through the backend.
       const API_URL = import.meta.env.VITE_API_URL;
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -47,7 +70,7 @@ export const AuthProvider = ({ children }) => {
       const data = await res.json();
       setUser(data);
       localStorage.setItem('stitchcraft_user', JSON.stringify(data));
-      localStorage.setItem('stitchcraft_token', data.token);
+      localStorage.setItem('stitchcraft_token', token);
       setLoading(false);
       return data;
     } catch (err) {
@@ -75,7 +98,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Please check your email to verify your account before logging in.');
       }
 
-      // 2. Register profile details inside MongoDB Atlas
+      // Provision profile details through the backend.
       const API_URL = import.meta.env.VITE_API_URL;
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -94,7 +117,7 @@ export const AuthProvider = ({ children }) => {
       const data = await res.json();
       setUser(data);
       localStorage.setItem('stitchcraft_user', JSON.stringify(data));
-      localStorage.setItem('stitchcraft_token', data.token);
+      localStorage.setItem('stitchcraft_token', token);
       setLoading(false);
       return data;
     } catch (err) {
@@ -103,7 +126,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem('stitchcraft_user');
     localStorage.removeItem('stitchcraft_token');

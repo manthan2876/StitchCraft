@@ -1,5 +1,21 @@
 # 📱 StitchCraft Mobile
 
+## Supabase configuration
+
+The mobile app uses Supabase for authentication and the backend for signed
+storage uploads. Do not commit keys. Run the app with:
+
+Copy the example file before running the app and replace its placeholder
+values:
+
+```bash
+cp .env.example .env
+flutter run
+```
+
+`BACKEND_API_URL`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` are loaded from
+`.env`. The `.env` file is ignored by Git and must never be committed.
+
 The Flutter mobile app for **StitchCraft** — a tailor shop management platform for Indian masterji shops.
 
 ---

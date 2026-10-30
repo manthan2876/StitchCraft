@@ -1,5 +1,4 @@
 /* src/pages/Dashboard.jsx */
-import React from 'react';
 import StatCard from '../components/specific/StatCard';
 import RecentOrders from '../components/specific/RecentOrders';
 import Card from '../components/common/Card';

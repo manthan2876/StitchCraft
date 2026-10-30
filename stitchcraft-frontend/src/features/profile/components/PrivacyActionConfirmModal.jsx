@@ -1,5 +1,4 @@
 /* src/features/profile/components/PrivacyActionConfirmModal.jsx */
-import React from 'react';
 import { MdClose, MdSecurity } from 'react-icons/md';
 
 export const PrivacyActionConfirmModal = ({

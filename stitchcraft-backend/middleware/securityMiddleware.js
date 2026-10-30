@@ -1,5 +1,5 @@
-import mongoose from 'mongoose';
 import rateLimit from 'express-rate-limit';
+import { isValidIdentifier } from '../utils/identifiers.js';
 
 const limiter = (windowMs, limit, message) => rateLimit({
   windowMs,
@@ -35,7 +35,7 @@ export const destructiveLimiter = limiter(
 
 export const validateObjectIdParam = (param = 'id') => (req, res, next) => {
   const value = req.params[param];
-  if (typeof value !== 'string' || !mongoose.Types.ObjectId.isValid(value)) {
+  if (!isValidIdentifier(value)) {
     return res.status(400).json({ message: `Invalid ${param}` });
   }
   next();

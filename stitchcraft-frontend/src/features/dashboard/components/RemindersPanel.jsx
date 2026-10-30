@@ -1,5 +1,4 @@
 /* src/features/dashboard/components/RemindersPanel.jsx */
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { MdNotificationsActive, MdArrowForward } from 'react-icons/md';
 import Card from '../../../components/common/Card';

@@ -10,8 +10,8 @@ Node.js + Express REST API for the StitchCraft tailor shop management platform. 
 |---|---|
 | Runtime | Node.js (ESM modules) |
 | Framework | Express.js v5 |
-| Database | MongoDB via Mongoose v9 |
-| Auth | JWT (`jsonwebtoken`) + bcrypt |
+| Database | Supabase PostgreSQL via the service-role API |
+| Auth | Supabase Auth access tokens |
 | File Storage | Supabase Storage (profile + maap images) |
 | Environment | dotenv |
 | Dev Server | nodemon |
@@ -23,7 +23,7 @@ Node.js + Express REST API for the StitchCraft tailor shop management platform. 
 ```
 stitchcraft-backend/
 ├── config/
-│   └── db.js                  # MongoDB connection (Mongoose)
+│   └── db.js                  # Supabase database configuration check
 │
 ├── controllers/               # Route handler logic
 │   ├── authController.js      # Register, login, me, update profile
@@ -40,9 +40,9 @@ stitchcraft-backend/
 │   └── uploadController.js    # Supabase signed URL generation
 │
 ├── middleware/
-│   └── authMiddleware.js      # JWT protect + shop-scope guard
+│   └── authMiddleware.js      # Supabase Auth protect + shop-scope guard
 │
-├── models/                    # Mongoose schemas
+├── models/                    # Supabase document adapters
 │   ├── User.js
 │   ├── Shop.js
 │   ├── Order.js               # Includes notes[], measurementsSnapshot
@@ -57,7 +57,6 @@ stitchcraft-backend/
 │   ├── Delivery.js
 │   ├── Notification.js
 │   ├── ActionLog.js           # Audit trail for order status changes
-│   └── Counter.js             # Auto-increment for order IDs (ORD-xxx)
 │
 ├── routes/
 │   ├── index.js               # Central router — mounts all sub-routes
@@ -80,7 +79,7 @@ stitchcraft-backend/
 │   └── accountService.js     # Account deletion + data conflict resolution
 │
 ├── seed.js                    # Seeds DB with demo shop, karigars, orders
-└── server.js                  # App entry point (Express + MongoDB init)
+└── server.js                  # App entry point (Express + Supabase init)
 ```
 
 ---
@@ -90,7 +89,7 @@ stitchcraft-backend/
 ### 1. Install dependencies
 
 ```bash
-npm install
+npm ci
 ```
 
 ### 2. Create `.env`
@@ -98,13 +97,24 @@ npm install
 ```env
 PORT=5000
 NODE_ENV=development
-MONGO_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/stitchcraft
-JWT_SECRET=your_super_secret_jwt_key
-
-# Supabase (for image upload signed URLs)
-SUPABASE_URL=https://your-project.supabase.co
+# Supabase database, authentication, and storage
+SUPABASE_URL=https://qggxfxttveafgptdlmfu.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+CLIENT_URL=http://localhost:5173
 ```
+
+### Render deployment
+
+The backend now uses Supabase as its only application database. Configure:
+
+```text
+SUPABASE_URL=https://qggxfxttveafgptdlmfu.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
+CLIENT_URL=<frontend-origin>
+```
+
+Apply the SQL migration in `supabase/migrations` before deploying. The Render
+start command must be `node server.js` (or `npm start`), not `npm run dev`.
 
 ### 3. Run
 
@@ -126,7 +136,7 @@ All protected routes require `Authorization: Bearer <token>` header.
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/register` | Register new user + create shop |
-| `POST` | `/login` | Login, returns JWT |
+| `POST` | `/login` | Login through Supabase Auth |
 | `GET` | `/me` | Get current user profile |
 | `PUT` | `/me` | Update profile (name, phone, avatar) |
 | `PUT` | `/me/password` | Change password |
@@ -182,7 +192,8 @@ All protected routes require `Authorization: Bearer <token>` header.
 ## 🗄️ Key Data Patterns
 
 ### Order Auto-ID
-Orders get auto-incremented IDs like `ORD-001`, `ORD-002` using the `Counter` model with a Mongoose pre-save hook.
+Orders receive application-level public IDs such as `ORD-001` while the record itself
+is persisted by the Supabase document adapter.
 
 ### Payment Sync
 Payments are **never stored directly** — every payment creates a `Transaction` record. The `Payment` document is then **recalculated** from all transactions via `syncPaymentFromTransactions()`. This ensures an immutable audit trail.
@@ -191,7 +202,9 @@ Payments are **never stored directly** — every payment creates a `Transaction`
 When an order is created, the customer's current measurements are **snapshotted** into `order.measurementsSnapshot`. This preserves historical accuracy even if measurements are updated later.
 
 ### Shop Scoping
-Every document has a `shopId` field. The `protect` middleware injects `req.user.shopId` from the JWT, and all queries filter by it — ensuring complete data isolation between shops.
+Every document has a `shopId` field. The `protect` middleware validates the
+Supabase Auth bearer token, resolves the application profile, and all queries
+filter by the active shop to ensure data isolation.
 
 ---
 

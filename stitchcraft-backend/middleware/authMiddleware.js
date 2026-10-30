@@ -19,7 +19,7 @@ export const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'Not authorized, Supabase token failed: ' + (error?.message || 'Invalid user') });
       }
 
-      // Find user in MongoDB Atlas by supabaseId or email
+      // Find the application profile by Supabase user ID or email
       let user = await User.findOne({ 
         $or: [
           { supabaseId: supabaseUser.id },
@@ -28,10 +28,10 @@ export const protect = async (req, res, next) => {
       }).select('-password');
 
       if (!user) {
-        return res.status(401).json({ message: 'User profile not found in MongoDB database' });
+        return res.status(401).json({ message: 'User profile not found in application database' });
       }
 
-      // If user exists in MongoDB but doesn't have supabaseId set yet, link it!
+      // Link legacy profiles that do not yet have a Supabase user ID.
       if (!user.supabaseId) {
         user.supabaseId = supabaseUser.id;
         await user.save();

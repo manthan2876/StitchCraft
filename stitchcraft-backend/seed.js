@@ -1,7 +1,3 @@
-import dns from 'node:dns';
-dns.setServers(['8.8.8.8', '1.1.1.1']);
-
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -14,14 +10,12 @@ import Order from './models/Order.js';
 import Payment from './models/Payment.js';
 import Delivery from './models/Delivery.js';
 import Notification from './models/Notification.js';
-import Counter from './models/Counter.js';
 
 const seedDB = async () => {
   try {
-    const mongoUri = process.env.MONGO_URI;
-    console.log(`Connecting to database to seed: ${mongoUri}`);
-    await mongoose.connect(mongoUri);
-    console.log('MongoDB Connected.');
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required');
+    }
 
     console.log('Clearing old collections...');
     await User.deleteMany({});
@@ -31,7 +25,6 @@ const seedDB = async () => {
     await Payment.deleteMany({});
     await Delivery.deleteMany({});
     await Notification.deleteMany({});
-    await Counter.deleteMany({});
 
     console.log('Seeding default accounts...');
 
@@ -189,7 +182,6 @@ const seedDB = async () => {
     });
 
     console.log('Seeding completed successfully.');
-    await mongoose.connection.close();
     process.exit(0);
   } catch (error) {
     console.error(`Error during seeding: ${error.message}`);

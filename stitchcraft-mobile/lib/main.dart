@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:stitchcraft/core/localization/generated/app_localizations.dart';
-import 'package:stitchcraft/firebase_options.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/services/localization_service.dart';
 import 'package:stitchcraft/core/services/theme_service.dart';
@@ -46,14 +45,27 @@ import 'package:stitchcraft/features/shop/screens/inventory_details_screen.dart'
 import 'package:stitchcraft/features/orders/screens/invoice_details_screen.dart';
 import 'package:stitchcraft/features/shop/screens/karigar_details_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await dotenv.load(fileName: '.env');
+
+  final supabaseUrl = dotenv.env['SUPABASE_URL']?.trim() ?? '';
+  final supabasePublishableKey = dotenv.env['SUPABASE_ANON_KEY']?.trim() ?? '';
+  if (supabaseUrl.isEmpty) {
+    throw StateError('Missing SUPABASE_URL. Add it to stitchcraft-mobile/.env.');
+  }
+  if (supabasePublishableKey.isEmpty) {
+    throw StateError(
+      'Missing SUPABASE_ANON_KEY. Add it to stitchcraft-mobile/.env.',
+    );
+  }
+
   await Supabase.initialize(
-    url: 'https://rbpntprbizoqqittxuqc.supabase.co',
-    // ignore: deprecated_member_use
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJicG50cHJiaXpvcXFpdHR4dXFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NjAzMzcsImV4cCI6MjA5NzMzNjMzN30.HJS3Q2E6B2ex3lO6qZaSgNtYhQJt1KdiVsRJ8tyyus4',
+    url: supabaseUrl,
+    publishableKey: supabasePublishableKey,
   );
   
   // Load localizations and theme before run
@@ -66,7 +78,7 @@ void main() async {
 
   if (isMobile) {
     try {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      await Firebase.initializeApp();
       // Initialize Notifications
       final notificationService = NotificationService();
       await notificationService.init();

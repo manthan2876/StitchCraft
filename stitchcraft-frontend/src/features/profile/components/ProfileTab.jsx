@@ -1,5 +1,4 @@
 /* src/features/profile/components/ProfileTab.jsx */
-import React from 'react';
 import Card from '../../../components/common/Card';
 import { MdPerson, MdEmail, MdBusiness, MdSecurity, MdEdit, MdSave } from 'react-icons/md';
 

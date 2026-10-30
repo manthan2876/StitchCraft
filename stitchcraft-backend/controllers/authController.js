@@ -50,7 +50,7 @@ export const registerUser = async (req, res) => {
     const emailLower = (email || supabaseUser.email).toLowerCase();
     let userExists = await User.findOne({ $or: [{ email: emailLower }, { supabaseId: supabaseUser.id }] });
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists in MongoDB database' });
+      return res.status(400).json({ message: 'User already exists in application database' });
     }
 
     const user = new User({
@@ -58,7 +58,6 @@ export const registerUser = async (req, res) => {
       email: emailLower,
       role: 'owner',
       supabaseId: supabaseUser.id,
-      password: 'SUPABASE_MANAGED_PASSWORD_PLACEHOLDER'
     });
     await user.save();
 
@@ -89,7 +88,7 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// @desc    Authenticate user & get token (checks Supabase token and gets MongoDB details)
+// @desc    Authenticate user & get token (checks Supabase token and gets profile details)
 // @route   POST /api/auth/login
 // @access  Public
 export const loginUser = async (req, res) => {
@@ -138,7 +137,6 @@ export const loginUser = async (req, res) => {
         email: emailLower,
         role: 'owner',
         supabaseId: supabaseUser.id,
-        password: 'SUPABASE_MANAGED_PASSWORD_PLACEHOLDER'
       });
       await user.save();
 
@@ -186,14 +184,17 @@ export const updatePassword = async (req, res) => {
       return res.status(400).json({ message: 'Please provide current and new passwords' });
     }
 
-    const user = await User.findById(req.user._id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: req.user.email,
+      password: currentPassword,
+    });
+    if (signInError) return res.status(400).json({ message: 'Incorrect current password' });
 
-    const isMatch = await user.matchPassword(currentPassword);
-    if (!isMatch) return res.status(400).json({ message: 'Incorrect current password' });
-
-    user.password = newPassword;
-    await user.save();
+    const { error } = await supabase.auth.admin.updateUserById(
+      req.user.supabaseId,
+      { password: newPassword },
+    );
+    if (error) throw error;
 
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
@@ -210,11 +211,11 @@ export const verifyPasswordOnly = async (req, res) => {
     const { password } = req.body;
     if (!password) return res.status(400).json({ message: 'Password is required' });
 
-    const user = await User.findById(req.user._id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) return res.status(400).json({ message: 'Incorrect password' });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: req.user.email,
+      password,
+    });
+    if (error) return res.status(400).json({ message: 'Incorrect password' });
 
     res.json({ success: true });
   } catch (error) {
@@ -293,7 +294,6 @@ export const verifyEmail = async (req, res) => {
         email: emailLower,
         role: 'owner',
         supabaseId: supabaseUser.id,
-        password: 'SUPABASE_MANAGED_PASSWORD_PLACEHOLDER'
       });
       await user.save();
 

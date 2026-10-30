@@ -1,5 +1,4 @@
 /* src/pages/Inventory.jsx */
-import React from 'react';
 import Card from '../components/common/Card';
 import { formatCurrency } from '../utils/formatters';
 import { MdSearch, MdClose, MdAdd, MdEdit, MdDelete } from 'react-icons/md';

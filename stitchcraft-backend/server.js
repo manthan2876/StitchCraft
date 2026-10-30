@@ -1,6 +1,3 @@
-import dns from 'node:dns';
-dns.setServers(['8.8.8.8', '1.1.1.1']);
-
 import express from 'express';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
@@ -8,15 +5,9 @@ import corsMiddleware from './config/cors.js';
 import apiRouter from './routes/index.js';
 import errorHandler from './middleware/errorMiddleware.js';
 import { apiLimiter } from './middleware/securityMiddleware.js';
-import mongoose from 'mongoose';
 
 // Load environment variables
 dotenv.config();
-mongoose.set('sanitizeFilter', true);
-
-// Connect to Database
-connectDB();
-
 const app = express();
 
 // Middleware
@@ -32,8 +23,16 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+const startServer = async () => {
+  await connectDB();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  });
+};
+
+startServer().catch((error) => {
+  console.error(`Server startup failed: ${error.message}`);
+  process.exitCode = 1;
 });
 
 export default app;

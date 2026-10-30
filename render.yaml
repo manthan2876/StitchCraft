@@ -6,8 +6,8 @@ services:
     buildFilter:
       paths:
         - stitchcraft-backend/**
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm ci
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production

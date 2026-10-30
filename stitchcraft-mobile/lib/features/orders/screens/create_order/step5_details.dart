@@ -192,7 +192,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
           final custData = json.decode(custResponse.body);
           customerId = custData['_id'] ?? custData['id'];
         } else {
-          throw Exception('Failed to register new customer in MongoDB Atlas');
+          throw Exception('Failed to register new customer in application database');
         }
       } else if (_wizardData!['customer'] != null) {
         customerId = _wizardData!['customer']['_id'] ?? _wizardData!['customer']['id'];

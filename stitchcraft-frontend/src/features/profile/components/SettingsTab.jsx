@@ -1,5 +1,4 @@
 /* src/features/profile/components/SettingsTab.jsx */
-import React from 'react';
 import Card from '../../../components/common/Card';
 import { MdNotifications, MdPalette, MdCloudDownload, MdCloudUpload, MdDelete } from 'react-icons/md';
 

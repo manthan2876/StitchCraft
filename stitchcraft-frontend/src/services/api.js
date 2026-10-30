@@ -1,10 +1,10 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/, '');
 
 const getHeaders = () => {
   const token = localStorage.getItem('stitchcraft_token');
   return {
     'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
 
@@ -20,6 +20,7 @@ const handleResponse = async (res) => {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || 'API request failed');
   }
+  if (res.status === 204) return null;
   return res.json();
 };
 

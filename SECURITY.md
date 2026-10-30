@@ -24,7 +24,7 @@ real customer data, production credentials, or secrets in a report.
 ## Security expectations
 
 - Store secrets only in local ignored files or deployment secret managers.
-- Use strong, unique production secrets for JWT and database access.
+- Use strong, unique production secrets for server-side database access.
 - Validate and authorize every API request server-side.
 - Keep dependencies updated; Dependabot and CodeQL run from GitHub Actions.
 - Rotate credentials immediately if they are exposed.
@@ -38,7 +38,7 @@ must not be committed:
 - `stitchcraft-mobile/android/app/google-services.json`
 - `stitchcraft-mobile/ios/Runner/GoogleService-Info.plist`
 
-Use the tracked `.example` templates for local setup. If a Firebase key is
+Use the local setup documentation for platform configuration. If a Firebase key is
 reported by GitHub secret scanning, the project owner must rotate or revoke
 the key in Google/Firebase, restrict replacement keys to the required
 applications and APIs, and then resolve the corresponding GitHub alert. Removing

@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const Card = ({ children, className = '', glowColor = '', onClick }) => {
   let glowClass = '';

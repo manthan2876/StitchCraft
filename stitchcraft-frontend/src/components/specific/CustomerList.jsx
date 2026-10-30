@@ -1,4 +1,3 @@
-import React from 'react';
 import { MdSearch, MdPersonAdd, MdChevronRight } from 'react-icons/md';
 
 export const CustomerList = ({ customers, selectedCustomerId, onSelectCustomer, onAddCustomerClick, searchQuery, setSearchQuery }) => {

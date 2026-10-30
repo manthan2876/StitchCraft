@@ -1,5 +1,4 @@
 /* src/features/profile/components/ShopInfoTab.jsx */
-import React from 'react';
 import Card from '../../../components/common/Card';
 import { MdAdd, MdStorefront, MdCheck, MdEdit, MdDelete } from 'react-icons/md';
 

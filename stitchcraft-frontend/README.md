@@ -103,8 +103,8 @@ VITE_API_URL=http://localhost:5000/api
 # VITE_API_URL=https://stitchcraft-backend.onrender.com/api
 
 # Supabase (for image uploads from the browser)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_URL=https://qggxfxttveafgptdlmfu.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_publishable_or_anon_key
 ```
 
 ### 3. Run
@@ -184,8 +184,8 @@ The `vercel.json` at the repo root rewrites all routes to `index.html` for SPA r
 ```bash
 # Set these in Vercel dashboard:
 VITE_API_URL=https://stitchcraft-backend.onrender.com/api
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_SUPABASE_URL=https://qggxfxttveafgptdlmfu.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_publishable_or_anon_key
 ```
 
 Vercel auto-detects Vite and runs `npm run build` on every push to `main`.

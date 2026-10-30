@@ -1,5 +1,4 @@
 /* src/features/profile/components/ShopModal.jsx */
-import React from 'react';
 import { MdClose, MdStorefront } from 'react-icons/md';
 
 export const ShopModal = ({

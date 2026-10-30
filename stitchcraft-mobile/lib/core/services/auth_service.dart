@@ -6,16 +6,14 @@ import 'dart:developer' as developer;
 import 'package:stitchcraft/core/models/user_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:stitchcraft/core/config/api_config.dart';
 
 class AuthService {
   final DatabaseService _dbService = DatabaseService();
 
-  static String get baseUrl {
-    // Point directly to production Render backend server
-    return 'https://stitchcraft-backend.onrender.com/api';
-  }
+  static String get baseUrl => ApiConfig.baseUrl;
 
-  // Sign Up via Supabase Auth & provision MongoDB Atlas
+  // Sign Up via Supabase Auth and provision the application profile
   Future<Map<String, dynamic>?> signUp(String email, String password, String name) async {
     try {
       if (email.isEmpty || password.isEmpty) {
@@ -34,7 +32,7 @@ class AuthService {
         throw Exception('Please verify your email address to complete registration.');
       }
 
-      // 2. Provision user profile & default shop inside MongoDB Atlas
+      // 2. Provision the user profile and default shop through the API
       final response = await http.post(
         Uri.parse('$baseUrl/auth/register'),
         headers: {
@@ -82,7 +80,7 @@ class AuthService {
     }
   }
 
-  // Login via Supabase Auth & sync profile details from MongoDB Atlas
+  // Login via Supabase Auth and sync profile details from the API
   Future<Map<String, dynamic>?> login(String email, String password) async {
     try {
       if (email.isEmpty || password.isEmpty) {
@@ -100,7 +98,7 @@ class AuthService {
         throw Exception('Failed to obtain authentication token from Supabase');
       }
 
-      // 2. Fetch corresponding MongoDB Atlas user profile details
+      // 2. Fetch the corresponding application profile
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {

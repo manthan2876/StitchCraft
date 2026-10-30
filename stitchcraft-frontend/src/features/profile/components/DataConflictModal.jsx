@@ -1,5 +1,4 @@
 /* src/features/profile/components/DataConflictModal.jsx */
-import React from 'react';
 import { MdClose, MdSecurity } from 'react-icons/md';
 
 export const DataConflictModal = ({

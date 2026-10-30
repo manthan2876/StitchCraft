@@ -1,5 +1,4 @@
 /* src/components/specific/LedgerRow.jsx */
-import React from 'react';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import { MdEdit, MdList } from 'react-icons/md';
 
