@@ -61,15 +61,26 @@ export const useOrderDetails = () => {
 
   const handleRecordPayment = async (e) => {
     e.preventDefault();
-    if (!payAmount || Number(payAmount) <= 0) {
-      setPaymentError('Please enter a valid amount.');
+    const parsedAmount = Number(payAmount);
+    if (!payAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
+      setPaymentError('Please enter a valid positive payment amount.');
+      return;
+    }
+    const asterPrice = order?.needsAster ? ((order.asterSellingPrice || 0) * (order.asterQuantity || 0)) : 0;
+    const totalValue = (order?.price || 0) + asterPrice;
+    const balanceAmount = order?.payment
+      ? Math.max(0, order.payment.totalAmount - order.payment.paidAmount)
+      : totalValue;
+
+    if (parsedAmount > balanceAmount) {
+      setPaymentError(`Payment amount (₹${parsedAmount}) cannot exceed the remaining balance (₹${balanceAmount}).`);
       return;
     }
     setPaymentLoading(true);
     setPaymentError('');
     try {
       const updatedOrder = await api.post(`/orders/${id}/payments`, {
-        amount: Number(payAmount),
+        amount: parsedAmount,
         paymentType: payType
       });
       setOrder(updatedOrder);

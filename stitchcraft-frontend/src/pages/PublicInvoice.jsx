@@ -154,8 +154,10 @@ export const PublicInvoice = () => {
                 <InvoiceIcon className="w-7 h-7 text-white-forced" />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-text-main tracking-wider">StitchCraft</h1>
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-0.5">Premium Tailoring ERP</p>
+                <h1 className="text-2xl font-black text-text-main tracking-wider">{order.shop?.shopName || 'StitchCraft'}</h1>
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-0.5">
+                  {order.shop?.phone ? `${order.shop.phone}${order.shop.address ? ' • ' + order.shop.address : ''}` : 'Tailor Shop Invoice'}
+                </p>
               </div>
             </div>
 
@@ -206,16 +208,32 @@ export const PublicInvoice = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle font-semibold text-text-main">
-                  {/* Stitching Service Item */}
-                  <tr>
-                    <td className="px-4 py-4.5">
-                      <span className="font-bold block text-sm">{order.apparelType} Stitching Service</span>
-                      <span className="text-[10px] text-text-muted font-normal mt-0.5 block">Custom tailoring stitching service package</span>
-                    </td>
-                    <td className="px-4 py-4.5 text-center">1</td>
-                    <td className="px-4 py-4.5 text-right">{formatCurrency(order.price)}</td>
-                    <td className="px-4 py-4.5 text-right font-bold">{formatCurrency(order.price)}</td>
-                  </tr>
+                  {/* Stitching Service Items */}
+                  {order.items && order.items.length > 0 ? (
+                    order.items.map((item, idx) => (
+                      <tr key={item.id || idx}>
+                        <td className="px-4 py-4.5">
+                          <span className="font-bold block text-sm">{item.name || item.apparelType} Stitching</span>
+                          <span className="text-[10px] text-text-muted font-normal mt-0.5 block">
+                            {item.fabric ? `Fabric: ${item.fabric}` : 'Custom tailoring tailoring package'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4.5 text-center">{item.quantity || 1}</td>
+                        <td className="px-4 py-4.5 text-right">{formatCurrency(item.price)}</td>
+                        <td className="px-4 py-4.5 text-right font-bold">{formatCurrency((item.price || 0) * (item.quantity || 1))}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-4 py-4.5">
+                        <span className="font-bold block text-sm">{order.apparelType} Stitching Service</span>
+                        <span className="text-[10px] text-text-muted font-normal mt-0.5 block">Custom tailoring stitching service package</span>
+                      </td>
+                      <td className="px-4 py-4.5 text-center">1</td>
+                      <td className="px-4 py-4.5 text-right">{formatCurrency(order.price)}</td>
+                      <td className="px-4 py-4.5 text-right font-bold">{formatCurrency(order.price)}</td>
+                    </tr>
+                  )}
 
                   {/* Lining Material Item (if needsAster is true) */}
                   {order.needsAster && (
@@ -244,8 +262,35 @@ export const PublicInvoice = () => {
                 </span>
                 {billingStatus === 'Paid' && <CheckIcon className="w-5 h-5 text-emerald-500" />}
               </div>
+
+              {balanceDue > 0 && order.shop?.phone && (
+                <div className="mt-3 p-3 bg-bg-primary/50 border border-border-subtle rounded-xl flex items-center gap-3">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
+                      `upi://pay?pa=${order.shop.phone.replace(/[^0-9]/g, '').slice(-10)}@upi&pn=${encodeURIComponent(
+                        order.shop.shopName || 'StitchCraft'
+                      )}&am=${balanceDue.toFixed(2)}&cu=INR&tn=Invoice-${order.orderId}`
+                    )}`}
+                    alt="UPI QR Code"
+                    className="w-16 h-16 rounded-lg border border-border-medium bg-white p-1"
+                  />
+                  <div className="flex flex-col gap-1 text-left">
+                    <span className="text-[10px] font-bold text-text-main">Pay Balance via UPI</span>
+                    <span className="text-[9px] text-text-muted">Scan with GPay, PhonePe, or Paytm</span>
+                    <a
+                      href={`upi://pay?pa=${order.shop.phone.replace(/[^0-9]/g, '').slice(-10)}@upi&pn=${encodeURIComponent(
+                        order.shop.shopName || 'StitchCraft'
+                      )}&am=${balanceDue.toFixed(2)}&cu=INR&tn=Invoice-${order.orderId}`}
+                      className="inline-flex items-center text-[10px] font-bold text-color-accent-purple hover:underline"
+                    >
+                      Open UPI App ↗
+                    </a>
+                  </div>
+                </div>
+              )}
+
               <p className="text-[10px] text-text-muted max-w-xs mt-1 leading-relaxed">
-                This is a secure electronic copy of your tailoring invoice at StitchCraft. Thank you for your custom business.
+                This is a secure electronic copy of your tailoring invoice at {order.shop?.shopName || 'StitchCraft'}. Thank you for your business.
               </p>
             </div>
 

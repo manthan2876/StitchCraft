@@ -59,3 +59,26 @@ export const markAsRead = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Register user FCM device token for push notifications
+// @route   POST /api/notifications/register-device
+// @access  Private
+export const registerDeviceToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ message: 'Device token is required' });
+    }
+
+    const currentTokens = Array.isArray(req.user.fcmTokens) ? req.user.fcmTokens : [];
+    if (!currentTokens.includes(token)) {
+      req.user.fcmTokens = [...currentTokens, token];
+      await req.user.save();
+    }
+
+    res.json({ success: true, message: 'Device token registered successfully' });
+  } catch (error) {
+    console.error('Register device token error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

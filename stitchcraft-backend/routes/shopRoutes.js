@@ -7,7 +7,7 @@ import {
   updateShop,
   deleteShop,
 } from '../controllers/shopController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 
 router.use(protect); // Secure all routes in this module
 
@@ -18,6 +18,6 @@ router.route('/')
 router.route('/:id')
   .get(getShopById)
   .put(updateShop)
-  .delete(deleteShop);
+  .delete(authorize('owner'), deleteShop);
 
 export default router;

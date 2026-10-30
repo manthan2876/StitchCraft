@@ -34,6 +34,8 @@ export const Profile = () => {
     passwordForm,
     setPasswordForm,
     passwordError,
+    passwordFieldErrors,
+    setPasswordFieldErrors,
     passwordSuccess,
     passwordLoading,
     privacyAction,
@@ -64,6 +66,8 @@ export const Profile = () => {
     shopForm,
     setShopForm,
     shopError,
+    shopFieldErrors,
+    setShopFieldErrors,
     setShopError,
     shopModalLoading,
     deleteTargetShop,
@@ -207,6 +211,8 @@ export const Profile = () => {
           passwordForm={passwordForm}
           setPasswordForm={setPasswordForm}
           passwordError={passwordError}
+          passwordFieldErrors={passwordFieldErrors}
+          setPasswordFieldErrors={setPasswordFieldErrors}
           passwordSuccess={passwordSuccess}
           passwordLoading={passwordLoading}
           handlePasswordSubmit={handlePasswordSubmit}
@@ -222,6 +228,8 @@ export const Profile = () => {
         shopForm={shopForm}
         setShopForm={setShopForm}
         shopError={shopError}
+        shopFieldErrors={shopFieldErrors}
+        setShopFieldErrors={setShopFieldErrors}
         setShopError={setShopError}
         shopModalLoading={shopModalLoading}
         handleShopFormSubmit={handleShopFormSubmit}

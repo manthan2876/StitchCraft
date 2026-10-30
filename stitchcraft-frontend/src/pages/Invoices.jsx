@@ -1,14 +1,13 @@
 /* src/pages/Invoices.jsx */
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Card from '../components/common/Card';
 import { useLanguage } from '../context/LanguageContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { MdSearch, MdFilterList, MdReceipt, MdVisibility, MdPrint } from 'react-icons/md';
+import { MdSearch, MdFilterList, MdVisibility } from 'react-icons/md';
 
 export const Invoices = () => {
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);

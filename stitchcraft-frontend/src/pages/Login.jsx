@@ -3,11 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { GiScissors, GiPadlock } from 'react-icons/gi';
 import { MdEmail } from 'react-icons/md';
+import { validateEmail, validateRequired } from '../utils/formValidators';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [shake, setShake] = useState(false);
   const { login, loading, user } = useAuth();
   const navigate = useNavigate();
@@ -20,8 +22,17 @@ export const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setErrorMsg('Please fill in all fields.');
+    const errs = {};
+    const emailErr = validateEmail(email, true);
+    if (emailErr) errs.email = emailErr;
+    const passErr = validateRequired(password, 'Password');
+    if (passErr) errs.password = passErr;
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      setErrorMsg('Please correct the errors below.');
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
       return;
     }
 
@@ -58,11 +69,13 @@ export const Login = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
+                  onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); setFieldErrors(prev => ({ ...prev, email: '' })); }}
                   placeholder="name@shop.com"
-                  className="w-full pl-11 pr-4 py-3 bg-bg-input border border-border-subtle rounded-lg text-text-main placeholder:text-text-muted/40 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full pl-11 pr-4 py-3 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    ${fieldErrors.email ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                 />
               </div>
+              {fieldErrors.email && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.email}</span>}
             </div>
 
             <div className="flex flex-col gap-1.5 text-left">
@@ -72,11 +85,13 @@ export const Login = () => {
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(''); }}
+                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(''); setFieldErrors(prev => ({ ...prev, password: '' })); }}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-4 py-3 bg-bg-input border border-border-subtle rounded-lg text-text-main placeholder:text-text-muted/40 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full pl-11 pr-4 py-3 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    ${fieldErrors.password ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                 />
               </div>
+              {fieldErrors.password && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.password}</span>}
             </div>
 
             {errorMsg && (

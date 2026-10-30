@@ -6,9 +6,20 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
 
   const handleNumChange = (e) => {
     const { name, value } = e.target;
+    if (value === '') {
+      onChange({
+        ...measurements,
+        [name]: ''
+      });
+      return;
+    }
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0 || num > 200) {
+      return;
+    }
     onChange({
       ...measurements,
-      [name]: value === '' ? '' : parseFloat(value) || 0
+      [name]: num
     });
   };
 
@@ -59,6 +70,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={isBlouseOrLehenga ? tf('bust', 'Bust') : tf('chest', 'Chest')}
               name="chest"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.chest || ''}
               onChange={handleNumChange}
@@ -68,6 +81,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('waist', 'Waist')}
               name="waist"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.waist || ''}
               onChange={handleNumChange}
@@ -77,6 +92,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('hips', 'Hips')}
               name="hips"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.hips || ''}
               onChange={handleNumChange}
@@ -86,6 +103,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('shoulderWidth', 'Shoulder Width')}
               name="shoulder"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.shoulder || ''}
               onChange={handleNumChange}
@@ -95,6 +114,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('sleeveLength', 'Sleeve Length')}
               name="sleeves"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.sleeves || ''}
               onChange={handleNumChange}
@@ -109,6 +130,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
             label={tf('neck', 'Neck')}
             name="neck"
             type="number"
+            min="0"
+            max="200"
             step="0.1"
             value={measurements.neck || ''}
             onChange={handleNumChange}
@@ -123,6 +146,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('frontNeck', 'Front Neck')}
               name="frontNeck"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.frontNeck || ''}
               onChange={handleNumChange}
@@ -132,6 +157,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('backNeck', 'Back Neck')}
               name="backNeck"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.backNeck || ''}
               onChange={handleNumChange}
@@ -147,6 +174,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('lehengaLength', 'Lehenga Length')}
               name="lehengaLength"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.lehengaLength || ''}
               onChange={handleNumChange}
@@ -156,6 +185,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('choliLength', 'Choli Length')}
               name="choliLength"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.choliLength || ''}
               onChange={handleNumChange}
@@ -173,6 +204,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
                   label={tf('waist', 'Waist')}
                   name="waist"
                   type="number"
+                  min="0"
+                  max="200"
                   step="0.1"
                   value={measurements.waist || ''}
                   onChange={handleNumChange}
@@ -182,6 +215,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
                   label={tf('hips', 'Hips')}
                   name="hips"
                   type="number"
+                  min="0"
+                  max="200"
                   step="0.1"
                   value={measurements.hips || ''}
                   onChange={handleNumChange}
@@ -193,6 +228,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
               label={tf('inseam', 'Inseam')}
               name="inseam"
               type="number"
+              min="0"
+              max="200"
               step="0.1"
               value={measurements.inseam || ''}
               onChange={handleNumChange}
@@ -206,6 +243,8 @@ export const MeasurementForm = ({ apparelType, measurements, onChange }) => {
           label={getLengthLabel()}
           name="length"
           type="number"
+          min="0"
+          max="200"
           step="0.1"
           value={measurements.length || ''}
           onChange={handleNumChange}

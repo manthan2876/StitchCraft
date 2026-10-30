@@ -9,7 +9,7 @@ import MeasurementForm from '../components/specific/MeasurementForm';
 import { GiSewingNeedle } from 'react-icons/gi';
 import {
   MdCamera, MdPhotoLibrary, MdClose, MdCheckCircle,
-  MdStraighten, MdContentCut
+  MdStraighten, MdContentCut, MdAdd
 } from 'react-icons/md';
 import { useNewOrder } from '../features/orders/hooks/useNewOrder';
 
@@ -56,6 +56,10 @@ export const NewOrder = () => {
     newCustPhone,
     setNewCustPhone,
     apparelType,
+    items,
+    addItem,
+    removeItem,
+    updateItem,
     deliveryDate,
     setDeliveryDate,
     totalAmount,
@@ -66,6 +70,7 @@ export const NewOrder = () => {
     setMeasurements,
     submitLoading,
     submitError,
+    fieldErrors,
     handleApparelTypeChange,
     handlePhotoCapture,
     handleSubmit,
@@ -101,38 +106,126 @@ export const NewOrder = () => {
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-text-muted">{tf('selectCustomer', 'Select Customer')}</label>
                 <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)}
-                  className="w-full px-4 py-3 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple transition-all text-sm font-semibold" required>
+                  className={`w-full px-4 py-3 bg-bg-input border rounded-xl text-text-main outline-none text-sm font-semibold
+                    ${fieldErrors?.selectedCustomerId ? 'border-color-accent-pink' : 'border-border-medium focus:border-color-accent-purple'}`} required>
                   <option value="">-- {tf('selectCustomer', 'Select Customer')} --</option>
                   {rawCustomers.map(c => (
                     <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
                   ))}
                 </select>
+                {fieldErrors?.selectedCustomerId && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.selectedCustomerId}</span>}
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                <InputField label={tf('customerName', 'Customer Name')} value={newCustName} onChange={(e) => setNewCustName(e.target.value)} placeholder="e.g. Anand Sharma" required={custMode === 'new'} />
-                <InputField label={tf('contactPhone', 'Contact Phone')} type="tel" value={newCustPhone} onChange={(e) => setNewCustPhone(e.target.value)} placeholder="e.g. 9876543210" required={custMode === 'new'} />
+                <InputField
+                  label={tf('customerName', 'Customer Name')}
+                  value={newCustName}
+                  onChange={(e) => setNewCustName(e.target.value)}
+                  placeholder="e.g. Anand Sharma"
+                  required={custMode === 'new'}
+                  error={fieldErrors?.newCustName}
+                />
+                <InputField
+                  label={tf('contactPhone', 'Contact Phone')}
+                  type="tel"
+                  value={newCustPhone}
+                  onChange={(e) => setNewCustPhone(e.target.value)}
+                  placeholder="e.g. 9876543210 (10 digits)"
+                  required={custMode === 'new'}
+                  error={fieldErrors?.newCustPhone}
+                />
               </div>
             )}
 
             <div className="h-[1px] bg-border-subtle" />
 
             <div className="flex flex-col gap-4">
-              {/* Apparel Type */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-text-muted">{tf('apparelCategory', 'Apparel Category')}</label>
-                <select value={apparelType} onChange={handleApparelTypeChange}
-                  className="w-full px-4 py-3 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple transition-all text-sm font-semibold">
-                  <option value="Suit">{tf('suit', 'Suit')}</option>
-                  <option value="Shirt">{tf('shirt', 'Shirt')}</option>
-                  <option value="Kurta">{tf('kurta', 'Kurta')}</option>
-                  <option value="Blouse">{tf('blouse', 'Blouse')}</option>
-                  <option value="Lehenga">{tf('lehenga', 'Lehenga')}</option>
-                  <option value="Pants">{tf('pants', 'Pants')}</option>
-                </select>
+              {/* Garments in Order */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-text-main">{tf('orderItems', 'Garments in Order')}</label>
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="flex items-center gap-1 text-xs font-bold text-color-accent-purple hover:underline cursor-pointer"
+                  >
+                    <MdAdd className="w-3.5 h-3.5" />
+                    <span>{tf('addGarment', 'Add Garment')}</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-2.5">
+                  {items.map((item, index) => (
+                    <div key={item.id} className="p-3 bg-bg-secondary border border-border-subtle rounded-xl flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-text-muted">Item #{index + 1}</span>
+                        {items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeItem(item.id)}
+                            className="text-text-muted hover:text-rose-500 p-1 cursor-pointer"
+                          >
+                            <MdClose className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={item.apparelType}
+                          onChange={(e) => {
+                            updateItem(item.id, 'apparelType', e.target.value);
+                            if (index === 0) handleApparelTypeChange(e);
+                          }}
+                          className="w-full px-2.5 py-2 bg-bg-input border border-border-medium rounded-lg text-text-main text-xs font-semibold outline-none focus:border-color-accent-purple"
+                        >
+                          <option value="Suit">{tf('suit', 'Suit')}</option>
+                          <option value="Shirt">{tf('shirt', 'Shirt')}</option>
+                          <option value="Kurta">{tf('kurta', 'Kurta')}</option>
+                          <option value="Blouse">{tf('blouse', 'Blouse')}</option>
+                          <option value="Lehenga">{tf('lehenga', 'Lehenga')}</option>
+                          <option value="Pants">{tf('pants', 'Pants')}</option>
+                          <option value="Sherwani">{tf('sherwani', 'Sherwani')}</option>
+                          <option value="Custom">{tf('custom', 'Custom')}</option>
+                        </select>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Qty"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                            className="w-16 px-2 py-2 bg-bg-input border border-border-medium rounded-lg text-text-main text-xs font-semibold text-center outline-none focus:border-color-accent-purple"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="₹ Price"
+                            value={item.price}
+                            onChange={(e) => updateItem(item.id, 'price', e.target.value)}
+                            className="flex-1 px-2.5 py-2 bg-bg-input border border-border-medium rounded-lg text-text-main text-xs font-semibold outline-none focus:border-color-accent-purple"
+                          />
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Fabric details (optional)"
+                        value={item.fabric || ''}
+                        onChange={(e) => updateItem(item.id, 'fabric', e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-bg-input border border-border-subtle rounded-lg text-text-main text-[11px] outline-none focus:border-color-accent-purple"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <InputField label={tf('deliveryDeadline', 'Delivery Deadline')} type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} required />
+              <InputField
+                label={tf('deliveryDeadline', 'Delivery Deadline')}
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                required
+                error={fieldErrors?.deliveryDate}
+              />
 
               {/* Needs Aster toggle */}
               <div className="flex items-center justify-between bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
@@ -170,6 +263,7 @@ export const NewOrder = () => {
                     value={asterQuantity}
                     onChange={(e) => setAsterQuantity(e.target.value)}
                     placeholder={`e.g. 2 ${inventoryItems.find(i => i._id === asterInventoryItem)?.unit || 'meters'}`}
+                    error={fieldErrors?.asterQuantity}
                   />
 
                   <InputField
@@ -178,6 +272,7 @@ export const NewOrder = () => {
                     value={asterSellingPrice}
                     onChange={(e) => setAsterSellingPrice(e.target.value)}
                     placeholder={tf('liningSellingPricePlaceholder', 'e.g. 35')}
+                    error={fieldErrors?.asterSellingPrice}
                   />
 
                   {asterInventoryItem && asterSellingPrice && (
@@ -224,8 +319,23 @@ export const NewOrder = () => {
 
             {/* Payment */}
             <div className="flex flex-col gap-4">
-              <InputField label={tf('totalOrderValue', 'Total Order Value')} type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="e.g. 15000" required />
-              <InputField label={tf('advancePayment', 'Advance Payment')} type="number" value={advancePaid} onChange={(e) => setAdvancePaid(e.target.value)} placeholder="e.g. 5000" />
+              <InputField
+                label={tf('totalOrderValue', 'Total Order Value')}
+                type="number"
+                value={totalAmount}
+                onChange={(e) => setTotalAmount(e.target.value)}
+                placeholder="e.g. 15000"
+                required
+                error={fieldErrors?.totalAmount}
+              />
+              <InputField
+                label={tf('advancePayment', 'Advance Payment')}
+                type="number"
+                value={advancePaid}
+                onChange={(e) => setAdvancePaid(e.target.value)}
+                placeholder="e.g. 5000"
+                error={fieldErrors?.advancePaid}
+              />
               <div className="bg-bg-secondary p-4 rounded-xl border border-border-subtle flex items-center justify-between">
                 <span className="text-xs font-bold text-text-muted uppercase tracking-wider">{tf('remainingDues', 'Remaining Dues')}:</span>
                 <span className={`text-lg font-black ${calculatedDue > 0 ? 'text-color-accent-pink' : 'text-color-accent-emerald'}`}>

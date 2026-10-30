@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import Card from '../components/common/Card';
-import { MdSearch, MdClose, MdAdd, MdEdit, MdDelete, MdAssignmentInd } from 'react-icons/md';
+import { MdSearch, MdClose, MdEdit, MdDelete, MdAssignmentInd } from 'react-icons/md';
+import { validateMinLength, validatePhone } from '../utils/formValidators';
 
 export const Karigars = () => {
   const { t } = useLanguage();
@@ -18,6 +19,7 @@ export const Karigars = () => {
   const [selectedKarigar, setSelectedKarigar] = useState(null);
   const [form, setForm] = useState({ name: '', phone: '', specialization: 'Stitching', status: 'Active' });
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [formLoading, setFormLoading] = useState(false);
 
   // Delete Modal states
@@ -52,6 +54,7 @@ export const Karigars = () => {
     setModalMode('add');
     setSelectedKarigar(null);
     setFormError('');
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
@@ -65,15 +68,26 @@ export const Karigars = () => {
     setModalMode('edit');
     setSelectedKarigar(karigar);
     setFormError('');
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.phone) {
-      setFormError('Karigar name and phone number are required.');
+    const errors = {};
+    const nameErr = validateMinLength(form.name, 2, 'Karigar name');
+    if (nameErr) errors.name = nameErr;
+
+    const phoneErr = validatePhone(form.phone);
+    if (phoneErr) errors.phone = phoneErr;
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setFormError('Please fix the highlighted errors.');
       return;
     }
+
+    setFieldErrors({});
     setFormLoading(true);
     setFormError('');
     try {
@@ -260,10 +274,17 @@ export const Karigars = () => {
                   type="text"
                   required
                   value={form.name}
-                  onChange={e => { setForm({ ...form, name: e.target.value }); setFormError(''); }}
+                  onChange={e => {
+                    setForm({ ...form, name: e.target.value });
+                    setFormError('');
+                    if (fieldErrors.name) setFieldErrors(prev => ({ ...prev, name: '' }));
+                  }}
                   placeholder="e.g. Suresh Kumar"
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.name ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
                 />
+                {fieldErrors.name && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.name}</span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -272,10 +293,17 @@ export const Karigars = () => {
                   type="tel"
                   required
                   value={form.phone}
-                  onChange={e => { setForm({ ...form, phone: e.target.value }); setFormError(''); }}
+                  onChange={e => {
+                    setForm({ ...form, phone: e.target.value });
+                    setFormError('');
+                    if (fieldErrors.phone) setFieldErrors(prev => ({ ...prev, phone: '' }));
+                  }}
                   placeholder="e.g. 9876543210"
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.phone ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
                 />
+                {fieldErrors.phone && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.phone}</span>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

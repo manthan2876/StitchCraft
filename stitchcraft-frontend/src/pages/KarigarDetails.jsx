@@ -9,6 +9,7 @@ import {
 } from 'react-icons/md';
 import { useLanguage } from '../context/LanguageContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { validateMinLength, validatePhone } from '../utils/formValidators';
 
 export const KarigarDetails = () => {
   const { id } = useParams();
@@ -23,6 +24,7 @@ export const KarigarDetails = () => {
   const [editForm, setEditForm] = useState({ name: '', phone: '', specialization: 'Stitching', status: 'Active' });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
+  const [editFieldErrors, setEditFieldErrors] = useState({});
 
   // Delete Karigar Modal states
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -60,15 +62,26 @@ export const KarigarDetails = () => {
       status: data.karigar.status || 'Active'
     });
     setEditError('');
+    setEditFieldErrors({});
     setIsEditModalOpen(true);
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!editForm.name || !editForm.phone) {
-      setEditError('Name and phone are required.');
+    const errors = {};
+    const nameErr = validateMinLength(editForm.name, 2, 'Karigar name');
+    if (nameErr) errors.name = nameErr;
+
+    const phoneErr = validatePhone(editForm.phone);
+    if (phoneErr) errors.phone = phoneErr;
+
+    if (Object.keys(errors).length > 0) {
+      setEditFieldErrors(errors);
+      setEditError('Please fix the highlighted errors.');
       return;
     }
+
+    setEditFieldErrors({});
     setEditLoading(true);
     setEditError('');
     try {
@@ -410,10 +423,17 @@ export const KarigarDetails = () => {
                   type="text"
                   required
                   value={editForm.name}
-                  onChange={e => { setEditForm({ ...editForm, name: e.target.value }); setEditError(''); }}
+                  onChange={e => {
+                    setEditForm({ ...editForm, name: e.target.value });
+                    setEditError('');
+                    if (editFieldErrors.name) setEditFieldErrors(prev => ({ ...prev, name: '' }));
+                  }}
                   placeholder="e.g. Suresh Kumar"
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${editFieldErrors.name ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
                 />
+                {editFieldErrors.name && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{editFieldErrors.name}</span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -422,10 +442,17 @@ export const KarigarDetails = () => {
                   type="tel"
                   required
                   value={editForm.phone}
-                  onChange={e => { setEditForm({ ...editForm, phone: e.target.value }); setEditError(''); }}
+                  onChange={e => {
+                    setEditForm({ ...editForm, phone: e.target.value });
+                    setEditError('');
+                    if (editFieldErrors.phone) setEditFieldErrors(prev => ({ ...prev, phone: '' }));
+                  }}
                   placeholder="e.g. 9876543210"
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${editFieldErrors.phone ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
                 />
+                {editFieldErrors.phone && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{editFieldErrors.phone}</span>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

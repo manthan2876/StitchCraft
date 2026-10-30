@@ -10,7 +10,6 @@ import {
   MdFileDownload as DownloadIcon,
   MdPrint as PrintIcon,
   MdTrendingUp as UpIcon,
-  MdTrendingDown as DownIcon,
   MdInventory as InventoryIcon,
   MdAccountBalanceWallet as WalletIcon,
   MdMoneyOff as ExpenseIcon,

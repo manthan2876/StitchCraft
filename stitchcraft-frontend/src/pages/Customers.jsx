@@ -5,6 +5,7 @@ import Card from '../components/common/Card';
 import { MdSearch, MdPersonAdd, MdClose, MdPeople } from 'react-icons/md';
 import { GiSewingNeedle } from 'react-icons/gi';
 import { useLanguage } from '../context/LanguageContext';
+import { validateMinLength, validatePhone, validateEmail } from '../utils/formValidators';
 
 export const Customers = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export const Customers = () => {
   const [newAddress, setNewAddress] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Helper with fallbacks for translations
   const tf = (key, fallback) => {
@@ -55,12 +57,25 @@ export const Customers = () => {
 
   const handleAddCustomer = async (e) => {
     e.preventDefault();
-    if (!newName || !newPhone) {
-      setAddError('Name and phone are required.');
+    const errs = {};
+    const nameErr = validateMinLength(newName, 2, 'Full Name');
+    if (nameErr) errs.name = nameErr;
+    const phoneErr = validatePhone(newPhone, true);
+    if (phoneErr) errs.phone = phoneErr;
+    if (newEmail && newEmail.trim()) {
+      const emailErr = validateEmail(newEmail, false);
+      if (emailErr) errs.email = emailErr;
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      setAddError('Please resolve the errors highlighted below.');
       return;
     }
+
     setAddLoading(true);
     setAddError('');
+    setFieldErrors({});
     try {
       const data = await api.post('/customers', {
         name: newName,
@@ -216,27 +231,31 @@ export const Customers = () => {
 
             <form onSubmit={handleAddCustomer} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('fullName')}</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('fullName')} *</label>
                 <input
                   type="text"
                   required
                   value={newName}
-                  onChange={e => { setNewName(e.target.value); setAddError(''); }}
+                  onChange={e => { setNewName(e.target.value); setAddError(''); setFieldErrors(prev => ({ ...prev, name: '' })); }}
                   placeholder={tf('fullName', 'Full Name')}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main placeholder:text-text-muted/50 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full px-4 py-2.5 bg-bg-input border rounded-xl text-text-main placeholder:text-text-muted/50 outline-none text-sm transition-all
+                    ${fieldErrors.name ? 'border-color-accent-pink' : 'border-border-medium focus:border-color-accent-purple'}`}
                 />
+                {fieldErrors.name && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.name}</span>}
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('phoneNumber', 'Phone Number')}</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('phoneNumber', 'Phone Number')} *</label>
                 <input
                   type="tel"
                   required
                   value={newPhone}
-                  onChange={e => { setNewPhone(e.target.value); setAddError(''); }}
-                  placeholder={tf('contactPhone', 'Contact Phone')}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main placeholder:text-text-muted/50 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  onChange={e => { setNewPhone(e.target.value); setAddError(''); setFieldErrors(prev => ({ ...prev, phone: '' })); }}
+                  placeholder={tf('contactPhone', 'Contact Phone (10 digits)')}
+                  className={`w-full px-4 py-2.5 bg-bg-input border rounded-xl text-text-main placeholder:text-text-muted/50 outline-none text-sm transition-all
+                    ${fieldErrors.phone ? 'border-color-accent-pink' : 'border-border-medium focus:border-color-accent-purple'}`}
                 />
+                {fieldErrors.phone && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.phone}</span>}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -244,10 +263,12 @@ export const Customers = () => {
                 <input
                   type="email"
                   value={newEmail}
-                  onChange={e => setNewEmail(e.target.value)}
+                  onChange={e => { setNewEmail(e.target.value); setAddError(''); setFieldErrors(prev => ({ ...prev, email: '' })); }}
                   placeholder={t('emailAddress')}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main placeholder:text-text-muted/50 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full px-4 py-2.5 bg-bg-input border rounded-xl text-text-main placeholder:text-text-muted/50 outline-none text-sm transition-all
+                    ${fieldErrors.email ? 'border-color-accent-pink' : 'border-border-medium focus:border-color-accent-purple'}`}
                 />
+                {fieldErrors.email && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.email}</span>}
               </div>
 
               <div className="flex flex-col gap-1">

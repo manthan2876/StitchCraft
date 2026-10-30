@@ -49,12 +49,22 @@ export const Delivery = () => {
     fetchDeliveries();
   }, [activeTab]);
 
-  const handleMarkDelivered = async (id) => {
+  const handleMarkDelivered = async (id, allowCredit = false) => {
     try {
-      await api.put(`/deliveries/${id}/deliver`);
+      await api.put(`/deliveries/${id}/deliver`, { allowCredit });
       fetchDeliveries();
     } catch (err) {
-      console.error('Failed to mark delivered:', err);
+      if (err.message && err.message.includes('outstanding balance')) {
+        const confirmCredit = window.confirm(
+          `${err.message}\n\nDo you want to confirm delivery on credit (Udhar)?`
+        );
+        if (confirmCredit) {
+          handleMarkDelivered(id, true);
+        }
+      } else {
+        console.error('Failed to mark delivered:', err);
+        alert(err.message || 'Failed to mark as delivered');
+      }
     }
   };
 

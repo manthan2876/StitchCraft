@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import corsMiddleware from './config/cors.js';
@@ -11,6 +12,9 @@ dotenv.config();
 const app = express();
 
 // Middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(corsMiddleware);
 app.use(express.json());
 app.use('/api', apiLimiter);

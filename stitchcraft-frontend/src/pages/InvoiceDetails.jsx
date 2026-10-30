@@ -8,7 +8,6 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import {
   MdArrowBack as BackIcon,
   MdPrint as PrintIcon,
-  MdShare as ShareIcon,
   MdAlarm as AlarmIcon,
   MdCheckCircle as CheckIcon,
   MdReceipt as InvoiceIcon,
@@ -64,7 +63,6 @@ export const InvoiceDetails = () => {
 
   // Calculations
   const liningTotal = order.needsAster ? (order.asterQuantity * order.asterSellingPrice) : 0;
-  const subtotal = order.price;
   const billTotal = order.price + liningTotal;
   const paidAmount = order.payment?.paidAmount || 0;
   const balanceDue = Math.max(0, billTotal - paidAmount);
@@ -94,7 +92,7 @@ export const InvoiceDetails = () => {
   };
 
   const getGuestInvoiceUrl = () => {
-    return `${window.location.origin}/invoice/share/${order._id}`;
+    return `${window.location.origin}/invoice/share/${order.shareToken || order._id}`;
   };
 
   // Add this helper function inside the InvoiceDetails component

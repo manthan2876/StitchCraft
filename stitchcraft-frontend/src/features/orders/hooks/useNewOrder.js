@@ -2,8 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../../services/api';
 import { uploadToPrivateBucket } from '../../../services/supabase';
+import {
+  validateMinLength,
+  validatePhone,
+  validateNumber,
+  validateDate,
+} from '../../../utils/formValidators';
 
-export const useNewOrder = (tf) => {
+export const useNewOrder = (_tf) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryCustomerId = searchParams.get('customerId');
@@ -33,6 +39,9 @@ export const useNewOrder = (tf) => {
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
   const [apparelType, setApparelType] = useState('Suit');
+  const [items, setItems] = useState([
+    { id: '1', apparelType: 'Suit', quantity: 1, price: '', fabric: '' }
+  ]);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [advancePaid, setAdvancePaid] = useState('');
@@ -43,6 +52,7 @@ export const useNewOrder = (tf) => {
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     api.get('/customers').then(setRawCustomers).catch(console.error);
@@ -77,11 +87,46 @@ export const useNewOrder = (tf) => {
   }, [queryCustomerId, rawCustomers, selectedCustomerId]);
 
   const handleApparelTypeChange = (e) => {
-    setApparelType(e.target.value);
+    const val = e.target.value;
+    setApparelType(val);
+    if (items.length > 0) {
+      setItems((prev) => prev.map((it, idx) => idx === 0 ? { ...it, apparelType: val } : it));
+    }
     setMeasurements({
       chest: '', waist: '', hips: '', shoulder: '', sleeves: '', neck: '', length: '', notes: '',
       frontNeck: '', backNeck: '', lehengaLength: '', choliLength: '', inseam: ''
     });
+  };
+
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      { id: String(Date.now()), apparelType: 'Shirt', quantity: 1, price: '', fabric: '' }
+    ]);
+  };
+
+  const removeItem = (id) => {
+    if (items.length <= 1) return;
+    const nextItems = items.filter((it) => it.id !== id);
+    setItems(nextItems);
+    const sum = nextItems.reduce((acc, it) => acc + (parseFloat(it.price) || 0) * (parseInt(it.quantity) || 1), 0);
+    if (sum > 0) setTotalAmount(String(sum));
+  };
+
+  const updateItem = (id, field, value) => {
+    const nextItems = items.map((it) => {
+      if (it.id !== id) return it;
+      return { ...it, [field]: value };
+    });
+    setItems(nextItems);
+
+    if (field === 'price' || field === 'quantity') {
+      const sum = nextItems.reduce((acc, it) => acc + (parseFloat(it.price) || 0) * (parseInt(it.quantity) || 1), 0);
+      if (sum > 0) setTotalAmount(String(sum));
+    }
+    if (field === 'apparelType' && items.length === 1) {
+      setApparelType(value);
+    }
   };
 
   const handlePhotoCapture = (e) => {
@@ -102,10 +147,51 @@ export const useNewOrder = (tf) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
+    setFieldErrors({});
+
+    const errs = {};
+
+    if (custMode === 'new') {
+      const nameErr = validateMinLength(newCustName, 2, 'Customer name');
+      if (nameErr) errs.newCustName = nameErr;
+      const phoneErr = validatePhone(newCustPhone, true);
+      if (phoneErr) errs.newCustPhone = phoneErr;
+    } else {
+      if (!selectedCustomerId) {
+        errs.selectedCustomerId = 'Please select a customer';
+      }
+    }
+
+    const dateErr = validateDate(deliveryDate, 'Delivery date');
+    if (dateErr) errs.deliveryDate = dateErr;
+
+    const priceErr = validateNumber(totalAmount, 'Total order value', { allowZero: false });
+    if (priceErr) errs.totalAmount = priceErr;
+
+    if (advancePaid !== '' && advancePaid !== undefined) {
+      const advErr = validateNumber(advancePaid, 'Advance payment', {
+        allowZero: true,
+        max: parseFloat(totalAmount) || undefined,
+      });
+      if (advErr) errs.advancePaid = advErr;
+    }
+
+    if (needsAster) {
+      const qtyErr = validateNumber(asterQuantity, 'Lining quantity', { allowZero: false });
+      if (qtyErr) errs.asterQuantity = qtyErr;
+      const spErr = validateNumber(asterSellingPrice, 'Lining price', { allowZero: false });
+      if (spErr) errs.asterSellingPrice = spErr;
+    }
 
     // Validate: Maap requires photo
     if (measurementType === 'Maap' && !maapPhoto) {
+      errs.maapPhoto = 'Please take or upload a photo of the cloth (maap) before submitting.';
       setMaapPhotoError('Please take or upload a photo of the cloth (maap) before submitting.');
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      setSubmitError('Please fix the indicated errors before submitting.');
       return;
     }
 
@@ -137,11 +223,23 @@ export const useNewOrder = (tf) => {
       shirtFields.forEach(f => { if (measurements[f] !== undefined && measurements[f] !== '') shirt[f] = measurements[f]; });
       pantFields.forEach(f => { if (measurements[f] !== undefined && measurements[f] !== '') pant[f] = measurements[f]; });
 
+      const effectiveApparelType = items.length > 1
+        ? items.map(it => `${it.apparelType}${it.quantity > 1 ? ` x${it.quantity}` : ''}`).join(', ')
+        : (items[0]?.apparelType || apparelType);
+
       const orderData = {
         customerName,
         customer: customerId,
         customerPhone: custMode === 'new' ? newCustPhone : undefined,
-        apparelType,
+        apparelType: effectiveApparelType,
+        items: items.map(it => ({
+          id: it.id,
+          name: it.apparelType,
+          apparelType: it.apparelType,
+          quantity: parseInt(it.quantity) || 1,
+          price: parseFloat(it.price) || 0,
+          fabric: it.fabric || '',
+        })),
         deliveryDate: deliveryDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         price: parseFloat(totalAmount) || 0,
         advancePaid: parseFloat(advancePaid) || 0,
@@ -199,6 +297,10 @@ export const useNewOrder = (tf) => {
     newCustPhone,
     setNewCustPhone,
     apparelType,
+    items,
+    addItem,
+    removeItem,
+    updateItem,
     deliveryDate,
     setDeliveryDate,
     totalAmount,
@@ -209,6 +311,8 @@ export const useNewOrder = (tf) => {
     setMeasurements,
     submitLoading,
     submitError,
+    fieldErrors,
+    setFieldErrors,
     handleApparelTypeChange,
     handlePhotoCapture,
     handleSubmit,

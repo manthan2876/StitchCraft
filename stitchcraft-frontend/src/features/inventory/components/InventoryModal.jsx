@@ -9,6 +9,8 @@ export const InventoryModal = ({
   setForm,
   formError,
   setFormError,
+  fieldErrors = {},
+  setFieldErrors = () => {},
   formLoading,
   onSubmit,
   tf,
@@ -46,10 +48,17 @@ export const InventoryModal = ({
                   type="text"
                   required
                   value={form.itemName}
-                  onChange={e => { setForm({ ...form, itemName: e.target.value }); setFormError(''); }}
+                  onChange={e => {
+                    setForm({ ...form, itemName: e.target.value });
+                    setFormError('');
+                    if (fieldErrors.itemName) setFieldErrors(prev => ({ ...prev, itemName: '' }));
+                  }}
                   placeholder={tf('itemNamePlaceholder', 'e.g. Silk, Velvet fabric, Cotton Thread')}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.itemName ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
                 />
+                {fieldErrors.itemName && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.itemName}</span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -86,10 +95,16 @@ export const InventoryModal = ({
                 min="0.01"
                 step="any"
                 value={form.quantityToAdd}
-                onChange={e => setForm({ ...form, quantityToAdd: e.target.value })}
+                onChange={e => {
+                  setForm({ ...form, quantityToAdd: e.target.value });
+                  if (fieldErrors.quantityToAdd) setFieldErrors(prev => ({ ...prev, quantityToAdd: '' }));
+                }}
                 placeholder={`e.g. 50 (in ${form.unit})`}
-                className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold"
+                className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.quantityToAdd ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold`}
               />
+              {fieldErrors.quantityToAdd && (
+                <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.quantityToAdd}</span>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
@@ -101,9 +116,15 @@ export const InventoryModal = ({
                   min="0"
                   step="any"
                   value={form.quantity}
-                  onChange={e => setForm({ ...form, quantity: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold"
+                  onChange={e => {
+                    setForm({ ...form, quantity: e.target.value });
+                    if (fieldErrors.quantity) setFieldErrors(prev => ({ ...prev, quantity: '' }));
+                  }}
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.quantity ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold`}
                 />
+                {fieldErrors.quantity && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.quantity}</span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -132,10 +153,16 @@ export const InventoryModal = ({
                   required
                   min="0"
                   value={form.minQuantity}
-                  onChange={e => setForm({ ...form, minQuantity: e.target.value })}
+                  onChange={e => {
+                    setForm({ ...form, minQuantity: e.target.value });
+                    if (fieldErrors.minQuantity) setFieldErrors(prev => ({ ...prev, minQuantity: '' }));
+                  }}
                   placeholder="Low stock alert trigger (e.g. 10)"
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.minQuantity ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold`}
                 />
+                {fieldErrors.minQuantity && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.minQuantity}</span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -145,10 +172,16 @@ export const InventoryModal = ({
                   required
                   min="0"
                   value={form.costPerUnit}
-                  onChange={e => setForm({ ...form, costPerUnit: e.target.value })}
+                  onChange={e => {
+                    setForm({ ...form, costPerUnit: e.target.value });
+                    if (fieldErrors.costPerUnit) setFieldErrors(prev => ({ ...prev, costPerUnit: '' }));
+                  }}
                   placeholder={tf('costPerUnitPlaceholder', 'e.g. 30')}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.costPerUnit ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold`}
                 />
+                {fieldErrors.costPerUnit && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.costPerUnit}</span>
+                )}
               </div>
             </>
           )}
@@ -163,10 +196,16 @@ export const InventoryModal = ({
                   type="number"
                   min="0"
                   value={form.purchaseAmount}
-                  onChange={e => setForm({ ...form, purchaseAmount: e.target.value })}
+                  onChange={e => {
+                    setForm({ ...form, purchaseAmount: e.target.value });
+                    if (fieldErrors.purchaseAmount) setFieldErrors(prev => ({ ...prev, purchaseAmount: '' }));
+                  }}
                   placeholder={tf('costPlaceholder', 'e.g. 1200')}
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.purchaseAmount ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-semibold`}
                 />
+                {fieldErrors.purchaseAmount && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.purchaseAmount}</span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">

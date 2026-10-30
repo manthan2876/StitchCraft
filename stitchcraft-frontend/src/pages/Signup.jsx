@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { GiScissors, GiPadlock } from 'react-icons/gi';
 import { MdEmail, MdPerson, MdStore, MdPhone, MdLocationOn } from 'react-icons/md';
+import { validateEmail, validatePhone, validateMinLength, validatePassword } from '../utils/formValidators';
 
 export const Signup = () => {
   const [name, setName] = useState('');
@@ -12,6 +13,7 @@ export const Signup = () => {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [shake, setShake] = useState(false);
   const { register, loading, user } = useAuth();
   const navigate = useNavigate();
@@ -22,14 +24,35 @@ export const Signup = () => {
     }
   }, [user, navigate]);
 
+  const validateForm = () => {
+    const errs = {};
+    const nameErr = validateMinLength(name, 2, 'Masterji name');
+    if (nameErr) errs.name = nameErr;
+
+    const emailErr = validateEmail(email, true);
+    if (emailErr) errs.email = emailErr;
+
+    const passErr = validatePassword(password, 6);
+    if (passErr) errs.password = passErr;
+
+    const shopErr = validateMinLength(shopName, 2, 'Shop name');
+    if (shopErr) errs.shopName = shopErr;
+
+    if (phone && phone.trim()) {
+      const phoneErr = validatePhone(phone, false);
+      if (phoneErr) errs.phone = phoneErr;
+    }
+
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !email || !password || !shopName) {
-      setErrorMsg('Name, Email, Password, and Shop Name are required.');
-      return;
-    }
-    if (password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters long.');
+    if (!validateForm()) {
+      setErrorMsg('Please fix the errors indicated below.');
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
       return;
     }
 
@@ -66,11 +89,13 @@ export const Signup = () => {
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => { setName(e.target.value); setErrorMsg(''); }}
+                  onChange={(e) => { setName(e.target.value); setErrorMsg(''); setFieldErrors(prev => ({ ...prev, name: '' })); }}
                   placeholder="Ramesh Kumar"
-                  className="w-full pl-11 pr-4 py-2.5 bg-bg-input border border-border-subtle rounded-lg text-text-main placeholder:text-text-muted/40 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full pl-11 pr-4 py-2.5 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    ${fieldErrors.name ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                 />
               </div>
+              {fieldErrors.name && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.name}</span>}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -80,11 +105,13 @@ export const Signup = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
+                  onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); setFieldErrors(prev => ({ ...prev, email: '' })); }}
                   placeholder="ramesh@tailor.com"
-                  className="w-full pl-11 pr-4 py-2.5 bg-bg-input border border-border-subtle rounded-lg text-text-main placeholder:text-text-muted/40 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full pl-11 pr-4 py-2.5 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    ${fieldErrors.email ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                 />
               </div>
+              {fieldErrors.email && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.email}</span>}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -94,11 +121,13 @@ export const Signup = () => {
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(''); }}
+                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(''); setFieldErrors(prev => ({ ...prev, password: '' })); }}
                   placeholder="Min 6 characters"
-                  className="w-full pl-11 pr-4 py-2.5 bg-bg-input border border-border-subtle rounded-lg text-text-main placeholder:text-text-muted/40 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full pl-11 pr-4 py-2.5 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    ${fieldErrors.password ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                 />
               </div>
+              {fieldErrors.password && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.password}</span>}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -108,11 +137,13 @@ export const Signup = () => {
                 <input
                   type="text"
                   value={shopName}
-                  onChange={(e) => { setShopName(e.target.value); setErrorMsg(''); }}
+                  onChange={(e) => { setShopName(e.target.value); setErrorMsg(''); setFieldErrors(prev => ({ ...prev, shopName: '' })); }}
                   placeholder="Ramesh Tailors"
-                  className="w-full pl-11 pr-4 py-2.5 bg-bg-input border border-border-subtle rounded-lg text-text-main placeholder:text-text-muted/40 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full pl-11 pr-4 py-2.5 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    ${fieldErrors.shopName ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                 />
               </div>
+              {fieldErrors.shopName && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.shopName}</span>}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -122,11 +153,13 @@ export const Signup = () => {
                 <input
                   type="text"
                   value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setErrorMsg(''); }}
+                  onChange={(e) => { setPhone(e.target.value); setErrorMsg(''); setFieldErrors(prev => ({ ...prev, phone: '' })); }}
                   placeholder="9876543210"
-                  className="w-full pl-11 pr-4 py-2.5 bg-bg-input border border-border-subtle rounded-lg text-text-main placeholder:text-text-muted/40 outline-none focus:border-color-accent-purple text-sm transition-all"
+                  className={`w-full pl-11 pr-4 py-2.5 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    ${fieldErrors.phone ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                 />
               </div>
+              {fieldErrors.phone && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.phone}</span>}
             </div>
 
             <div className="flex flex-col gap-1">

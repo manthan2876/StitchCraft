@@ -45,7 +45,7 @@ export const PaymentModal = ({
               value={payAmount}
               onChange={e => { setPayAmount(e.target.value); setPaymentError(''); }}
               placeholder={`Max ₹${balanceAmount}`}
-              className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-black placeholder:text-text-muted/50"
+              className={`w-full px-4 py-2.5 bg-bg-input border ${paymentError ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-black placeholder:text-text-muted/50`}
             />
           </div>
 

@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { supabase } from './supabase.js';
+import { validateDocument } from '../utils/tableValidators.js';
 
 const clone = (value, seen = new WeakSet()) => {
   if (value === null || typeof value !== 'object') return value;
@@ -169,11 +170,19 @@ class SupabaseQuery {
 }
 
 export const createDocumentModel = (collection) => {
-  const load = async () => {
-    const { data, error } = await supabase
+  const load = async (query = {}) => {
+    let builder = supabase
       .from('app_records')
       .select('source_id,document,created_at,updated_at')
       .eq('collection', collection);
+
+    if (query?.shopId && typeof query.shopId === 'string') {
+      builder = builder.filter('document->>shopId', 'eq', query.shopId);
+    } else if (query?._id && typeof query._id === 'string') {
+      builder = builder.eq('source_id', String(query._id));
+    }
+
+    const { data, error } = await builder;
     if (error) throw new Error(`Supabase ${collection} read failed: ${error.message}`);
     return (data ?? []).map(hydrate);
   };
@@ -190,6 +199,10 @@ export const createDocumentModel = (collection) => {
     delete value._id;
     delete value.createdAt;
     delete value.updatedAt;
+
+    // Validate table/document schema rules
+    validateDocument(collection, value);
+
     const { data, error } = await supabase
       .from('app_records')
       .upsert({
@@ -254,23 +267,23 @@ export const createDocumentModel = (collection) => {
   }
 
   Document.find = (query = {}) => new SupabaseQuery(async () => (
-    (await load()).filter((document) => matches(document, query))
+    (await load(query)).filter((document) => matches(document, query))
   ));
   Document.findOne = (query = {}) => new SupabaseQuery(async () => (
-    (await load()).find((document) => matches(document, query)) ?? null
+    (await load(query)).find((document) => matches(document, query)) ?? null
   ), true);
   Document.countDocuments = async (query = {}) => (
-    (await load()).filter((document) => matches(document, query)).length
+    (await load(query)).filter((document) => matches(document, query)).length
   );
   Document.findById = (id) => Document.findOne({ _id: id });
   Document.create = async (value) => persist(new Document(value));
   Document.findOneAndUpdate = (query, update, options = {}) => new SupabaseQuery(async () => {
-    const existing = (await load()).find((document) => matches(document, query));
+    const existing = (await load(query)).find((document) => matches(document, query));
     if (!existing && !options.upsert) return null;
     return persist(new Document(applyUpdate(existing ?? {}, update)));
   }, true);
   Document.updateOne = async (query, update, options = {}) => {
-    const existing = (await load()).find((document) => matches(document, query));
+    const existing = (await load(query)).find((document) => matches(document, query));
     if (!existing) {
       if (!options.upsert) return { matchedCount: 0, modifiedCount: 0, upsertedCount: 0 };
       const created = await persist(new Document(applyUpdate({}, update)));
@@ -280,7 +293,7 @@ export const createDocumentModel = (collection) => {
     return { matchedCount: 1, modifiedCount: updated ? 1 : 0, upsertedCount: 0 };
   };
   Document.updateMany = async (query = {}, update = {}) => {
-    const documents = (await load()).filter((document) => matches(document, query));
+    const documents = (await load(query)).filter((document) => matches(document, query));
     let modifiedCount = 0;
     for (const document of documents) {
       if (await persist(new Document(applyUpdate(document, update)))) {
@@ -297,13 +310,13 @@ export const createDocumentModel = (collection) => {
     Document.findOneAndUpdate({ _id: id }, update, options)
   );
   Document.replaceOne = (query, replacement) => new SupabaseQuery(async () => {
-    const existing = (await load()).find((document) => matches(document, query));
+    const existing = (await load(query)).find((document) => matches(document, query));
     if (!existing) return { matchedCount: 0, modifiedCount: 0 };
     const saved = await persist(new Document({ ...replacement, _id: existing._id }));
     return { matchedCount: 1, modifiedCount: saved ? 1 : 0 };
   }, true);
   Document.findByIdAndDelete = (id) => new SupabaseQuery(async () => {
-    const existing = (await load()).find((document) => String(document._id) === String(id));
+    const existing = (await load({ _id: id })).find((document) => String(document._id) === String(id));
     if (!existing) return null;
     const { error } = await supabase.from('app_records')
       .delete().eq('collection', collection).eq('source_id', String(id));
@@ -311,7 +324,7 @@ export const createDocumentModel = (collection) => {
     return existing;
   }, true);
   Document.deleteOne = async (query = {}) => {
-    const existing = (await load()).find((document) => matches(document, query));
+    const existing = (await load(query)).find((document) => matches(document, query));
     if (!existing) return { deletedCount: 0 };
     const { error } = await supabase.from('app_records')
       .delete().eq('collection', collection).eq('source_id', String(existing._id));
@@ -319,7 +332,7 @@ export const createDocumentModel = (collection) => {
     return { deletedCount: 1 };
   };
   Document.deleteMany = async (query = {}) => {
-    const documents = (await load()).filter((document) => matches(document, query));
+    const documents = (await load(query)).filter((document) => matches(document, query));
     for (const document of documents) await Document.findByIdAndDelete(document._id);
     return { deletedCount: documents.length };
   };

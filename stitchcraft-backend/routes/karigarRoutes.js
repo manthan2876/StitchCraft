@@ -8,16 +8,17 @@ import {
   deleteKarigar,
 } from '../controllers/karigarController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { validateKarigarRequest } from '../middleware/validationMiddleware.js';
 
 router.use(protect); // Require auth for all karigars endpoints
 
 router.route('/')
-  .post(createKarigar)
+  .post(validateKarigarRequest, createKarigar)
   .get(getKarigars);
 
 router.route('/:id')
   .get(getKarigarById)
-  .put(updateKarigar)
+  .put(validateKarigarRequest, updateKarigar)
   .delete(deleteKarigar);
 
 export default router;

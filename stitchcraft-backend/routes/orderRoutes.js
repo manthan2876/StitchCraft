@@ -5,6 +5,7 @@ import {
   getOrders,
   getOrderById,
   getOrderByIdPublic,
+  generateShareToken,
   updateOrder,
   recordOrderPayment,
   deleteOrder,
@@ -12,22 +13,28 @@ import {
 } from '../controllers/orderController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateObjectIdParam } from '../middleware/securityMiddleware.js';
+import {
+  validateOrderCreateRequest,
+  validateOrderUpdateRequest,
+  validatePaymentRequest,
+} from '../middleware/validationMiddleware.js';
 
-// Public guest invoice details route
+// Public guest invoice details route (by shareToken or ID)
 router.get('/public/:id', validateObjectIdParam(), getOrderByIdPublic);
 
 router.use(protect); // Secure remaining routes in this module
 
 router.route('/')
-  .post(createOrder)
+  .post(validateOrderCreateRequest, createOrder)
   .get(getOrders);
 
 router.route('/:id')
   .get(getOrderById)
-  .put(updateOrder)
+  .put(validateOrderUpdateRequest, updateOrder)
   .delete(deleteOrder);
 
-router.post('/:id/payments', recordOrderPayment);
+router.post('/:id/payments', validatePaymentRequest, recordOrderPayment);
 router.post('/:id/notes', addNoteToOrder);
+router.post('/:id/share-token', generateShareToken);
 
 export default router;

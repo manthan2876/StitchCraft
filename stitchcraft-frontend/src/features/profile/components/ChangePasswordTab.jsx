@@ -5,6 +5,8 @@ export const ChangePasswordTab = ({
   passwordForm,
   setPasswordForm,
   passwordError,
+  passwordFieldErrors = {},
+  setPasswordFieldErrors = () => {},
   passwordSuccess,
   passwordLoading,
   handlePasswordSubmit,
@@ -24,10 +26,16 @@ export const ChangePasswordTab = ({
             type="password"
             required
             value={passwordForm.currentPassword}
-            onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+            onChange={e => {
+              setPasswordForm({ ...passwordForm, currentPassword: e.target.value });
+              if (passwordFieldErrors.currentPassword) setPasswordFieldErrors(prev => ({ ...prev, currentPassword: '' }));
+            }}
             placeholder={t('currentPassword')}
-            className="px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50"
+            className={`px-4 py-2.5 bg-bg-input border ${passwordFieldErrors.currentPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
           />
+          {passwordFieldErrors.currentPassword && (
+            <span className="text-[11px] text-color-accent-pink font-semibold">{passwordFieldErrors.currentPassword}</span>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -36,10 +44,16 @@ export const ChangePasswordTab = ({
             type="password"
             required
             value={passwordForm.newPassword}
-            onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+            onChange={e => {
+              setPasswordForm({ ...passwordForm, newPassword: e.target.value });
+              if (passwordFieldErrors.newPassword) setPasswordFieldErrors(prev => ({ ...prev, newPassword: '' }));
+            }}
             placeholder={t('newPassword')}
-            className="px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50"
+            className={`px-4 py-2.5 bg-bg-input border ${passwordFieldErrors.newPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
           />
+          {passwordFieldErrors.newPassword && (
+            <span className="text-[11px] text-color-accent-pink font-semibold">{passwordFieldErrors.newPassword}</span>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -48,10 +62,16 @@ export const ChangePasswordTab = ({
             type="password"
             required
             value={passwordForm.confirmNewPassword}
-            onChange={e => setPasswordForm({ ...passwordForm, confirmNewPassword: e.target.value })}
+            onChange={e => {
+              setPasswordForm({ ...passwordForm, confirmNewPassword: e.target.value });
+              if (passwordFieldErrors.confirmNewPassword) setPasswordFieldErrors(prev => ({ ...prev, confirmNewPassword: '' }));
+            }}
             placeholder={t('confirmNewPassword')}
-            className="px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50"
+            className={`px-4 py-2.5 bg-bg-input border ${passwordFieldErrors.confirmNewPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
           />
+          {passwordFieldErrors.confirmNewPassword && (
+            <span className="text-[11px] text-color-accent-pink font-semibold">{passwordFieldErrors.confirmNewPassword}</span>
+          )}
         </div>
 
         {passwordError && (

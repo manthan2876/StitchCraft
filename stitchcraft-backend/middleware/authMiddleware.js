@@ -53,3 +53,18 @@ export const protect = async (req, res, next) => {
     res.status(401).json({ message: 'Not authorized, no token provided' });
   }
 };
+
+export const authorize = (...roles) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authorized, no authenticated user' });
+  }
+
+  const userRole = req.user.role || 'owner';
+  if (roles.length > 0 && !roles.includes(userRole)) {
+    return res.status(403).json({
+      message: `Forbidden: role '${userRole}' is not authorized to perform this action`
+    });
+  }
+
+  next();
+};

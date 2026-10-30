@@ -1,6 +1,7 @@
 import Delivery from '../models/Delivery.js';
 import Order from '../models/Order.js';
-import Notification from '../models/Notification.js';
+import Payment from '../models/Payment.js';
+import { dispatchNotification } from '../services/notificationService.js';
 
 // @desc    Get all delivery listings for a shop grouped by tabs
 // @route   GET /api/deliveries
@@ -70,6 +71,16 @@ export const markAsDelivered = async (req, res) => {
       return res.status(404).json({ message: 'Delivery record not found' });
     }
 
+    // Check for outstanding balance
+    const payment = await Payment.findOne({ orderId: delivery.orderId, shopId: req.user.shopId });
+    if (payment && payment.balanceAmount > 0 && !req.body.allowCredit) {
+      return res.status(400).json({
+        message: `Order has an outstanding balance of ₹${payment.balanceAmount}. Please collect payment or confirm delivery on credit.`,
+        requiresCreditApproval: true,
+        balanceAmount: payment.balanceAmount,
+      });
+    }
+
     delivery.status = 'Delivered';
     delivery.deliveredBy = req.user.name || 'Owner';
     await delivery.save();
@@ -80,12 +91,14 @@ export const markAsDelivered = async (req, res) => {
       order.status = 'Delivered';
       await order.save();
 
-      // Create notification
-      await Notification.create({
+      // Create & dispatch notification
+      await dispatchNotification({
         shopId: req.user.shopId,
         customerId: order.customer,
         orderId: order._id,
+        title: 'Order Delivered',
         message: `Order ${order.orderId} marked as Delivered by ${delivery.deliveredBy}.`,
+        type: 'order_status',
       });
     }
 

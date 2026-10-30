@@ -305,7 +305,7 @@ export const Payments = () => {
                   value={collectAmount}
                   onChange={(e) => { setCollectAmount(e.target.value); setModalError(''); }}
                   placeholder="Enter amount"
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm font-bold"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${modalError ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm font-bold`}
                 />
               </div>
 

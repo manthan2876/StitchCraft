@@ -29,6 +29,8 @@ export const Inventory = () => {
     setForm,
     formError,
     setFormError,
+    fieldErrors,
+    setFieldErrors,
     formLoading,
     deleteTarget,
     setDeleteTarget,
@@ -195,6 +197,8 @@ export const Inventory = () => {
         setForm={setForm}
         formError={formError}
         setFormError={setFormError}
+        fieldErrors={fieldErrors}
+        setFieldErrors={setFieldErrors}
         formLoading={formLoading}
         onSubmit={handleFormSubmit}
         tf={tf}

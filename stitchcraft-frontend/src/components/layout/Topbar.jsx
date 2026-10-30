@@ -2,12 +2,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import {
   MdSearch, MdMenu, MdWbSunny, MdNightsStay,
-  MdNotifications, MdCheck, MdDrafts, MdInfo,
+  MdNotifications, MdDrafts, MdInfo,
   MdReceipt, MdLocalShipping, MdPerson
 } from 'react-icons/md';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
-import ProfileImage from '../../assets/profile.png';
 import { useState, useEffect } from 'react';
 import { getSignedUrl } from '../../services/supabase';
 import { api } from '../../services/api';

@@ -1,5 +1,6 @@
 /* controllers/accountController.js */
 import User from '../models/User.js';
+import { supabase } from '../config/supabase.js';
 import {
   exportAllDataService,
   purgeAllDataService,
@@ -12,8 +13,15 @@ import {
 const authenticateUser = async (userId, password) => {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
-  const isMatch = await user.matchPassword(password);
-  if (!isMatch) throw new Error('Incorrect password');
+  const { error } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password,
+  });
+  if (error) {
+    const err = new Error('Incorrect password');
+    err.statusCode = 400;
+    throw err;
+  }
   return user;
 };
 
@@ -30,7 +38,7 @@ export const downloadAllData = async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Download data error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 
@@ -47,7 +55,7 @@ export const deleteAllData = async (req, res) => {
     res.json({ message: 'All shop data deleted successfully' });
   } catch (error) {
     console.error('Delete all data error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 
@@ -64,7 +72,7 @@ export const deleteAccountRequest = async (req, res) => {
     res.json({ message: 'Account scheduled for deletion. Logging out...' });
   } catch (error) {
     console.error('Delete account request error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 
@@ -104,6 +112,6 @@ export const importAllData = async (req, res) => {
     res.json({ message: 'All shop data imported successfully.' });
   } catch (error) {
     console.error('Import data error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };

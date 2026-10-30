@@ -7,13 +7,12 @@ import {
   MdAssignmentInd, MdBookmarkBorder, MdClose, MdDelete
 } from 'react-icons/md';
 import { FaWhatsapp } from 'react-icons/fa';
-import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../context/LanguageContext';
+import { validateMinLength, validatePhone, validateEmail } from '../utils/formValidators';
 
 export const CustomerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { t } = useLanguage();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +27,7 @@ export const CustomerDetails = () => {
   const [editAddress, setEditAddress] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Delete Customer states
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -96,12 +96,25 @@ export const CustomerDetails = () => {
 
   const handleEditProfileSubmit = async (e) => {
     e.preventDefault();
-    if (!editName || !editPhone) {
-      setEditError('Name and phone are required.');
+    const errs = {};
+    const nameErr = validateMinLength(editName, 2, 'Full Name');
+    if (nameErr) errs.name = nameErr;
+    const phoneErr = validatePhone(editPhone, true);
+    if (phoneErr) errs.phone = phoneErr;
+    if (editEmail && editEmail.trim()) {
+      const emailErr = validateEmail(editEmail, false);
+      if (emailErr) errs.email = emailErr;
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      setEditError('Please resolve the errors highlighted below.');
       return;
     }
+
     setEditLoading(true);
     setEditError('');
+    setFieldErrors({});
     try {
       const data = await api.put(`/customers/${id}`, {
         name: editName,
@@ -331,10 +344,57 @@ export const CustomerDetails = () => {
             <h3 className="text-lg font-black text-text-main flex items-center gap-2 mb-1"><MdEdit className="text-color-accent-purple w-5 h-5" />{tf('editProfile', 'Edit Profile')}</h3>
             <p className="text-xs text-text-muted mb-5 font-semibold">{tf('editClientProfileSub', 'Update customer contact information details.')}</p>
             <form onSubmit={handleEditProfileSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('fullName')}</label><input type="text" required value={editName} onChange={e => { setEditName(e.target.value); setEditError(''); }} placeholder={t('fullName')} className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50" /></div>
-              <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('phoneNumber', 'Phone Number')}</label><input type="tel" required value={editPhone} onChange={e => { setEditPhone(e.target.value); setEditError(''); }} placeholder={tf('contactPhone', 'Contact Phone')} className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50" /></div>
-              <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('emailAddress')}</label><input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder={t('emailAddress')} className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50" /></div>
-              <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('address')}</label><input type="text" value={editAddress} onChange={e => setEditAddress(e.target.value)} placeholder={t('address')} className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50" /></div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('fullName')} *</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={e => { setEditName(e.target.value); setEditError(''); setFieldErrors(prev => ({ ...prev, name: '' })); }}
+                  placeholder={t('fullName')}
+                  className={`w-full px-4 py-2.5 bg-bg-input border rounded-xl text-text-main outline-none text-sm transition-all placeholder:text-text-muted/50
+                    ${fieldErrors.name ? 'border-color-accent-pink' : 'border-border-medium focus:border-color-accent-purple'}`}
+                />
+                {fieldErrors.name && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.name}</span>}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('phoneNumber', 'Phone Number')} *</label>
+                <input
+                  type="tel"
+                  required
+                  value={editPhone}
+                  onChange={e => { setEditPhone(e.target.value); setEditError(''); setFieldErrors(prev => ({ ...prev, phone: '' })); }}
+                  placeholder={tf('contactPhone', 'Contact Phone (10 digits)')}
+                  className={`w-full px-4 py-2.5 bg-bg-input border rounded-xl text-text-main outline-none text-sm transition-all placeholder:text-text-muted/50
+                    ${fieldErrors.phone ? 'border-color-accent-pink' : 'border-border-medium focus:border-color-accent-purple'}`}
+                />
+                {fieldErrors.phone && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.phone}</span>}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('emailAddress')}</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={e => { setEditEmail(e.target.value); setEditError(''); setFieldErrors(prev => ({ ...prev, email: '' })); }}
+                  placeholder={t('emailAddress')}
+                  className={`w-full px-4 py-2.5 bg-bg-input border rounded-xl text-text-main outline-none text-sm transition-all placeholder:text-text-muted/50
+                    ${fieldErrors.email ? 'border-color-accent-pink' : 'border-border-medium focus:border-color-accent-purple'}`}
+                />
+                {fieldErrors.email && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.email}</span>}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('address')}</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={e => setEditAddress(e.target.value)}
+                  placeholder={t('address')}
+                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+                />
+              </div>
               {editError && <span className="text-xs text-color-accent-pink font-bold text-center animate-pulse">{editError}</span>}
               <div className="flex gap-3 mt-2">
                 <button type="button" onClick={() => setIsEditProfileModalOpen(false)} className="flex-1 py-2.5 bg-bg-secondary border border-border-medium text-text-main rounded-xl font-bold text-sm hover:bg-bg-card-hover transition-all cursor-pointer">{t('cancel')}</button>

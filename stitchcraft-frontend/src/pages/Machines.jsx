@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import Card from '../components/common/Card';
-import { MdSearch, MdClose, MdAdd, MdEdit, MdDelete } from 'react-icons/md';
+import { MdSearch, MdClose, MdEdit, MdDelete } from 'react-icons/md';
 import { GiSewingMachine } from 'react-icons/gi';
+import { validateMinLength, validateRequired } from '../utils/formValidators';
 
 export const Machines = () => {
   const { t } = useLanguage();
@@ -18,6 +19,7 @@ export const Machines = () => {
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [form, setForm] = useState({ name: '', type: 'Sewing', status: 'Working', notes: '' });
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [formLoading, setFormLoading] = useState(false);
 
   // Delete Modal states
@@ -52,6 +54,7 @@ export const Machines = () => {
     setModalMode('add');
     setSelectedMachine(null);
     setFormError('');
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
@@ -65,15 +68,25 @@ export const Machines = () => {
     setModalMode('edit');
     setSelectedMachine(machine);
     setFormError('');
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.type) {
-      setFormError('Machine name/number and type are required.');
+    const errors = {};
+    const nameErr = validateMinLength(form.name, 2, 'Machine name');
+    if (nameErr) errors.name = nameErr;
+    const typeErr = validateRequired(form.type, 'Machine type');
+    if (typeErr) errors.type = typeErr;
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setFormError('Please fix the highlighted errors.');
       return;
     }
+
+    setFieldErrors({});
     setFormLoading(true);
     setFormError('');
     try {
@@ -253,10 +266,17 @@ export const Machines = () => {
                   type="text"
                   required
                   value={form.name}
-                  onChange={e => { setForm({ ...form, name: e.target.value }); setFormError(''); }}
+                  onChange={e => {
+                    setForm({ ...form, name: e.target.value });
+                    setFormError('');
+                    if (fieldErrors.name) setFieldErrors(prev => ({ ...prev, name: '' }));
+                  }}
                   placeholder="e.g. Sewing Machine #A3 or Juki Overlock"
-                  className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+                  className={`w-full px-4 py-2.5 bg-bg-input border ${fieldErrors.name ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
                 />
+                {fieldErrors.name && (
+                  <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.name}</span>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

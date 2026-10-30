@@ -1,5 +1,6 @@
 import Inventory from '../models/Inventory.js';
 import LedgerEntry from '../models/LedgerEntry.js';
+import Order from '../models/Order.js';
 import { escapeRegex } from '../middleware/securityMiddleware.js';
 
 // @desc    Create a new inventory item
@@ -151,6 +152,18 @@ export const deleteInventoryItem = async (req, res) => {
 
     if (!item) {
       return res.status(404).json({ message: 'Inventory item not found' });
+    }
+
+    const activeOrders = await Order.countDocuments({
+      asterInventoryItem: item._id,
+      status: { $nin: ['Delivered', 'Cancelled'] },
+      shopId: req.user.shopId,
+    });
+
+    if (activeOrders > 0) {
+      return res.status(400).json({
+        message: `Cannot delete: ${activeOrders} active order(s) are using this material.`,
+      });
     }
 
     await Inventory.deleteOne({ _id: item._id });

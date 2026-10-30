@@ -11,7 +11,6 @@ export const Orders = () => {
   const { t } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [inventories, setInventories] = useState([]);
 
   // Deletion modal state
   const [deleteTargetOrder, setDeleteTargetOrder] = useState(null);
@@ -37,23 +36,6 @@ export const Orders = () => {
   };
 
   useEffect(() => { fetchOrders(); }, []);
-
-  useEffect(() => {
-    const fetchInventories = async () => {
-      setLoading(true);
-      try {
-        const response = await api.get('/inventory?itemType=accessories');
-        const data = response.data || response;
-        setInventories(data);
-      } catch (err) {
-        console.error('Failed to fetch Inventories:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchInventories();
-  }, []);
-
 
   const handleOpenDeleteModal = (order) => {
     setDeleteTargetOrder(order);

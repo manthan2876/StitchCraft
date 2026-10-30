@@ -7,6 +7,7 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import InputField from '../components/common/InputField';
 import { MdArrowBack, MdSave, MdDelete, MdClose, MdContentCut } from 'react-icons/md';
+import { validateNumber, validateDate } from '../utils/formValidators';
 
 export const EditOrder = () => {
     const { id } = useParams();
@@ -15,6 +16,7 @@ export const EditOrder = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
@@ -85,7 +87,30 @@ export const EditOrder = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setSaving(true); setError('');
+        setError('');
+        setFieldErrors({});
+
+        const errs = {};
+        const priceErr = validateNumber(formData.price, 'Total Order Value', { allowZero: false });
+        if (priceErr) errs.price = priceErr;
+
+        const dateErr = validateDate(formData.deliveryDate, 'Delivery date');
+        if (dateErr) errs.deliveryDate = dateErr;
+
+        if (formData.needsAster) {
+            const qtyErr = validateNumber(formData.asterQuantity, 'Lining quantity', { allowZero: false });
+            if (qtyErr) errs.asterQuantity = qtyErr;
+            const spErr = validateNumber(formData.asterSellingPrice, 'Lining selling price', { allowZero: false });
+            if (spErr) errs.asterSellingPrice = spErr;
+        }
+
+        if (Object.keys(errs).length > 0) {
+            setFieldErrors(errs);
+            setError(tf('fixFormErrors', 'Please fix the errors indicated below.'));
+            return;
+        }
+
+        setSaving(true);
         try {
              await api.put(`/orders/${id}`, {
                  status: formData.status,
@@ -150,8 +175,22 @@ export const EditOrder = () => {
                             </div>
                         </div>
 
-                        <InputField label={tf('totalOrderValue', 'Total Order Value')} type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required />
-                        <InputField label={tf('deliveryDeadline', 'Delivery Deadline')} type="date" value={formData.deliveryDate} onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })} required />
+                        <InputField
+                            label={tf('totalOrderValue', 'Total Order Value')}
+                            type="number"
+                            value={formData.price}
+                            onChange={(e) => { setFormData({ ...formData, price: e.target.value }); setFieldErrors(prev => ({ ...prev, price: '' })); }}
+                            required
+                            error={fieldErrors.price}
+                        />
+                        <InputField
+                            label={tf('deliveryDeadline', 'Delivery Deadline')}
+                            type="date"
+                            value={formData.deliveryDate}
+                            onChange={(e) => { setFormData({ ...formData, deliveryDate: e.target.value }); setFieldErrors(prev => ({ ...prev, deliveryDate: '' })); }}
+                            required
+                            error={fieldErrors.deliveryDate}
+                        />
                         <InputField label={tf('fabricDetails', 'Fabric Details')} type="text" placeholder="e.g. Silk blend, provided by customer" value={formData.fabric} onChange={(e) => setFormData({ ...formData, fabric: e.target.value })} />
 
                         <div className="flex flex-col gap-1.5">
@@ -214,16 +253,18 @@ export const EditOrder = () => {
                               label={tf('astarQuantityNeeded', 'Astar Quantity Needed')}
                               type="number"
                               value={formData.asterQuantity}
-                              onChange={(e) => setFormData({ ...formData, asterQuantity: e.target.value })}
+                              onChange={(e) => { setFormData({ ...formData, asterQuantity: e.target.value }); setFieldErrors(prev => ({ ...prev, asterQuantity: '' })); }}
                               placeholder={`e.g. 2 ${inventoryItems.find(i => i._id === formData.asterInventoryItem)?.unit || 'meters'}`}
+                              error={fieldErrors.asterQuantity}
                             />
 
                             <InputField
                               label={tf('liningSellingPriceLabel', `Lining Selling Price (per ${inventoryItems.find(i => i._id === formData.asterInventoryItem)?.unit || 'unit'})`)}
                               type="number"
                               value={formData.asterSellingPrice}
-                              onChange={(e) => setFormData({ ...formData, asterSellingPrice: e.target.value })}
+                              onChange={(e) => { setFormData({ ...formData, asterSellingPrice: e.target.value }); setFieldErrors(prev => ({ ...prev, asterSellingPrice: '' })); }}
                               placeholder={tf('liningSellingPricePlaceholder', 'e.g. 35')}
+                              error={fieldErrors.asterSellingPrice}
                             />
 
                             {formData.asterInventoryItem && formData.asterSellingPrice && (

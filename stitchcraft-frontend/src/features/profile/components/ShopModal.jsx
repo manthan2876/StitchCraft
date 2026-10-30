@@ -8,6 +8,8 @@ export const ShopModal = ({
   shopForm,
   setShopForm,
   shopError,
+  shopFieldErrors = {},
+  setShopFieldErrors = () => {},
   setShopError,
   shopModalLoading,
   handleShopFormSubmit,
@@ -40,10 +42,17 @@ export const ShopModal = ({
               type="text"
               required
               value={shopForm.shopName}
-              onChange={e => { setShopForm({ ...shopForm, shopName: e.target.value }); setShopError(''); }}
+              onChange={e => {
+                setShopForm({ ...shopForm, shopName: e.target.value });
+                setShopError('');
+                if (shopFieldErrors.shopName) setShopFieldErrors(prev => ({ ...prev, shopName: '' }));
+              }}
               placeholder={t('shopName')}
-              className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+              className={`w-full px-4 py-2.5 bg-bg-input border ${shopFieldErrors.shopName ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
             />
+            {shopFieldErrors.shopName && (
+              <span className="text-[11px] text-color-accent-pink font-semibold">{shopFieldErrors.shopName}</span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -51,10 +60,16 @@ export const ShopModal = ({
             <input
               type="tel"
               value={shopForm.phone}
-              onChange={e => setShopForm({ ...shopForm, phone: e.target.value })}
+              onChange={e => {
+                setShopForm({ ...shopForm, phone: e.target.value });
+                if (shopFieldErrors.phone) setShopFieldErrors(prev => ({ ...prev, phone: '' }));
+              }}
               placeholder={t('contactPhone')}
-              className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+              className={`w-full px-4 py-2.5 bg-bg-input border ${shopFieldErrors.phone ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
             />
+            {shopFieldErrors.phone && (
+              <span className="text-[11px] text-color-accent-pink font-semibold">{shopFieldErrors.phone}</span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">

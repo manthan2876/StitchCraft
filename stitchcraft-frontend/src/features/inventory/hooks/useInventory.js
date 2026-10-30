@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
+import { validateMinLength, validateNumber } from '../../../utils/formValidators';
 
 export const useInventory = (tf) => {
   const [items, setItems] = useState([]);
@@ -12,6 +13,7 @@ export const useInventory = (tf) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [form, setForm] = useState({ itemName: '', itemType: 'Lining', quantity: '', unit: 'meters', minQuantity: '10', purchaseAmount: '', description: '', costPerUnit: '', quantityToAdd: '' });
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [formLoading, setFormLoading] = useState(false);
 
   // Delete Modal states
@@ -40,6 +42,7 @@ export const useInventory = (tf) => {
     setModalMode('add');
     setSelectedItem(null);
     setFormError('');
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
@@ -58,6 +61,7 @@ export const useInventory = (tf) => {
     setModalMode('edit');
     setSelectedItem(item);
     setFormError('');
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
@@ -76,23 +80,48 @@ export const useInventory = (tf) => {
     setModalMode('restock');
     setSelectedItem(item);
     setFormError('');
+    setFieldErrors({});
     setIsModalOpen(true);
   };
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (modalMode !== 'restock' && !form.itemName) {
-      setFormError(tf('itemNameRequired', 'Item name is required.'));
+    const errors = {};
+
+    if (modalMode !== 'restock') {
+      const nameErr = validateMinLength(form.itemName, 2, 'Item name');
+      if (nameErr) errors.itemName = nameErr;
+
+      const qtyErr = validateNumber(form.quantity, { min: 0, fieldName: 'Quantity' });
+      if (qtyErr) errors.quantity = qtyErr;
+
+      const minQtyErr = validateNumber(form.minQuantity, { min: 0, fieldName: 'Minimum quantity' });
+      if (minQtyErr) errors.minQuantity = minQtyErr;
+
+      const costErr = validateNumber(form.costPerUnit, { min: 0, fieldName: 'Cost per unit' });
+      if (costErr) errors.costPerUnit = costErr;
+
+      if (form.purchaseAmount !== '' && form.purchaseAmount !== undefined) {
+        const purchaseErr = validateNumber(form.purchaseAmount, { min: 0, fieldName: 'Purchase cost' });
+        if (purchaseErr) errors.purchaseAmount = purchaseErr;
+      }
+    } else {
+      const restockErr = validateNumber(form.quantityToAdd, { min: 0.01, fieldName: 'Quantity to add' });
+      if (restockErr) errors.quantityToAdd = restockErr;
+
+      if (form.purchaseAmount !== '' && form.purchaseAmount !== undefined) {
+        const purchaseErr = validateNumber(form.purchaseAmount, { min: 0, fieldName: 'Restock cost' });
+        if (purchaseErr) errors.purchaseAmount = purchaseErr;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setFormError(tf('fixFormErrors', 'Please fix the highlighted errors before saving.'));
       return;
     }
-    if (modalMode !== 'restock' && !form.itemType) {
-      setFormError(tf('itemTypeRequired', 'Item type is required.'));
-      return;
-    }
-    if (modalMode === 'restock' && (!form.quantityToAdd || Number(form.quantityToAdd) <= 0)) {
-      setFormError(tf('quantityToAddRequired', 'Please enter a valid quantity to add.'));
-      return;
-    }
+
+    setFieldErrors({});
     setFormLoading(true);
     setFormError('');
     try {
@@ -174,6 +203,8 @@ export const useInventory = (tf) => {
     setForm,
     formError,
     setFormError,
+    fieldErrors,
+    setFieldErrors,
     formLoading,
     deleteTarget,
     setDeleteTarget,

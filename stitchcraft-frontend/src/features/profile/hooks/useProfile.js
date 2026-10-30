@@ -6,7 +6,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import { api } from '../../../services/api';
 import { uploadToPrivateBucket, getSignedUrl } from '../../../services/supabase';
-import ProfileImage from '../../../assets/profile.png';
+import { validateMinLength, validatePhone, validateRequired, validatePassword } from '../../../utils/formValidators';
 
 export const useProfile = () => {
   const { user, logout, updateUser } = useAuth();
@@ -22,6 +22,7 @@ export const useProfile = () => {
   // Password update states
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
   const [passwordError, setPasswordError] = useState('');
+  const [passwordFieldErrors, setPasswordFieldErrors] = useState({});
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
 
@@ -51,6 +52,7 @@ export const useProfile = () => {
   const [selectedShop, setSelectedShop] = useState(null);
   const [shopForm, setShopForm] = useState({ shopName: '', phone: '', address: '', plan: 'Free' });
   const [shopError, setShopError] = useState('');
+  const [shopFieldErrors, setShopFieldErrors] = useState({});
   const [shopModalLoading, setShopModalLoading] = useState(false);
 
   const [deleteTargetShop, setDeleteTargetShop] = useState(null);
@@ -78,7 +80,7 @@ export const useProfile = () => {
     try {
       const parsed = JSON.parse(saved);
       return { ...defaultSettings, ...parsed };
-    } catch (e) {
+    } catch (_e) {
       return defaultSettings;
     }
   });
@@ -169,6 +171,7 @@ export const useProfile = () => {
     setShopModalMode('create');
     setSelectedShop(null);
     setShopError('');
+    setShopFieldErrors({});
     setIsShopModalOpen(true);
   };
 
@@ -182,15 +185,28 @@ export const useProfile = () => {
     setShopModalMode('edit');
     setSelectedShop(shop);
     setShopError('');
+    setShopFieldErrors({});
     setIsShopModalOpen(true);
   };
 
   const handleShopFormSubmit = async (e) => {
     e.preventDefault();
-    if (!shopForm.shopName) {
-      setShopError('Shop name is required.');
+    const errors = {};
+    const nameErr = validateMinLength(shopForm.shopName, 2, 'Shop name');
+    if (nameErr) errors.shopName = nameErr;
+
+    if (shopForm.phone && shopForm.phone.trim()) {
+      const phoneErr = validatePhone(shopForm.phone);
+      if (phoneErr) errors.phone = phoneErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setShopFieldErrors(errors);
+      setShopError('Please fix the highlighted errors.');
       return;
     }
+
+    setShopFieldErrors({});
     setShopModalLoading(true);
     setShopError('');
     try {
@@ -258,7 +274,7 @@ export const useProfile = () => {
         const parsed = JSON.parse(event.target.result);
         setImportJsonData(parsed);
         setPrivacyError('');
-      } catch (err) {
+      } catch (_err) {
         setPrivacyError('Invalid JSON file format.');
         setImportJsonData(null);
       }
@@ -377,17 +393,27 @@ export const useProfile = () => {
     e.preventDefault();
     setPasswordError('');
     setPasswordSuccess('');
+    const errors = {};
 
-    if (passwordForm.newPassword !== passwordForm.confirmNewPassword) {
-      setPasswordError('New passwords do not match.');
+    const curErr = validateRequired(passwordForm.currentPassword, 'Current password');
+    if (curErr) errors.currentPassword = curErr;
+
+    const newErr = validatePassword(passwordForm.newPassword);
+    if (newErr) errors.newPassword = newErr;
+
+    if (!passwordForm.confirmNewPassword) {
+      errors.confirmNewPassword = 'Confirm password is required.';
+    } else if (passwordForm.newPassword !== passwordForm.confirmNewPassword) {
+      errors.confirmNewPassword = 'New passwords do not match.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPasswordFieldErrors(errors);
+      setPasswordError('Please fix the highlighted errors.');
       return;
     }
 
-    if (passwordForm.newPassword.length < 4) {
-      setPasswordError('New password must be at least 4 characters long.');
-      return;
-    }
-
+    setPasswordFieldErrors({});
     setPasswordLoading(true);
     try {
       await api.put('/auth/update-password', {
@@ -427,6 +453,8 @@ export const useProfile = () => {
     passwordForm,
     setPasswordForm,
     passwordError,
+    passwordFieldErrors,
+    setPasswordFieldErrors,
     passwordSuccess,
     passwordLoading,
     privacyAction,
@@ -447,6 +475,7 @@ export const useProfile = () => {
     conflictsList,
     resolutions,
     setResolutions,
+    conflictLoading,
     settings,
     setSettings,
     shops,
@@ -457,6 +486,8 @@ export const useProfile = () => {
     shopForm,
     setShopForm,
     shopError,
+    shopFieldErrors,
+    setShopFieldErrors,
     setShopError,
     shopModalLoading,
     deleteTargetShop,

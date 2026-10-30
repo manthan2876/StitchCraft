@@ -26,7 +26,7 @@ class SyncService {
   Future<Map<String, dynamic>> getSyncStatus() async {
     try {
       int totalPending = 0;
-      final tables = ['customers', 'orders', 'expenses'];
+      final tables = ['customers', 'orders', 'expenses', 'inventory'];
       for (final table in tables) {
         final unsynced = await _localDb.getUnsyncedRecords(table);
         totalPending += unsynced.length;
@@ -59,7 +59,7 @@ class SyncService {
       return;
     }
 
-    final tables = ['customers', 'orders', 'expenses'];
+    final tables = ['customers', 'orders', 'expenses', 'inventory'];
     
     for (int i = 0; i < tables.length; i++) {
       final table = tables[i];
@@ -93,7 +93,7 @@ class SyncService {
         final id = record['id'] as String;
         final syncStatus = record['sync_status'] as int;
 
-        if (syncStatus == 1) { // New / Updated
+        if (syncStatus != 0) { // New (1) or Updated (2)
           final payload = Map<String, dynamic>.from(record);
           payload.remove('sync_status');
           payload['shopId'] = shopId;
@@ -121,23 +121,59 @@ class SyncService {
               };
             }
             // Format order keys for Mongoose validation rules
-            payload['customerName'] = record['customer_name'] ?? 'Walk-in Customer';
-            payload['apparelType'] = record['apparelType'] ?? 'Shirt';
-            payload['deliveryDate'] = record['due_date'] != null 
-                ? DateTime.fromMillisecondsSinceEpoch(record['due_date']).toUtc().toIso8601String()
-                : DateTime.now().add(const Duration(days: 7)).toUtc().toIso8601String();
-            payload['price'] = record['total_amount'] ?? 100.0;
-            payload['fabric'] = record['description'] ?? 'Standard Cotton';
+            if (record['customer_name'] != null) {
+              payload['customerName'] = record['customer_name'];
+            }
+            if (record['apparelType'] != null || record['item_types'] != null) {
+              payload['apparelType'] = record['apparelType'] ?? record['item_types']?.toString().split(',').first ?? 'Shirt';
+            }
+            if (record['due_date'] != null) {
+              payload['deliveryDate'] = DateTime.fromMillisecondsSinceEpoch(record['due_date']).toUtc().toIso8601String();
+            }
+            if (record['total_amount'] != null) {
+              payload['price'] = record['total_amount'];
+            }
+            if (record['description'] != null) {
+              payload['fabric'] = record['description'];
+            }
           }
 
-          final response = await http.post(
-            Uri.parse('$baseUrl/$endpoint'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: json.encode(payload),
-          );
+          if (table == 'inventory') {
+            payload['itemName'] = record['name'] ?? 'Inventory Item';
+            payload['itemType'] = record['category'] ?? 'accessories';
+            payload['quantity'] = record['quantity'] ?? 0;
+            payload['costPerUnit'] = record['unit_price'] ?? 0;
+            payload['minQuantity'] = record['low_stock_threshold'] ?? 10;
+          }
+
+          final headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          };
+
+          final isUpdate = syncStatus == 2;
+          http.Response response;
+
+          if (isUpdate) {
+            response = await http.put(
+              Uri.parse('$baseUrl/$endpoint/$id'),
+              headers: headers,
+              body: json.encode(payload),
+            );
+            if (response.statusCode == 404) {
+              response = await http.post(
+                Uri.parse('$baseUrl/$endpoint'),
+                headers: headers,
+                body: json.encode(payload),
+              );
+            }
+          } else {
+            response = await http.post(
+              Uri.parse('$baseUrl/$endpoint'),
+              headers: headers,
+              body: json.encode(payload),
+            );
+          }
 
           if (response.statusCode == 200 || response.statusCode == 201) {
             final responseData = json.decode(response.body);
@@ -229,6 +265,13 @@ class SyncService {
           sqliteRecord['date'] = remoteRecord['date'] != null 
               ? DateTime.parse(remoteRecord['date'].toString()).millisecondsSinceEpoch
               : DateTime.now().millisecondsSinceEpoch;
+          sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+        } else if (table == 'inventory') {
+          sqliteRecord['name'] = remoteRecord['itemName'] ?? 'Inventory Item';
+          sqliteRecord['category'] = remoteRecord['itemType'] ?? 'accessories';
+          sqliteRecord['quantity'] = (remoteRecord['quantity'] as num?)?.toDouble() ?? 0.0;
+          sqliteRecord['unit_price'] = (remoteRecord['costPerUnit'] as num?)?.toDouble() ?? 0.0;
+          sqliteRecord['low_stock_threshold'] = (remoteRecord['minQuantity'] as num?)?.toDouble() ?? 10.0;
           sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
         }
 

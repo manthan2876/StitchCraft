@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'dart:developer' as developer;
@@ -35,10 +36,14 @@ class LocalDatabaseService {
 
   Future<Database> _initDatabase() async {
     final path = p.join(await getDatabasesPath(), 'stitchcraft_v1.db');
+    final envKey = dotenv.env['DB_ENCRYPTION_KEY'];
+    final dbPassword = (envKey != null && envKey.isNotEmpty)
+        ? envKey
+        : 'stitchcraft_secure_key_2026';
 
     return await openDatabase(
       path,
-      password: 'stitchcraft_secure_key_2026', // SRS ARCH-002: Encryption at Rest
+      password: dbPassword,
       version: 5, // Incremented for new tables
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,

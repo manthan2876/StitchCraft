@@ -55,7 +55,7 @@ export const PrivacyActionConfirmModal = ({
               value={privacyPassword}
               onChange={e => { setPrivacyPassword(e.target.value); setPrivacyError(''); }}
               placeholder={t('enterPasswordPlaceholder')}
-              className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+              className={`w-full px-4 py-2.5 bg-bg-input border ${privacyError ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
               autoFocus
             />
           </div>

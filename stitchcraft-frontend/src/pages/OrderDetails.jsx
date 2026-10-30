@@ -1,5 +1,5 @@
 /* src/pages/OrderDetails.jsx */
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Card from '../components/common/Card';
 import {
   MdArrowBack, MdPhone, MdEdit, MdDelete,
@@ -15,11 +15,10 @@ import { PaymentModal } from '../features/orders/components/PaymentModal';
 import { DeleteOrderModal } from '../features/orders/components/DeleteOrderModal';
 
 export const OrderDetails = () => {
-  const { navigate } = useNavigate();
+  const navigate = useNavigate();
   const { t } = useLanguage();
 
   const {
-    id,
     order,
     loading,
     maapSignedUrl,
@@ -173,6 +172,43 @@ export const OrderDetails = () => {
                 <span className="text-sm font-semibold text-text-main">{formatDate(order.date)}</span>
               </div>
             </div>
+
+            {/* Booked Garments / Multi-Item Breakdown */}
+            {order.items && order.items.length > 0 && (
+              <div className="flex flex-col gap-3 p-4 bg-bg-secondary border border-border-subtle rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">{tf('bookedGarments', 'Booked Garments / Items')}</h4>
+                  <span className="text-[10px] font-bold text-color-accent-purple bg-color-accent-purple/10 px-2 py-0.5 rounded-full">
+                    {order.items.length} {order.items.length === 1 ? 'Garment' : 'Garments'}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-border-subtle text-[10px] text-text-muted font-bold uppercase">
+                        <th className="pb-2">Garment</th>
+                        <th className="pb-2 text-center">Qty</th>
+                        <th className="pb-2 text-right">Unit Price</th>
+                        <th className="pb-2 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle/50">
+                      {order.items.map((it, idx) => (
+                        <tr key={it.id || idx}>
+                          <td className="py-2.5">
+                            <span className="font-semibold text-text-main">{it.name || it.apparelType}</span>
+                            {it.fabric && <span className="block text-[10px] text-text-muted">Fabric: {it.fabric}</span>}
+                          </td>
+                          <td className="py-2.5 text-center text-text-muted">{it.quantity || 1}</td>
+                          <td className="py-2.5 text-right font-medium text-text-main">{formatCurrency(it.price)}</td>
+                          <td className="py-2.5 text-right font-bold text-text-main">{formatCurrency((it.price || 0) * (it.quantity || 1))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Lining / Astar Details */}
             <div className="flex flex-col gap-3 p-4 bg-bg-secondary border border-border-subtle rounded-2xl">

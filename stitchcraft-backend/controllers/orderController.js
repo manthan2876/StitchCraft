@@ -1,10 +1,13 @@
 /* controllers/orderController.js */
+import crypto from 'node:crypto';
 import Order from '../models/Order.js';
+import Shop from '../models/Shop.js';
 import Payment from '../models/Payment.js';
 import Delivery from '../models/Delivery.js';
 import Notification from '../models/Notification.js';
 import Measurement from '../models/Measurement.js';
 import Transaction from '../models/Transaction.js';
+import { dispatchNotification } from '../services/notificationService.js';
 import {
   findOrderScoped,
   syncPaymentFromTransactions,
@@ -18,9 +21,15 @@ import {
 // @access  Private
 export const createOrder = async (req, res) => {
   try {
-    const { customerName, apparelType, deliveryDate, price } = req.body;
-    if (!customerName || !apparelType || !deliveryDate || price === undefined) {
-      return res.status(400).json({ message: 'Please provide customerName, apparelType, deliveryDate, and price' });
+    const { customerName, apparelType, deliveryDate, price, items } = req.body;
+    if (!customerName || !deliveryDate) {
+      return res.status(400).json({ message: 'Please provide customerName and deliveryDate' });
+    }
+    if (!apparelType && (!items || !Array.isArray(items) || items.length === 0)) {
+      return res.status(400).json({ message: 'Please provide apparelType or at least one item' });
+    }
+    if (price === undefined && (!items || !Array.isArray(items) || items.length === 0)) {
+      return res.status(400).json({ message: 'Please provide price or items with pricing' });
     }
 
     const result = await createOrderService(req.body, req.user.shopId, req.user._id);
@@ -37,7 +46,7 @@ export const createOrder = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const { status, urgency } = req.query;
-    const filter = { shopId: req.user.shopId };
+    const filter = { shopId: req.user.shopId, isDeleted: { $ne: true } };
 
     if (status) filter.status = status;
 
@@ -79,6 +88,12 @@ export const getOrderById = async (req, res) => {
     const order = await findOrderScoped(req.params.id, req.user.shopId);
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
+    if (!order.shareToken) {
+      order.shareToken = crypto.randomBytes(16).toString('hex');
+      order.shareTokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      await order.save();
+    }
+
     await order.populate('customer');
 
     const payment = await Payment.findOne({ orderId: order._id });
@@ -111,18 +126,35 @@ export const getOrderById = async (req, res) => {
   }
 };
 
-// @desc    Get specific order details for public guest invoice
-// @route   GET /api/orders/public/:id
+// @desc    Get specific order details for public guest invoice via share token
+// @route   GET /api/orders/public/:token
 // @access  Public
 export const getOrderByIdPublic = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
-      .populate('assignedKarigar')
-      .populate('assignedMachine')
-      .populate('asterInventoryItem')
-      .populate('customer');
+    const token = req.params.token || req.params.id;
+    // Find by shareToken, or fallback to _id or orderId
+    let order = await Order.findOne({ shareToken: token }).populate('customer');
+    if (!order) {
+      order = await Order.findOne({ $or: [{ _id: token }, { orderId: token }] }).populate('customer');
+    }
 
-    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order) {
+      return res.status(404).json({ message: 'Invoice not found or link is invalid' });
+    }
+
+    // Check expiration
+    if (order.shareTokenExpiresAt && new Date() > new Date(order.shareTokenExpiresAt)) {
+      return res.status(410).json({
+        message: 'This shared invoice link has expired. Please contact the tailor shop for an updated link.'
+      });
+    }
+
+    // Ensure token is generated if opened via old id link
+    if (!order.shareToken) {
+      order.shareToken = crypto.randomBytes(16).toString('hex');
+      order.shareTokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      await order.save();
+    }
 
     const payment = await Payment.findOne({ orderId: order._id });
     const delivery = await Delivery.findOne({ orderId: order._id });
@@ -130,26 +162,95 @@ export const getOrderByIdPublic = async (req, res) => {
       ? await Measurement.findOne({ customerId: order.customer._id })
       : null;
     const transactions = await Transaction.find({ orderId: order._id }).sort({ date: 1 });
+    const shop = await Shop.findById(order.shopId);
 
     const hasSnapshot = order.measurementsSnapshot &&
       (order.measurementsSnapshot.shirt || order.measurementsSnapshot.pant || order.measurementsSnapshot.others);
     const resolvedMeasurements = hasSnapshot ? order.measurementsSnapshot : measurements;
 
-    const costPrice = order.asterInventoryItem?.costPerUnit || 0;
-    const asterProfit = order.needsAster ? (order.asterSellingPrice - costPrice) * order.asterQuantity : 0;
+    // Build SANITIZED public invoice payload - STRICTLY stripping internal cost, profit, notes, karigar & machine assignments
+    const publicInvoice = {
+      _id: order._id,
+      orderId: order.orderId,
+      customerName: order.customerName,
+      apparelType: order.apparelType,
+      fabric: order.fabric || '',
+      status: order.status,
+      deliveryDate: order.deliveryDate,
+      price: order.price,
+      needsAster: Boolean(order.needsAster),
+      asterQuantity: order.needsAster ? (order.asterQuantity || 0) : 0,
+      asterSellingPrice: order.needsAster ? (order.asterSellingPrice || 0) : 0,
+      measurementType: order.measurementType,
+      shareToken: order.shareToken,
+      shareTokenExpiresAt: order.shareTokenExpiresAt,
+      measurements: resolvedMeasurements,
+      measurementsSnapshot: resolvedMeasurements,
+      items: Array.isArray(order.items)
+        ? order.items.map((it) => ({
+            id: it.id,
+            name: it.name || it.apparelType,
+            apparelType: it.apparelType,
+            quantity: it.quantity || 1,
+            price: it.price,
+            fabric: it.fabric || '',
+            needsAster: Boolean(it.needsAster),
+            asterQuantity: it.asterQuantity || 0,
+            asterSellingPrice: it.asterSellingPrice || 0,
+          }))
+        : [],
+      payment: payment ? {
+        totalAmount: payment.totalAmount,
+        paidAmount: payment.paidAmount,
+        balanceAmount: payment.balanceAmount,
+        status: payment.status,
+        paymentType: payment.paymentType,
+      } : null,
+      delivery: delivery ? {
+        deliveryDate: delivery.deliveryDate,
+        status: delivery.status,
+      } : null,
+      transactions: (transactions || []).map((tx) => ({
+        _id: tx._id,
+        amount: tx.amount,
+        paymentType: tx.paymentType,
+        type: tx.type,
+        date: tx.date,
+      })),
+      shop: shop ? {
+        _id: shop._id,
+        shopName: shop.shopName,
+        phone: shop.phone,
+        address: shop.address,
+      } : null,
+    };
 
-    const result = order.toJSON();
-    result.payment = payment;
-    result.delivery = delivery;
-    result.measurements = resolvedMeasurements;
-    result.measurementsSnapshot = order.measurementsSnapshot || null;
-    result.transactions = transactions;
-    result.asterProfit = asterProfit;
-    result.asterCostPrice = costPrice;
-
-    res.json(result);
+    res.json(publicInvoice);
   } catch (error) {
     console.error('Get public order by ID error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Generate or renew public invoice share token
+// @route   POST /api/orders/:id/share-token
+// @access  Private
+export const generateShareToken = async (req, res) => {
+  try {
+    const order = await findOrderScoped(req.params.id, req.user.shopId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    order.shareToken = crypto.randomBytes(16).toString('hex');
+    order.shareTokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    await order.save();
+
+    res.json({
+      shareToken: order.shareToken,
+      shareTokenExpiresAt: order.shareTokenExpiresAt,
+      shareUrl: `/invoice/share/${order.shareToken}`,
+    });
+  } catch (error) {
+    console.error('Generate share token error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -191,11 +292,13 @@ export const recordOrderPayment = async (req, res) => {
 
     const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
 
-    await Notification.create({
+    await dispatchNotification({
       shopId: req.user.shopId,
       customerId: order.customer,
       orderId: order._id,
+      title: 'Payment Received',
       message: `Payment of ₹${amount} received for order ${order.orderId}. New balance: ₹${payment.balanceAmount}.`,
+      type: 'payment',
     });
 
     const result = order.toJSON();
