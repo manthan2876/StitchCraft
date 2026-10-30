@@ -6,9 +6,9 @@ import Payment from '../models/Payment.js';
 import mongoose from 'mongoose';
 
 export const findCustomerScoped = async (id, shopId) => {
-  const query = mongoose.Types.ObjectId.isValid(id)
+  const query = typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)
     ? { _id: id, shopId }
-    : { customerId: id, shopId };
+    : { customerId: typeof id === 'string' ? id : '', shopId };
   return await Customer.findOne(query);
 };
 

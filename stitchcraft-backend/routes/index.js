@@ -12,8 +12,14 @@ import karigarRoutes from './karigarRoutes.js';
 import machineRoutes from './machineRoutes.js';
 import inventoryRoutes from './inventoryRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
+import { destructiveLimiter } from '../middleware/securityMiddleware.js';
 
 const router = Router();
+
+// Keep destructive HTTP methods bounded across every resource route.
+router.use((req, res, next) => (
+  req.method === 'DELETE' ? destructiveLimiter(req, res, next) : next()
+));
 
 // Basic status check route
 router.get('/status', (req, res) => {

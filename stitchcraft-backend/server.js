@@ -7,9 +7,12 @@ import connectDB from './config/db.js';
 import corsMiddleware from './config/cors.js';
 import apiRouter from './routes/index.js';
 import errorHandler from './middleware/errorMiddleware.js';
+import { apiLimiter } from './middleware/securityMiddleware.js';
+import mongoose from 'mongoose';
 
 // Load environment variables
 dotenv.config();
+mongoose.set('sanitizeFilter', true);
 
 // Connect to Database
 connectDB();
@@ -19,6 +22,7 @@ const app = express();
 // Middleware
 app.use(corsMiddleware);
 app.use(express.json());
+app.use('/api', apiLimiter);
 
 // API Routes
 app.use('/api', apiRouter);

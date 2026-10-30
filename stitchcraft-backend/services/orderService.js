@@ -12,9 +12,9 @@ import Transaction from '../models/Transaction.js';
 export const ASTAR_DEDUCT_STATUSES = ['Stitching', 'Checking', 'Ready', 'Delivered'];
 
 export const findOrderScoped = async (id, shopId) => {
-  const query = mongoose.Types.ObjectId.isValid(id)
+  const query = typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)
     ? { _id: id, shopId }
-    : { orderId: id, shopId };
+    : { orderId: typeof id === 'string' ? id : '', shopId };
   return await Order.findOne(query)
     .populate('assignedKarigar')
     .populate('assignedMachine')

@@ -11,9 +11,10 @@ import {
   addNoteToOrder,
 } from '../controllers/orderController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { validateObjectIdParam } from '../middleware/securityMiddleware.js';
 
 // Public guest invoice details route
-router.get('/public/:id', getOrderByIdPublic);
+router.get('/public/:id', validateObjectIdParam(), getOrderByIdPublic);
 
 router.use(protect); // Secure remaining routes in this module
 

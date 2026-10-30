@@ -43,3 +43,7 @@ reported by GitHub secret scanning, the project owner must rotate or revoke
 the key in Google/Firebase, restrict replacement keys to the required
 applications and APIs, and then resolve the corresponding GitHub alert. Removing
 the file alone does not invalidate a key that may already have been exposed.
+Historical Firebase secret alerts also require external key rotation or
+revocation by the project owner. They cannot be resolved by code changes alone;
+do not attempt to dismiss an alert without first invalidating the affected key
+in Google/Firebase.
