@@ -15,7 +15,6 @@ class SyncWorker {
   static Future<void> initialize() async {
     await Workmanager().initialize(
       callbackDispatcher,
-      isInDebugMode: true,
     );
   }
 
