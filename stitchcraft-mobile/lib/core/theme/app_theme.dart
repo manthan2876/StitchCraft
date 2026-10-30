@@ -7,7 +7,7 @@ class AppTheme {
   static const Color darkCard = Color(0xFF1A2231); // Header/Card/Input bg (Dark)
   static const Color darkBg = Color(0xFF101828); // Page body bg (Dark)
   
-  static const Color trustGreen = Color(0xFF10B981); // Success, Profit, money
+  static const Color trustGreen = Color(0xFF2E7D32); // Success, Profit, money
   static const Color safetyOrange = Color(0xFFF59E0B); // Warnings, Non-critical errors
   static const Color alertRed = Color(0xFFF43F5E); // Critical alerts
   static const Color softWhite = Color(0xFFFAFAFA); 
@@ -15,12 +15,12 @@ class AppTheme {
   static const Color cream = darkCard; // Mapped for backward compatibility
   
   // --- Mapped for backward compatibility ---
-  static const Color deepBronze = brandPurple;
+  static const Color deepBronze = Color(0xFF765220);
   static const Color bronzeTint = Color(0xFF98A2B3); // Muted text/border gray
   
   // --- Backward Compatibility Aliases ---
-  static const Color navyBlue = brandPurple;
-  static const Color marigold = brandPurple;
+  static const Color navyBlue = deepBronze;
+  static const Color marigold = deepBronze;
   static const Color emerald = trustGreen;
   static const Color brickRed = alertRed;
   static const Color lightGrey = Color(0xFF1D2939); // Subtle border
