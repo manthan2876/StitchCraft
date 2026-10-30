@@ -31,6 +31,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      - name: Configure backend environment placeholder
+        run: cp .env.example .env
       - run: npm install --no-audit --no-fund
       - name: Check JavaScript syntax
         run: |
