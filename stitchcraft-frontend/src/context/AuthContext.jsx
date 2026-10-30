@@ -70,7 +70,6 @@ export const AuthProvider = ({ children }) => {
       const data = await res.json();
       setUser(data);
       localStorage.setItem('stitchcraft_user', JSON.stringify(data));
-      localStorage.setItem('stitchcraft_token', token);
       setLoading(false);
       return data;
     } catch (err) {
@@ -117,7 +116,6 @@ export const AuthProvider = ({ children }) => {
       const data = await res.json();
       setUser(data);
       localStorage.setItem('stitchcraft_user', JSON.stringify(data));
-      localStorage.setItem('stitchcraft_token', token);
       setLoading(false);
       return data;
     } catch (err) {

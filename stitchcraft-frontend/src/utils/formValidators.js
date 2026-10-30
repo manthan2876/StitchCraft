@@ -4,7 +4,7 @@
  * Provides real-time field validation for text, phone, email, numbers, and dates.
  */
 
-export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/;
 export const PHONE_REGEX = /^[0-9+]{10,15}$/;
 
 /**
@@ -34,7 +34,8 @@ export const validateEmail = (email, required = true) => {
   if (!email || !String(email).trim()) {
     return required ? 'Email address is required' : '';
   }
-  if (!EMAIL_REGEX.test(String(email).trim())) {
+  const cleanEmail = String(email).trim();
+  if (cleanEmail.length > 254 || !EMAIL_REGEX.test(cleanEmail)) {
     return 'Please enter a valid email address';
   }
   return '';

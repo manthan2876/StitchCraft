@@ -5,7 +5,7 @@
  * Returns HTTP 400 with detailed field-level error messages.
  */
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/;
 const PHONE_REGEX = /^[0-9+]{10,15}$/;
 
 const formatErrorResponse = (res, message, errors) => {
@@ -35,8 +35,11 @@ export const validateCustomerRequest = (req, res, next) => {
     }
   }
 
-  if (email && email.trim() && !EMAIL_REGEX.test(email.trim())) {
-    errors.email = 'Invalid email address format';
+  if (email && email.trim()) {
+    const cleanEmail = email.trim();
+    if (cleanEmail.length > 254 || !EMAIL_REGEX.test(cleanEmail)) {
+      errors.email = 'Invalid email address format';
+    }
   }
 
   if (Object.keys(errors).length > 0) {
@@ -325,7 +328,7 @@ export const validateRegisterRequest = (req, res, next) => {
     errors.name = 'Full name must be at least 2 characters';
   }
 
-  if (!email || !EMAIL_REGEX.test(email.trim())) {
+  if (!email || typeof email !== 'string' || email.trim().length > 254 || !EMAIL_REGEX.test(email.trim())) {
     errors.email = 'Valid email address is required';
   }
 
