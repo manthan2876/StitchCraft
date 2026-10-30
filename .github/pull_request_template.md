@@ -1,6 +1,6 @@
 ## Summary
 
-<!-- What changed and why? Link related issues. -->
+<!-- What changed and why? Link related issues (e.g. Closes #123). -->
 
 ## Type of change
 
@@ -19,9 +19,9 @@
 
 ## Verification
 
-- [ ] Backend syntax check passed
-- [ ] Frontend lint and build passed
-- [ ] Mobile analysis and tests passed
+- [ ] Backend tests and syntax check passed (`npm test`, `node --check`)
+- [ ] Frontend lint, tests, and build passed (`npm run lint`, `npm test`, `npm run build`)
+- [ ] Mobile analysis and tests passed (`flutter analyze`, `flutter test`)
 - [ ] Documentation updated where needed
 - [ ] No secrets or customer data were added
 

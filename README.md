@@ -3,132 +3,130 @@
 [![CI](https://github.com/manthan2876/StitchCraft/actions/workflows/ci.yml/badge.svg)](https://github.com/manthan2876/StitchCraft/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/manthan2876/StitchCraft/actions/workflows/codeql.yml/badge.svg)](https://github.com/manthan2876/StitchCraft/actions/workflows/codeql.yml)
 
-StitchCraft is a full-stack tailor shop management platform for Indian masterji
-shops. It helps teams manage customers, orders, measurements, karigars,
-machines, inventory, payments, deliveries, and the khata ledger from a web
-dashboard and a Flutter mobile app.
+StitchCraft is a full-stack, multi-tenant tailor shop management platform designed for Indian masterji shops and boutiques. It unifies customer profiles, custom measurements, order workflows, karigar performance, machine maintenance, fabric/aster inventory, payments, delivery tracking, and the khata ledger across a web dashboard and a Flutter mobile app.
 
-## Architecture
+---
+
+## 🏛️ Architecture
 
 | Component | Technology | Directory |
 | --- | --- | --- |
-| Backend API | Node.js, Express, Supabase PostgreSQL, Supabase Auth/Storage | [`stitchcraft-backend/`](./stitchcraft-backend/) |
-| Web dashboard | React, Vite, Tailwind CSS | [`stitchcraft-frontend/`](./stitchcraft-frontend/) |
-| Mobile app | Flutter, Dart, Firebase, Supabase, SQLite | [`stitchcraft-mobile/`](./stitchcraft-mobile/) |
+| **Backend API** | Node.js 22, Express v5, Supabase PostgreSQL, Supabase Auth/Storage, Helmet, Rate Limiter | [`stitchcraft-backend/`](./stitchcraft-backend/) |
+| **Web Dashboard** | React 19, Vite 8, Tailwind CSS v4, React Router v7, Vercel Analytics | [`stitchcraft-frontend/`](./stitchcraft-frontend/) |
+| **Mobile App** | Flutter, Dart, Supabase Auth, SQLite (`sqflite`), Firebase FCM (optional) | [`stitchcraft-mobile/`](./stitchcraft-mobile/) |
 
-The backend owns authentication, business rules, and persistence. The web
-dashboard and mobile app consume the backend API and provide tailored workflows
-for shop owners and staff. The mobile app also supports offline data and
-device-native notifications where configured.
+- The **Backend API** manages authentication, business logic, tenant isolation (`shopId`), and database mutations.
+- The **Web Dashboard** offers an administrative workspace with real-time analytics, order pipelines, and public invoice sharing.
+- The **Mobile App** provides workshop-floor tracking, quick order wizards, offline khata ledger access, and notification alerts.
 
-See the [architecture guide](./docs/ARCHITECTURE.md) for boundaries,
-integration points, and deployment notes.
+For system boundaries, validation layers, and security architecture, see the [Architecture Guide](./docs/ARCHITECTURE.md).
 
-## Repository layout
+---
+
+## 📂 Repository Layout
 
 ```text
 .
-├── .github/                 # CI, CodeQL, Dependabot, and contribution templates
+├── .github/                 # CI workflows, CodeQL scanning, and PR templates
 ├── docs/                    # Architecture and development documentation
-├── stitchcraft-backend/     # Express API and data services
-├── stitchcraft-frontend/    # React/Vite web dashboard
-├── stitchcraft-mobile/      # Flutter mobile application
-├── render.yaml              # Backend deployment configuration
-└── vercel.json              # Repository/web deployment configuration
+├── stitchcraft-backend/     # Express API, Supabase models, validators, and tests
+├── stitchcraft-frontend/    # React/Vite web dashboard with TailwindCSS v4
+├── stitchcraft-mobile/      # Flutter cross-platform mobile application
+├── supabase/                # PostgreSQL relational database migrations
+├── render.yaml              # Render backend deployment specification
+└── vercel.json              # Vercel web deployment and SPA rewrite rules
 ```
 
-## Local development
+---
+
+## 🚀 Quick Start & Local Development
 
 ### Prerequisites
 
-- Node.js 22 or newer and npm
-- Flutter SDK compatible with the Dart constraint in
-  [`pubspec.yaml`](./stitchcraft-mobile/pubspec.yaml)
-- The configured Supabase project
-- Firebase project credentials for mobile features
+- **Node.js**: `v22.x` or newer and npm
+- **Flutter SDK**: `v3.10+` compatible with Dart constraint in [`pubspec.yaml`](./stitchcraft-mobile/pubspec.yaml)
+- **Supabase Project**: Configured with PostgreSQL, Auth, and Storage
 
-### Backend
+### 1. Backend (`stitchcraft-backend`)
 
 ```bash
 cd stitchcraft-backend
-npm install
-# Create .env locally and add the required values.
-npm run dev
+npm ci
+cp .env.example .env
+npm run dev     # Starts server on http://localhost:5000
+npm test        # Runs backend automated test suites
 ```
 
-Configure the variables expected by
-[`config/db.js`](./stitchcraft-backend/config/db.js),
-[`config/supabase.js`](./stitchcraft-backend/config/supabase.js), and the
-authentication middleware. Never commit the resulting `.env` file.
-
-### Web dashboard
+### 2. Web Dashboard (`stitchcraft-frontend`)
 
 ```bash
 cd stitchcraft-frontend
 npm ci
-npm run dev
+cp .env.example .env
+npm run dev     # Starts Vite dev server on http://localhost:5173
+npm test        # Runs frontend validation and formatter tests
+npm run build   # Validates production build
 ```
 
-Use `npm run lint` and `npm run build` before submitting frontend changes.
-The production build is enforced in CI; existing lint findings should be
-addressed in focused frontend cleanup changes.
-
-### Mobile app
+### 3. Mobile App (`stitchcraft-mobile`)
 
 ```bash
 cd stitchcraft-mobile
 flutter pub get
-# Add native Firebase configuration only if Firebase-backed notifications are enabled.
-flutter run
+cp .env.example .env
+flutter run     # Launches on connected emulator or device
+flutter test    # Runs unit and widget tests
 ```
 
-The mobile app loads Supabase and backend settings from the ignored
-`stitchcraft-mobile/.env` file. See the [mobile README](./stitchcraft-mobile/README.md)
-for environment and optional Firebase platform setup details.
+---
 
-## Verification
+## 🧪 Verification & CI
 
-Run the checks relevant to the area you changed:
+All pull requests run automated CI workflows defined in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml). Run these commands locally before submitting:
 
 ```bash
-# Backend syntax verification
+# 1. Backend verification (syntax + tests)
 cd stitchcraft-backend
-for file in $(find . -maxdepth 1 -name '*.js' -o -path './config/*.js' -o -path './controllers/*.js' -o -path './middleware/*.js' -o -path './models/*.js' -o -path './routes/*.js' -o -path './services/*.js'); do
-  node --check "$file"
-done
+find . -name node_modules -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+npm test
 
-# Frontend
+# 2. Frontend verification (lint + tests + build)
 cd ../stitchcraft-frontend
-npm ci
 npm run lint
+npm test
 npm run build
 
-# Mobile
+# 3. Mobile verification (analyze + tests)
 cd ../stitchcraft-mobile
-flutter pub get
 flutter analyze
 flutter test
 ```
 
-Pull requests should describe user-visible changes, configuration or migration
-requirements, and the validation performed. See
-[`CONTRIBUTING.md`](./CONTRIBUTING.md).
+---
 
-## Deployment
+## 🔒 Security & Code Quality
 
-- The backend deployment is described in [`render.yaml`](./render.yaml).
-- Frontend deployment settings live in
-  [`stitchcraft-frontend/vercel.json`](./stitchcraft-frontend/vercel.json).
-- Production credentials must be stored in the hosting provider's secret
-  manager, never in the repository.
+- **Zero Open CodeQL Alerts**: Validated against CodeQL code scanning, secret scanning, and Dependabot.
+- **Two-Tier Validation**: Request validation middleware combined with schema-level table validators.
+- **Safe Regular Expressions**: Linear-time, non-backtracking patterns with bounded input lengths to eliminate ReDoS vulnerabilities.
+- **Multi-Tier Rate Limiting**: Strict limits on authentication, file uploads, destructive actions, and general API calls.
+- **Tenant Isolation**: Every database interaction is scoped by `shopId` to prevent cross-tenant data access.
 
-## Security
+For vulnerability reporting guidelines, see [`SECURITY.md`](./SECURITY.md).
 
-Please report vulnerabilities privately as described in
-[`SECURITY.md`](./SECURITY.md). Do not open a public issue for a security
-vulnerability.
+---
 
-## License
+## 📖 Further Documentation
 
-No license has been declared for this repository. Do not redistribute or
-reuse the source without permission from the project owner.
+- [Development Guide](./docs/DEVELOPMENT.md) — Step-by-step setup, coding conventions, and PR guidelines.
+- [Architecture Guide](./docs/ARCHITECTURE.md) — System boundaries, validation pipeline, and deployment topology.
+- [Contributing Guidelines](./CONTRIBUTING.md) — Guidelines for contributing code and improvements.
+- [Backend Documentation](./stitchcraft-backend/README.md) — API endpoints, schema models, and database patterns.
+- [Frontend Documentation](./stitchcraft-frontend/README.md) — Component architecture, state management, and design system.
+- [Mobile Documentation](./stitchcraft-mobile/README.md) — Flutter architecture, offline khata, and device setup.
+
+---
+
+## 📄 License
+
+No license has been declared for this repository. Do not redistribute or reuse the source without permission from the project owner.

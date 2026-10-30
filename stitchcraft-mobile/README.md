@@ -1,22 +1,6 @@
 # 📱 StitchCraft Mobile
 
-## Supabase configuration
-
-The mobile app uses Supabase for authentication and the backend for signed
-storage uploads. Do not commit keys. Run the app with:
-
-Copy the example file before running the app and replace its placeholder
-values:
-
-```bash
-cp .env.example .env
-flutter run
-```
-
-`BACKEND_API_URL`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` are loaded from
-`.env`. The `.env` file is ignored by Git and must never be committed.
-
-The Flutter mobile app for **StitchCraft** — a tailor shop management platform for Indian masterji shops.
+The Flutter mobile application for **StitchCraft** — a full-featured tailor shop management platform for Indian masterji shops.
 
 ---
 
@@ -24,56 +8,64 @@ The Flutter mobile app for **StitchCraft** — a tailor shop management platform
 
 | Layer | Technology |
 |---|---|
-| Framework | Flutter (Dart) |
-| Backend API | REST via `http` package |
-| Local Storage | SQLite (`sqflite`) for Khata / offline data |
-| Auth | Firebase Auth + JWT (backend) |
-| Push Notifications | Firebase Cloud Messaging (FCM) |
+| Framework | Flutter (Dart SDK) |
+| Backend API | REST via `http` package with bearer token authentication |
+| Auth & Storage | Supabase (`supabase_flutter` for authentication; backend-signed storage uploads) |
+| Local Storage | SQLite (`sqflite`) for Khata (offline ledger) & caching |
+| Push Notifications | Firebase Cloud Messaging (FCM, optional) |
 | PDF Generation | `pdf` + `printing` packages |
 | Charts | `fl_chart` |
-| i18n | Flutter Localizations (EN / HI / GU) |
+| i18n | Flutter Localizations (English, Hindi, Gujarati) |
+| Theme | Custom `AppTheme` (Masterji Dark and Light themes) |
 
 ---
 
 ## ✨ Features
 
-- **Order Management** — Create orders via 3-step wizard (Garment → Measurements → Material)
-- **Order List** — Filter by all 8 production stages (Incoming → Delivered)
-- **Customers** — Customer profiles with measurement history
-- **Invoices** — View and share order invoices
-- **Khata (Ledger)** — Expense and income tracking (local SQLite)
-- **Karigars, Machines, Inventory** — Full shop resource management
-- **Repair Dashboard** — Log and track repair orders
-- **Notifications** — FCM push + local notification support
-- **Onboarding** — Splash → Language → Carousel → Login/Register
-- **Localization** — English, Hindi, Gujarati (switchable at runtime)
-- **Dark/Light Theme** — System-aware theming via `AppTheme`
+- **Order Management** — Create orders via a 3-step wizard (Garment → Measurements → Material & Lining).
+- **Order Pipeline** — Track all 8 stages from *Incoming* to *Delivered*.
+- **Customers & Measurements** — Maintain customer records with measurement histories and maap snapshots.
+- **Invoices & Receipts** — View, generate, and share order receipts and invoices.
+- **Khata (Ledger)** — Offline-capable income and expense tracker powered by local SQLite.
+- **Shop Resources** — Manage karigars, machines, and fabric/aster inventory.
+- **Repairs Dashboard** — Track alterations and repair requests.
+- **Push & Local Notifications** — Order deadline alerts and shop updates.
+- **Onboarding Flow** — Splash screen → Language selection → Feature carousel → Auth.
+- **Multi-Language Support** — Seamless runtime switching between English, Hindi, and Gujarati.
 
 ---
 
 ## 📂 Project Structure
 
-```
-lib/
-├── core/
-│   ├── config/          # App config constants
-│   ├── localization/    # ARB files + generated localizations
-│   ├── services/        # API, Local DB, Notification, Localization services
-│   ├── theme/           # AppTheme (masterji dark theme)
-│   └── utils/           # Shared helpers
+```text
+stitchcraft-mobile/
+├── lib/
+│   ├── core/
+│   │   ├── config/          # ApiConfig (reads BACKEND_API_URL from .env), database tables
+│   │   ├── localization/    # ARB files & generated localization helpers
+│   │   ├── models/          # Dart data models (User, Order, Customer, Khata)
+│   │   ├── services/        # AuthService, DatabaseService, ApiService, NotificationService
+│   │   ├── theme/           # AppTheme design tokens and palettes
+│   │   ├── utils/           # Shared formatters and validators
+│   │   └── widgets/         # Reusable NeoCard, buttons, and custom inputs
+│   │
+│   ├── features/
+│   │   ├── auth/            # Login, registration, role selection
+│   │   ├── dashboard/       # Home dashboard with overview cards
+│   │   ├── orders/          # Order list, 3-step create wizard, invoices, customers
+│   │   ├── shop/            # Karigars, machines, inventory management
+│   │   ├── khata/           # Expense & income ledger (SQLite)
+│   │   ├── repairs/         # Repair dashboard
+│   │   ├── profile/         # User profile and shop preferences
+│   │   └── onboarding/      # Splash, language selector, onboarding carousel
+│   │
+│   ├── firebase_options.dart.example # Template for Firebase platform setup
+│   ├── l10n/                # Localization source files (app_en.arb, app_hi.arb, app_gu.arb)
+│   └── main.dart            # Application entry point, environment loading, Supabase init
 │
-├── features/
-│   ├── auth/            # Login, role selection screens
-│   ├── dashboard/       # Home dashboard screen
-│   ├── orders/          # Order list, create wizard (3 steps), invoices, customers
-│   ├── shop/            # Inventory, karigars, machines, shop setup
-│   ├── khata/           # Expense & income ledger (local SQLite)
-│   ├── repairs/         # Repair dashboard
-│   ├── profile/         # Profile screen
-│   ├── onboarding/      # Splash, language, carousel screens
-│   └── posts/           # (In development)
-│
-└── main.dart            # App entry point + route map
+└── test/
+    ├── unit_test.dart       # Unit tests (theming, models)
+    └── widget_test.dart     # Widget interaction tests
 ```
 
 ---
@@ -82,71 +74,86 @@ lib/
 
 ### Prerequisites
 
-- Flutter SDK **3.10+** (`flutter --version` to check)
-- Android SDK with a device/emulator (API 21+)
-- Firebase project configured (for push notifications)
+- Flutter SDK compatible with `pubspec.yaml` (`flutter --version`)
+- Android SDK with device or emulator (API 21+) / iOS simulator with Xcode (macOS)
+- Configured Supabase project
 
-### Setup
+### 1. Environment Configuration
+
+Copy the example environment file and fill in your credentials:
 
 ```bash
-# Install dependencies
+cp .env.example .env
+```
+
+Configure the following variables in `stitchcraft-mobile/.env`:
+
+```env
+BACKEND_API_URL=http://10.0.2.2:5000/api  # Android emulator localhost (or local network IP)
+SUPABASE_URL=https://qggxfxttveafgptdlmfu.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+> [!NOTE]
+> `ApiConfig.baseUrl` dynamically reads `BACKEND_API_URL` from `.env`. Never commit the `.env` file.
+
+### 2. Install dependencies & run
+
+```bash
+# Get dependencies
 flutter pub get
 
-# Run on a connected device
+# Run on a connected device/emulator
 flutter run
 
 # Run in release mode
 flutter run --release
 ```
 
-### Firebase Setup
+### 3. Verification & Testing
 
-1. Create a project on [Firebase Console](https://console.firebase.google.com/)
-2. Add an Android app with your package name
-3. Download `google-services.json` and place it in `android/app/`
-4. Enable **Firebase Cloud Messaging** in the console
+```bash
+# Analyze Dart code for issues
+flutter analyze
 
-### API Configuration
-
-The backend API base URL is set in:
-```
-lib/core/config/
-```
-
-For local development, set it to your machine's local IP:
-```dart
-static const String baseUrl = 'http://192.168.x.x:5000/api';
+# Run unit and widget tests
+flutter test
 ```
 
 ---
 
-## 📦 Building
+## 🔔 Optional Firebase Setup (FCM Notifications)
 
-```bash
-# Android APK
-flutter build apk --release
+If you plan to use Firebase Cloud Messaging for push notifications:
 
-# Android App Bundle (for Play Store)
-flutter build appbundle --release
-```
+1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
+2. For Android: Download `google-services.json` and place it in `android/app/`.
+3. For iOS: Download `GoogleService-Info.plist` and place it in `ios/Runner/`.
+4. Copy `lib/firebase_options.dart.example` to `lib/firebase_options.dart` and populate with your Firebase credentials.
+5. In CI or local development without push notifications, the example placeholder allows builds and tests to pass cleanly.
 
 ---
 
 ## 🌍 Localization
 
-ARB files are in `lib/l10n/`. To add or edit strings:
+ARB files reside in `lib/l10n/`:
+- `app_en.arb` (English)
+- `app_hi.arb` (Hindi)
+- `app_gu.arb` (Gujarati)
 
-1. Edit `app_en.arb`, `app_hi.arb`, `app_gu.arb`
-2. Run `flutter gen-l10n` to regenerate the localization classes
-3. Access strings via `context.loc.yourKey`
+To update strings:
+1. Update entries in all three `.arb` files.
+2. Run `flutter gen-l10n` to regenerate localization classes.
+3. Access translated strings via `context.loc.<stringKey>`.
 
 ---
 
-## 🐛 Common Issues
+## 📦 Building for Production
 
-| Error | Fix |
-|---|---|
-| `Gradle requires JVM 17` | Set `JAVA_HOME` to JDK 17 or run `flutter config --jdk-dir "path/to/jdk17"` |
-| `minSdkVersion` error | Ensure `android/local.properties` has `flutter.minSdkVersion=21` |
-| Firebase init crash | Confirm `google-services.json` is in `android/app/` |
-| Locale not loading | Run `flutter clean` then `flutter pub get` |
+```bash
+# Android APK
+flutter build apk --release
+
+# Android App Bundle (Google Play Store)
+flutter build appbundle --release
+```
