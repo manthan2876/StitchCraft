@@ -1,4 +1,4 @@
-import { CURRENCY_SYMBOL } from '../config/constants';
+import { CURRENCY_SYMBOL } from '../config/constants.js';
 
 export const formatCurrency = (value) => {
   if (value === undefined || value === null) return `${CURRENCY_SYMBOL}0`;
