@@ -1,7 +1,21 @@
 import crypto from 'node:crypto';
 import { supabase } from './supabase.js';
 
-const clone = (value) => JSON.parse(JSON.stringify(value));
+const clone = (value, seen = new WeakSet()) => {
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return null;
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item) => clone(item, seen));
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, item]) => typeof item !== 'function')
+      .map(([key, item]) => [key, clone(item, seen)]),
+  );
+};
 
 const getValue = (document, path) => path.split('.').reduce(
   (value, key) => value?.[key],
