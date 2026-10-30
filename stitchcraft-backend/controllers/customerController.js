@@ -6,6 +6,7 @@ import {
   updateCustomerService,
   deleteCustomerService,
 } from '../services/customerService.js';
+import { escapeRegex } from '../middleware/securityMiddleware.js';
 
 // @desc    Create a new customer
 // @route   POST /api/customers
@@ -30,15 +31,16 @@ export const createCustomer = async (req, res) => {
 // @access  Private
 export const getCustomers = async (req, res) => {
   try {
-    const search = req.query.search || '';
+    const search = typeof req.query.search === 'string' ? req.query.search.slice(0, 100) : '';
+    const escapedSearch = escapeRegex(search);
     const filter = { shopId: req.user.shopId };
 
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { customerId: { $regex: search, $options: 'i' } },
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { phone: { $regex: escapedSearch, $options: 'i' } },
+        { email: { $regex: escapedSearch, $options: 'i' } },
+        { customerId: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 

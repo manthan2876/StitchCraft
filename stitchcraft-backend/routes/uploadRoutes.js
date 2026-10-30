@@ -1,10 +1,10 @@
 import express from 'express';
 const router = express.Router();
-import { getUploadUrl, getViewUrl, listBucketFiles } from '../controllers/uploadController.js';
+import { getUploadUrl, getViewUrl } from '../controllers/uploadController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { uploadLimiter } from '../middleware/securityMiddleware.js';
 
-router.post('/get-upload-url', protect, getUploadUrl);
-router.get('/view-url/:bucket/:path', protect, getViewUrl);
-router.get('/list/:bucket', protect, listBucketFiles);
+router.post('/get-upload-url', protect, uploadLimiter, getUploadUrl);
+router.get('/view-url/:bucket/:path', protect, uploadLimiter, getViewUrl);
 
 export default router;

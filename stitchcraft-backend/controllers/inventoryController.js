@@ -1,6 +1,7 @@
 import Inventory from '../models/Inventory.js';
 import LedgerEntry from '../models/LedgerEntry.js';
 import mongoose from 'mongoose';
+import { escapeRegex } from '../middleware/securityMiddleware.js';
 
 // @desc    Create a new inventory item
 // @route   POST /api/inventory
@@ -61,8 +62,8 @@ export const getInventory = async (req, res) => {
     const { search, itemType, status } = req.query;
     const filter = { shopId: req.user.shopId };
 
-    if (search) {
-      filter.itemName = { $regex: search, $options: 'i' };
+    if (typeof search === 'string' && search) {
+      filter.itemName = { $regex: escapeRegex(search.slice(0, 100)), $options: 'i' };
     }
     if (itemType) {
       filter.itemType = itemType;
