@@ -22,8 +22,18 @@ export const getNotifications = async (req, res) => {
 // @access  Private
 export const markAllAsRead = async (req, res) => {
   try {
-    await Notification.updateMany({ shopId: req.user.shopId, read: false }, { read: true });
-    res.json({ message: 'All notifications marked as read' });
+    const notifications = await Notification.find({ shopId: req.user.shopId });
+    const unreadNotifications = notifications.filter((notification) => !notification.read);
+
+    for (const notification of unreadNotifications) {
+      notification.read = true;
+      await notification.save();
+    }
+
+    res.json({
+      message: 'All notifications marked as read',
+      updatedCount: unreadNotifications.length,
+    });
   } catch (error) {
     console.error('Mark all read error:', error);
     res.status(500).json({ message: error.message });

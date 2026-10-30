@@ -236,6 +236,9 @@ export const addNoteToOrder = async (req, res) => {
     const order = await findOrderScoped(req.params.id, req.user.shopId);
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
+    if (!Array.isArray(order.notes)) {
+      order.notes = [];
+    }
     order.notes.push({ text: text.trim(), addedAt: new Date() });
     await order.save();
 

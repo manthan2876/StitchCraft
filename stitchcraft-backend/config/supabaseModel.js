@@ -59,6 +59,8 @@ const applyUpdate = (document, update) => {
 
 const referenceCollections = {
   shopId: 'shops',
+  customer: 'customers',
+  customerId: 'customers',
   assignedKarigar: 'karigars',
   assignedMachine: 'machines',
   asterInventoryItem: 'inventory',
@@ -93,6 +95,7 @@ class SupabaseQuery {
     this.single = single;
     this.projection = null;
     this.sortFields = null;
+    this.limitCount = null;
     this.populateFields = [];
   }
 
@@ -108,6 +111,11 @@ class SupabaseQuery {
 
   sort(fields) {
     this.sortFields = fields;
+    return this;
+  }
+
+  limit(count) {
+    this.limitCount = Math.max(0, Number(count) || 0);
     return this;
   }
 
@@ -132,6 +140,9 @@ class SupabaseQuery {
           }
           return 0;
         });
+      }
+      if (this.limitCount !== null && Array.isArray(value)) {
+        value = value.slice(0, this.limitCount);
       }
       if (this.populateFields.length) {
         for (const field of this.populateFields) {
@@ -205,6 +216,13 @@ export const createDocumentModel = (collection) => {
     toObject() {
       return clone(this);
     },
+    async populate(...fields) {
+      for (const field of fields) {
+        const path = typeof field === 'string' ? field : field.path;
+        await populateReference(this, path);
+      }
+      return this;
+    },
     save: async function save() { return persist(this); },
   });
 
@@ -225,6 +243,14 @@ export const createDocumentModel = (collection) => {
     toObject() {
       return clone(this);
     }
+
+    async populate(...fields) {
+      for (const field of fields) {
+        const path = typeof field === 'string' ? field : field.path;
+        await populateReference(this, path);
+      }
+      return this;
+    }
   }
 
   Document.find = (query = {}) => new SupabaseQuery(async () => (
@@ -233,6 +259,9 @@ export const createDocumentModel = (collection) => {
   Document.findOne = (query = {}) => new SupabaseQuery(async () => (
     (await load()).find((document) => matches(document, query)) ?? null
   ), true);
+  Document.countDocuments = async (query = {}) => (
+    (await load()).filter((document) => matches(document, query)).length
+  );
   Document.findById = (id) => Document.findOne({ _id: id });
   Document.create = async (value) => persist(new Document(value));
   Document.findOneAndUpdate = (query, update, options = {}) => new SupabaseQuery(async () => {
@@ -240,6 +269,30 @@ export const createDocumentModel = (collection) => {
     if (!existing && !options.upsert) return null;
     return persist(new Document(applyUpdate(existing ?? {}, update)));
   }, true);
+  Document.updateOne = async (query, update, options = {}) => {
+    const existing = (await load()).find((document) => matches(document, query));
+    if (!existing) {
+      if (!options.upsert) return { matchedCount: 0, modifiedCount: 0, upsertedCount: 0 };
+      const created = await persist(new Document(applyUpdate({}, update)));
+      return { matchedCount: 0, modifiedCount: created ? 1 : 0, upsertedCount: created ? 1 : 0 };
+    }
+    const updated = await persist(new Document(applyUpdate(existing, update)));
+    return { matchedCount: 1, modifiedCount: updated ? 1 : 0, upsertedCount: 0 };
+  };
+  Document.updateMany = async (query = {}, update = {}) => {
+    const documents = (await load()).filter((document) => matches(document, query));
+    let modifiedCount = 0;
+    for (const document of documents) {
+      if (await persist(new Document(applyUpdate(document, update)))) {
+        modifiedCount++;
+      }
+    }
+    return {
+      matchedCount: documents.length,
+      modifiedCount,
+      upsertedCount: 0,
+    };
+  };
   Document.findByIdAndUpdate = (id, update, options) => (
     Document.findOneAndUpdate({ _id: id }, update, options)
   );
@@ -257,6 +310,14 @@ export const createDocumentModel = (collection) => {
     if (error) throw error;
     return existing;
   }, true);
+  Document.deleteOne = async (query = {}) => {
+    const existing = (await load()).find((document) => matches(document, query));
+    if (!existing) return { deletedCount: 0 };
+    const { error } = await supabase.from('app_records')
+      .delete().eq('collection', collection).eq('source_id', String(existing._id));
+    if (error) throw new Error(`Supabase ${collection} delete failed: ${error.message}`);
+    return { deletedCount: 1 };
+  };
   Document.deleteMany = async (query = {}) => {
     const documents = (await load()).filter((document) => matches(document, query));
     for (const document of documents) await Document.findByIdAndDelete(document._id);

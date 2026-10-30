@@ -46,10 +46,11 @@ export const getUploadUrl = async (req, res) => {
 };
 
 export const getViewUrl = async (req, res) => {
-    const { bucket } = req.params;
+    const bucket = req.params.bucket || req.query.bucket;
+    const encodedPath = req.params.path || req.query.path;
     let fileName;
     try {
-        fileName = decodeURIComponent(req.params.path);
+        fileName = decodeURIComponent(encodedPath || '');
     } catch {
         return res.status(400).json({ message: 'Invalid file path' });
     }

@@ -32,9 +32,8 @@ export const getSignedUrl = async (bucket, path) => {
             return null;
         }
 
-        const encodedPath = encodeURIComponent(path);
-
-        const response = await api.get(`/upload/view-url/${bucket}/${encodedPath}`);
+        const params = new URLSearchParams({ bucket, path });
+        const response = await api.get(`/upload/view-url?${params.toString()}`);
         return response.signedUrl;
     } catch (err) {
         console.error('Error fetching signed URL:', err);
