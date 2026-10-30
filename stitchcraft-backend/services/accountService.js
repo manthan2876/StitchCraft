@@ -12,6 +12,7 @@ import Measurement from '../models/Measurement.js';
 import Transaction from '../models/Transaction.js';
 import Notification from '../models/Notification.js';
 import ActionLog from '../models/ActionLog.js';
+import mongoose from 'mongoose';
 
 export const getRecordSummary = (modelName, doc) => {
   switch (modelName) {
@@ -173,13 +174,19 @@ export const importAllDataService = async (user, data, resolutions) => {
         continue;
       }
 
-      const choice = resolutionMap.get(item._id.toString());
+      const itemId = typeof item._id === 'string' &&
+        mongoose.Types.ObjectId.isValid(item._id)
+        ? new mongoose.Types.ObjectId(item._id)
+        : null;
+      if (!itemId) continue;
+
+      const choice = resolutionMap.get(itemId.toString());
       if (choice === 'database') continue;
 
-      const existing = await Model.findOne({ _id: item._id, shopId });
+      const existing = await Model.findOne({ _id: itemId, shopId });
       if (existing) {
         if (choice === 'backup' || !choice) {
-          await Model.replaceOne({ _id: item._id, shopId }, item);
+          await Model.replaceOne({ _id: itemId, shopId }, item);
         }
       } else {
         await Model.create(item);
