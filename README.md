@@ -11,13 +11,13 @@ StitchCraft is a full-stack, multi-tenant tailor shop management platform design
 
 | Component | Technology | Directory |
 | --- | --- | --- |
-| **Backend API** | Node.js 22, Express v5, Supabase PostgreSQL, Supabase Auth/Storage, Helmet, Rate Limiter | [`stitchcraft-backend/`](./stitchcraft-backend/) |
+| **Backend API** | Node.js 22, Express v5, Supabase PostgreSQL, Supabase Auth/Storage, Helmet, Multi-tier Rate Limiting | [`stitchcraft-backend/`](./stitchcraft-backend/) |
 | **Web Dashboard** | React 19, Vite 8, Tailwind CSS v4, React Router v7, Vercel Analytics | [`stitchcraft-frontend/`](./stitchcraft-frontend/) |
-| **Mobile App** | Flutter, Dart, Supabase Auth, SQLite (`sqflite`), Firebase FCM (optional) | [`stitchcraft-mobile/`](./stitchcraft-mobile/) |
+| **Mobile App** | Flutter, Dart, Supabase Auth, Encrypted SQLite (`sqflite_sqlcipher`), Workmanager, WhatsApp integration | [`stitchcraft-mobile/`](./stitchcraft-mobile/) |
 
-- The **Backend API** manages authentication, business logic, tenant isolation (`shopId`), and database mutations.
-- The **Web Dashboard** offers an administrative workspace with real-time analytics, order pipelines, and public invoice sharing.
-- The **Mobile App** provides workshop-floor tracking, quick order wizards, offline khata ledger access, and notification alerts.
+- The **Backend API** manages authentication, business logic, tenant isolation (`shopId: req.user.shopId`), multi-role access control (`owner`, `manager`, `karigar`, `staff`), and transactional database mutations.
+- The **Web Dashboard** offers an administrative workspace with real-time analytics, a 3-step order creation wizard, sanitized guest public invoices (`/invoice/share/:id`), and data export/conflict-checked import tools.
+- The **Mobile App** provides workshop-floor tracking, a 5-step order creation wizard with voice notes, an offline AES-encrypted khata ledger, periodic background sync via `workmanager`, direct customer WhatsApp updates, and PDF receipt printing.
 
 For system boundaries, validation layers, and security architecture, see the [Architecture Guide](./docs/ARCHITECTURE.md).
 
@@ -29,7 +29,7 @@ For system boundaries, validation layers, and security architecture, see the [Ar
 .
 ├── .github/                 # CI workflows, CodeQL scanning, and PR templates
 ├── docs/                    # Architecture and development documentation
-├── stitchcraft-backend/     # Express API, Supabase models, validators, and tests
+├── stitchcraft-backend/     # Express API, Supabase models, validators, services, and tests
 ├── stitchcraft-frontend/    # React/Vite web dashboard with TailwindCSS v4
 ├── stitchcraft-mobile/      # Flutter cross-platform mobile application
 ├── supabase/                # PostgreSQL relational database migrations
@@ -54,7 +54,7 @@ cd stitchcraft-backend
 npm ci
 cp .env.example .env
 npm run dev     # Starts server on http://localhost:5000
-npm test        # Runs backend automated test suites
+npm test        # Runs 28 automated test suites
 ```
 
 ### 2. Web Dashboard (`stitchcraft-frontend`)
@@ -64,7 +64,7 @@ cd stitchcraft-frontend
 npm ci
 cp .env.example .env
 npm run dev     # Starts Vite dev server on http://localhost:5173
-npm test        # Runs frontend validation and formatter tests
+npm test        # Runs 18 validation and formatter unit tests
 npm run build   # Validates production build
 ```
 
@@ -72,8 +72,9 @@ npm run build   # Validates production build
 
 ```bash
 cd stitchcraft-mobile
-flutter pub get
 cp .env.example .env
+cp lib/firebase_options.dart.example lib/firebase_options.dart
+flutter pub get
 flutter run     # Launches on connected emulator or device
 flutter test    # Runs unit and widget tests
 ```
@@ -85,12 +86,12 @@ flutter test    # Runs unit and widget tests
 All pull requests run automated CI workflows defined in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml). Run these commands locally before submitting:
 
 ```bash
-# 1. Backend verification (syntax + tests)
+# 1. Backend verification (syntax check + 28 automated tests)
 cd stitchcraft-backend
 find . -name node_modules -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 npm test
 
-# 2. Frontend verification (lint + tests + build)
+# 2. Frontend verification (ESLint + 18 unit tests + production build)
 cd ../stitchcraft-frontend
 npm run lint
 npm test
@@ -98,6 +99,8 @@ npm run build
 
 # 3. Mobile verification (analyze + tests)
 cd ../stitchcraft-mobile
+cp lib/firebase_options.dart.example lib/firebase_options.dart
+cp .env.example .env
 flutter analyze
 flutter test
 ```
@@ -107,10 +110,11 @@ flutter test
 ## 🔒 Security & Code Quality
 
 - **Zero Open CodeQL Alerts**: Validated against CodeQL code scanning, secret scanning, and Dependabot.
-- **Two-Tier Validation**: Request validation middleware combined with schema-level table validators.
+- **Two-Tier Validation**: Request validation middleware combined with schema-level table validators across all collections.
 - **Safe Regular Expressions**: Linear-time, non-backtracking patterns with bounded input lengths to eliminate ReDoS vulnerabilities.
-- **Multi-Tier Rate Limiting**: Strict limits on authentication, file uploads, destructive actions, and general API calls.
-- **Tenant Isolation**: Every database interaction is scoped by `shopId` to prevent cross-tenant data access.
+- **Multi-Tier Rate Limiting**: Strict limits on authentication (10 / 15m), file uploads (30 / 15m), destructive actions (10 / 15m; applies to account deletion, data import, and all `DELETE` endpoints), and general API calls (300 / 15m).
+- **Tenant Isolation**: Every database interaction is scoped by `shopId: req.user.shopId` to prevent cross-tenant data access.
+- **Data Sanitization**: Guest-accessible invoice endpoints (`/api/orders/public/:id`) strip internal profit margins, wholesale fabric costs, and staff assignments.
 
 For vulnerability reporting guidelines, see [`SECURITY.md`](./SECURITY.md).
 

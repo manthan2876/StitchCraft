@@ -40,6 +40,9 @@ NODE_ENV=development
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 CLIENT_URL=http://localhost:5173
+
+# Optional for push notification dispatch
+FIREBASE_SERVICE_ACCOUNT={"type":"service_account",...}
 ```
 
 Start backend services:
@@ -74,17 +77,23 @@ npm run dev     # Starts Vite dev server at http://localhost:5173
 
 ```bash
 cd ../stitchcraft-mobile
-flutter pub get
 
 # Configure environment
 cp .env.example .env
+
+# Configure Firebase placeholder (for builds & tests without live FCM credentials)
+cp lib/firebase_options.dart.example lib/firebase_options.dart
+
+# Get packages
+flutter pub get
 ```
 
-Ensure `.env` contains:
+Ensure `stitchcraft-mobile/.env` contains:
 ```env
-BACKEND_API_URL=http://10.0.2.2:5000/api  # Android emulator (or your local IP)
+BACKEND_API_URL=http://10.0.2.2:5000/api  # Android emulator localhost (or local network IP)
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
+DB_ENCRYPTION_KEY=your_secure_local_database_key_here
 ```
 
 Run on a connected simulator or device:
@@ -98,7 +107,7 @@ flutter run
 
 Always run the verification commands for the modules you touched before submitting a pull request:
 
-### Backend Checks
+### Backend Checks (28 Automated Tests + Syntax Check)
 ```bash
 cd stitchcraft-backend
 
@@ -109,7 +118,7 @@ npm test
 find . -name node_modules -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 ```
 
-### Frontend Checks
+### Frontend Checks (Lint, 18 Automated Tests, Production Build)
 ```bash
 cd stitchcraft-frontend
 
@@ -123,14 +132,18 @@ npm test
 npm run build
 ```
 
-### Mobile Checks
+### Mobile Checks (Analysis + Tests)
 ```bash
 cd stitchcraft-mobile
 
-# 1. Analyze Dart code
+# 1. Configure placeholders if not done already
+cp lib/firebase_options.dart.example lib/firebase_options.dart
+cp .env.example .env
+
+# 2. Analyze Dart code
 flutter analyze
 
-# 2. Run unit and widget tests
+# 3. Run unit and widget tests
 flutter test
 ```
 

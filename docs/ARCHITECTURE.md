@@ -6,29 +6,31 @@ This document describes the high-level architecture, multi-tenant boundaries, se
 
 ## 1. System Overview
 
-StitchCraft is a full-stack, multi-tenant tailor shop management system designed for Indian masterji shops. The system consists of three primary clients/services:
+StitchCraft is a full-stack, multi-tenant tailor shop management system designed for Indian masterji shops and boutiques. The platform unites a responsive web dashboard, a native mobile application, and a hardened Express API backed by Supabase PostgreSQL.
 
 ```mermaid
 graph TD
     subgraph Clients
         Web["Web Dashboard (React 19, Vite 8, Tailwind v4)"]
-        Mobile["Mobile App (Flutter / Dart)"]
+        Mobile["Mobile App (Flutter, SQLCipher SQLite, Workmanager)"]
     end
 
     subgraph Backend Services
         API["Express API v5 (Node.js 22)"]
         SecMiddleware["Security & Rate Limiters (Helmet, express-rate-limit)"]
         ValMiddleware["Input Validation Middleware"]
-        AuthMiddleware["Auth & Shop Scope Middleware"]
+        AuthMiddleware["Auth & Shop Scope Middleware (protect, authorize)"]
         ModelAdapter["SupabaseModel Document Adapter & Table Validators"]
+        Services["Domain Services (order, ledger, customer, notification, account)"]
     end
 
     subgraph Data & Cloud
         SupaDB[("Supabase PostgreSQL")]
         SupaAuth["Supabase Auth"]
         SupaStorage["Supabase Storage (Signed URLs)"]
-        FCM["Firebase Cloud Messaging (Optional)"]
+        FCM["Firebase Cloud Messaging (FCM Push)"]
         VercelAnalytics["Vercel Web Analytics"]
+        WhatsApp["WhatsApp Web / App (Direct Messaging)"]
     end
 
     Web -->|HTTPS REST| SecMiddleware
@@ -36,12 +38,15 @@ graph TD
     Web -->|Client Auth & Uploads| SupaAuth
     Mobile -->|Client Auth| SupaAuth
     Web -->|Usage Metrics| VercelAnalytics
-    Mobile -.->|Push Notifications| FCM
+    API -.->|Push Notifications| FCM
+    Mobile -.->|Push Alerts| FCM
+    Mobile -->|Direct Updates| WhatsApp
 
     SecMiddleware --> ValMiddleware
     ValMiddleware --> AuthMiddleware
     AuthMiddleware --> API
-    API --> ModelAdapter
+    API --> Services
+    Services --> ModelAdapter
     ModelAdapter -->|Service Role SQL| SupaDB
     API -->|Signed URL Generation| SupaStorage
 ```
@@ -52,16 +57,18 @@ The Express API is the single source of truth for business rules, calculations, 
 
 ## 2. Multi-Tenant Shop Isolation
 
-StitchCraft is multi-tenant by design. A single user can own or work in multiple shops, but operational data is strictly segregated.
+StitchCraft is multi-tenant by design. A single user profile can own or associate with multiple tailor shops, but operational data is strictly partitioned.
 
 1. **Tenant Identifier (`shopId`)**:
-   - Every domain entity (`Order`, `Customer`, `Karigar`, `Machine`, `Inventory`, `Payment`, `Transaction`, `LedgerEntry`, `Delivery`) carries a mandatory `shopId`.
+   - Every domain entity (`Order`, `Customer`, `Karigar`, `Machine`, `Inventory`, `Payment`, `Transaction`, `LedgerEntry`, `Delivery`, `Notification`) carries a mandatory `shopId`.
 2. **Context Resolution**:
-   - The `protect` middleware verifies the incoming Supabase bearer token and resolves the user's active shop ID from their profile context or request header (`X-Shop-Id`).
+   - The `protect` middleware verifies the incoming Supabase bearer token and attaches the authenticated user record (`req.user`) including their active `shopId`.
+   - Users can switch their active branch context at any time via `PUT /api/auth/switch-shop/:id`.
 3. **Query Scoping**:
-   - All database reads and writes via `SupabaseModel` automatically scope queries with `.eq('shopId', req.shopId)` to prevent cross-tenant data leaks.
+   - All controller queries and service functions scope database operations using `{ shopId: req.user.shopId }`.
+   - `SupabaseModel` filters data sets and prevents cross-tenant records from being queried or mutated.
 4. **Isolated Resource Access**:
-   - Cross-shop boundary checks are verified by automated tests (`shop_isolation.test.js`), ensuring users cannot read or mutate data belonging to other tailor shops.
+   - Cross-shop boundary checks are verified by automated tests (`shop_isolation.test.js`), ensuring users cannot read or mutate data belonging to other tailor shops even if an entity's primary ID is known.
 
 ---
 
@@ -77,7 +84,7 @@ sequenceDiagram
     participant Model as Schema Validator (tableValidators.js)
     participant DB as Supabase PostgreSQL
 
-    User->>Frontend: Enters input (Email, Phone, Measurements)
+    User->>Frontend: Enters input (Email, Phone, Measurements, Price)
     Note over Frontend: Client-side validation: format, bounds, ReDoS-safe patterns
     Frontend->>Middleware: HTTP POST/PUT (JSON body)
     Note over Middleware: Request sanitization, schema check, boundary limits
@@ -96,15 +103,15 @@ sequenceDiagram
 ### Tier 1: Client-Side Form Validation (`stitchcraft-frontend/src/utils/formValidators.js`)
 - Instant feedback before form submission.
 - Enforces RFC 5321 length limits (`<= 254` characters) and linear-time regexes for emails.
-- Validates Indian 10-digit phone numbers, required fields, and numeric measurement bounds.
+- Validates Indian and international phone numbers (10 to 15 digits), required fields, positive currency values, and numeric measurement bounds.
 
 ### Tier 2: Route & Request Validation Middleware (`stitchcraft-backend/middleware/validationMiddleware.js`)
 - Intercepts requests before reaching controllers.
-- Validates request body structure, allowed enums, numeric ranges, and date formats.
+- Validates request body structure, allowed enums (`status`, `itemType`, `specialization`), numeric ranges, and date formats.
 - Prevents malformed or malicious payloads from triggering unexpected server exceptions.
 
 ### Tier 3: Database & Schema Validation (`stitchcraft-backend/utils/tableValidators.js`)
-- Runs within `SupabaseModel` lifecycle hooks before insert/update.
+- Runs within `SupabaseModel` lifecycle hooks before insert/update across 13 entity tables.
 - Validates required fields, data types, and relational constraints across all models.
 
 ---
@@ -116,9 +123,16 @@ sequenceDiagram
 
 ### Multi-Tier Rate Limiting (`express-rate-limit`)
 - **API Limiter**: 300 requests / 15 minutes per IP across all `/api` routes.
-- **Auth Limiter**: 10 requests / 15 minutes per IP on `/api/auth/login` and `/api/auth/register`.
-- **Upload Limiter**: 30 requests / 15 minutes per IP on `/api/upload`.
-- **Destructive Actions Limiter**: 10 requests / 15 minutes per IP on sensitive operations (account deletion, database imports).
+- **Auth Limiter**: 10 requests / 15 minutes per IP on `/api/auth/login`, `/api/auth/register`, and `/api/auth/verify`.
+- **Upload Limiter**: 30 requests / 15 minutes per IP on `/api/upload/*`.
+- **Destructive Actions Limiter**: 10 requests / 15 minutes per IP on sensitive operations (account deletion, database exports/imports, password updates, and **all HTTP `DELETE` requests** across `/api`).
+
+### Role-Based Authorization (`authorize`)
+- Strict role checking (`owner`, `manager`, `karigar`, `staff`).
+- Destructive operations (account deletion, database wiping, expense deletion, shop deletion) strictly require the `owner` role.
+
+### Public Receipt & Invoice Sanitization
+- Public client receipts accessible via `/api/orders/public/:id` (using order ID or guest share token) strip wholesale fabric costs, profit margins, internal karigar assignments, and audit trails.
 
 ### ReDoS & Injection Hardening
 - All regular expressions in backend middleware and frontend validators are bounded and linear (deterministic, non-backtracking).
@@ -126,6 +140,7 @@ sequenceDiagram
 
 ### Token Security & Sensitive Data Handling
 - Supabase Auth tokens are managed through managed session lifecycles without exposing raw credentials in client storage.
+- Local mobile SQLite databases are encrypted at rest using AES via `sqflite_sqlcipher`.
 
 ---
 
@@ -141,7 +156,15 @@ Payments are **never updated directly**.
 - Future customer measurement changes do not retroactively alter completed or in-progress orders.
 
 ### Inventory & Lining (Aster) Deductions
-- When an order transitions to production (`Cutting` or `Stitching`), required astar/fabric quantities are deducted from active inventory records.
+- When an order transitions into active workshop stages defined by `ASTAR_DEDUCT_STATUSES` (`['Stitching', 'Checking', 'Ready', 'Delivered']`), required astar/fabric quantities are deducted from active inventory records.
+- Cancelling an order automatically restores the deducted inventory quantity.
+
+### Offline-First Mobile Architecture & Sync
+- Mobile app persists data locally in an encrypted SQLite database (`LocalDatabaseService` using `sqflite_sqlcipher`).
+- `SyncWorker` powered by `workmanager` runs background synchronization every 15 minutes to reconcile pending offline mutations with the REST API.
+
+### Customer WhatsApp Integration
+- `WhatsAppService` generates direct WhatsApp messaging links (`https://wa.me/`) with pre-composed order updates for booking, trial ready, and delivery notices.
 
 ---
 
@@ -149,18 +172,18 @@ Payments are **never updated directly**.
 
 StitchCraft maintains automated test suites across all three modules:
 
-### Backend (`node --test`)
-- **`order_lifecycle.test.js`**: Order creation math, aster deductions, status progressions, and payment calculations.
-- **`ledger_and_expenses.test.js`**: Khata ledger entry aggregation, balance calculation, and category reporting.
-- **`security_and_scoping.test.js`**: Role authorization, rate-limiting handlers, ReDoS bounds, and identifier validation.
-- **`shop_isolation.test.js`**: Cross-tenant data isolation and multi-shop boundary controls.
+### Backend (`node --test`) — 28 Automated Tests
+- **`order_lifecycle.test.js`**: Order creation math, aster deductions, status progressions, note appending, and payment calculations.
+- **`ledger_and_expenses.test.js`**: Khata ledger entry aggregation, cash book running balance calculation, and category reporting.
+- **`security_and_scoping.test.js`**: Role authorization, rate-limiting handlers, ReDoS bounds, public receipt sanitization, notification dispatch fallbacks, and identifier validation.
+- **`shop_isolation.test.js`**: Multi-role permission checks, cross-tenant data isolation, and multi-shop boundary controls.
 
-### Frontend (`node --test`)
-- **`form_validators.test.js`**: Form validation rules, regex edge cases, and boundary checks.
-- **`formatters.test.js`**: Currency (INR) and date formatting helpers.
+### Frontend (`node --test`) — 18 Automated Tests
+- **`form_validators.test.js`**: Form validation rules, regex edge cases, required fields, and boundary checks.
+- **`formatters.test.js`**: Currency (₹ INR) and date formatting helpers.
 
 ### Mobile (`flutter test`)
-- **`unit_test.dart`**: App theme, colors, and configuration unit tests.
+- **`unit_test.dart`**: App theme, color palettes, and configuration unit tests.
 - **`widget_test.dart`**: Widget interaction and UI component rendering tests.
 
 ---

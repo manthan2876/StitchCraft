@@ -1,6 +1,6 @@
 # 📱 StitchCraft Mobile
 
-The Flutter mobile application for **StitchCraft** — a full-featured tailor shop management platform for Indian masterji shops.
+The Flutter mobile application for **StitchCraft** — a full-featured tailor shop management platform for Indian masterji shops and boutiques.
 
 ---
 
@@ -8,30 +8,38 @@ The Flutter mobile application for **StitchCraft** — a full-featured tailor sh
 
 | Layer | Technology |
 |---|---|
-| Framework | Flutter (Dart SDK) |
-| Backend API | REST via `http` package with bearer token authentication |
-| Auth & Storage | Supabase (`supabase_flutter` for authentication; backend-signed storage uploads) |
-| Local Storage | SQLite (`sqflite`) for Khata (offline ledger) & caching |
-| Push Notifications | Firebase Cloud Messaging (FCM, optional) |
-| PDF Generation | `pdf` + `printing` packages |
-| Charts | `fl_chart` |
-| i18n | Flutter Localizations (English, Hindi, Gujarati) |
+| Framework | Flutter (Dart SDK `^3.10.7`) |
+| Backend API | REST client via `http` package with bearer token authentication |
+| Auth & Storage | Supabase (`supabase_flutter` 2.16.0 for auth; signed Supabase Storage URLs) |
+| Local Database | Encrypted SQLite via `sqflite_sqlcipher` 3.0.1 (AES encryption) |
+| Background Sync | `workmanager` 0.10.10 (periodic 15-minute background REST sync) |
+| WhatsApp Integration | `url_launcher` 6.3.1 (direct customer order updates via `wa.me`) |
+| Push & Local Alerts | `firebase_messaging` 16.1.1 + `flutter_local_notifications` 18.0.1 |
+| PDF & Printing | `pdf` 3.11.1 + `printing` 5.13.2 (receipt and invoice generation) |
+| Scanning & Voice | `mobile_scanner` 5.0.0 (QR/barcode) + `speech_to_text` 7.0.0 (voice notes) |
+| Image Compression | `flutter_image_compress` 2.3.0 + `image_picker` 1.0.7 |
+| State & Charts | `provider` 6.0.0 + `fl_chart` 1.3.0 |
+| i18n | Flutter Localizations (English, Hindi, Gujarati via ARB files) |
 | Theme | Custom `AppTheme` (Masterji Dark and Light themes) |
 
 ---
 
 ## ✨ Features
 
-- **Order Management** — Create orders via a 3-step wizard (Garment → Measurements → Material & Lining).
-- **Order Pipeline** — Track all 8 stages from *Incoming* to *Delivered*.
-- **Customers & Measurements** — Maintain customer records with measurement histories and maap snapshots.
-- **Invoices & Receipts** — View, generate, and share order receipts and invoices.
-- **Khata (Ledger)** — Offline-capable income and expense tracker powered by local SQLite.
-- **Shop Resources** — Manage karigars, machines, and fabric/aster inventory.
-- **Repairs Dashboard** — Track alterations and repair requests.
-- **Push & Local Notifications** — Order deadline alerts and shop updates.
-- **Onboarding Flow** — Splash screen → Language selection → Feature carousel → Auth.
-- **Multi-Language Support** — Seamless runtime switching between English, Hindi, and Gujarati.
+- **5-Step Order Creation Wizard**:
+  - **Step 1 — Garment Selection**: Choose apparel category and preset styles.
+  - **Step 2 — Customer Selection**: Select existing client or register a new customer profile.
+  - **Step 3 — Measurement Input**: Body measurements with voice input support (`VoiceTextField`) and photo attachment.
+  - **Step 4 — Material Selection**: Fabric details, lining (astar) assignment, and karigar selection.
+  - **Step 5 — Order Confirmation**: Final pricing, advance payment, delivery date, and urgency settings.
+- **Order Pipeline & Tracking**: Track all 8 stages from *Incoming* to *Delivered*.
+- **Offline-First Khata Ledger**: Local SQLite database with AES encryption (`sqflite_sqlcipher`) for tracking income and expenses even without internet connectivity.
+- **Automated Background Sync**: `SyncWorker` powered by `workmanager` automatically syncs pending local records when network connectivity is restored.
+- **Customer WhatsApp Updates**: Send one-click order confirmations, trial-ready notices, and delivery updates directly to customer WhatsApp numbers.
+- **Invoices & Receipts**: Generate, preview, and print PDF invoices or share via system share sheets.
+- **Shop Management**: Manage karigars, sewing machines, fabric/aster inventory, and alteration/repair jobs.
+- **Multi-Language Support**: Runtime language switching between English (`en`), Hindi (`hi`), and Gujarati (`gu`).
+- **Onboarding Flow**: Splash screen → Language picker → Feature introduction carousel → Login/Register → Role & Shop Setup.
 
 ---
 
@@ -41,23 +49,43 @@ The Flutter mobile application for **StitchCraft** — a full-featured tailor sh
 stitchcraft-mobile/
 ├── lib/
 │   ├── core/
-│   │   ├── config/          # ApiConfig (reads BACKEND_API_URL from .env), database tables
-│   │   ├── localization/    # ARB files & generated localization helpers
-│   │   ├── models/          # Dart data models (User, Order, Customer, Khata)
-│   │   ├── services/        # AuthService, DatabaseService, ApiService, NotificationService
-│   │   ├── theme/           # AppTheme design tokens and palettes
-│   │   ├── utils/           # Shared formatters and validators
-│   │   └── widgets/         # Reusable NeoCard, buttons, and custom inputs
+│   │   ├── config/          # ApiConfig (reads BACKEND_API_URL from .env), database_tables.dart, theme.dart
+│   │   ├── localization/    # AppLocalizations delegates & extension helpers
+│   │   ├── models/          # Dart domain models (CustomerModel, OrderModel, MeasurementModel, UserModel, RepairJobModel, LiningItemModel)
+│   │   ├── services/
+│   │   │   ├── auth_service.dart          # Supabase auth & session persistence
+│   │   │   ├── database_service.dart      # High-level database orchestrator
+│   │   │   ├── database/                  # Modular SQLite extension mixins (customer, measurement, order, user, others)
+│   │   │   ├── local_db_service.dart      # SQLCipher-encrypted SQLite connection (v5 schema)
+│   │   │   ├── sync_service.dart          # REST API bi-directional sync logic
+│   │   │   ├── sync_worker.dart           # Workmanager background sync callback
+│   │   │   ├── whatsapp_service.dart      # WhatsApp URL launcher integration
+│   │   │   ├── pdf_service.dart           # PDF document generator and printing handler
+│   │   │   ├── notification_service.dart  # Local notification scheduler & FCM handler
+│   │   │   ├── profile_service.dart       # User profile and shop preferences
+│   │   │   ├── localization_service.dart  # Locale notifier (en, hi, gu)
+│   │   │   └── theme_service.dart         # Theme mode notifier
+│   │   ├── theme/           # AppTheme color palettes, typography, button styles
+│   │   ├── utils/           # Database seeder, parsing helpers
+│   │   └── widgets/         # NeoCard, PrimaryButton, CustomAppBar, VoiceTextField
 │   │
 │   ├── features/
-│   │   ├── auth/            # Login, registration, role selection
-│   │   ├── dashboard/       # Home dashboard with overview cards
-│   │   ├── orders/          # Order list, 3-step create wizard, invoices, customers
-│   │   ├── shop/            # Karigars, machines, inventory management
-│   │   ├── khata/           # Expense & income ledger (SQLite)
-│   │   ├── repairs/         # Repair dashboard
-│   │   ├── profile/         # User profile and shop preferences
-│   │   └── onboarding/      # Splash, language selector, onboarding carousel
+│   │   ├── auth/            # LoginScreen, RoleSelectionScreen
+│   │   ├── dashboard/       # MainNavigationContainer, DashboardScreen, MetricCard, DrawerMenu
+│   │   ├── orders/
+│   │   │   ├── screens/create_order/
+│   │   │   │   ├── step1_garment.dart     # Step 1: Garment selection
+│   │   │   │   ├── step2_customer.dart    # Step 2: Customer selection
+│   │   │   │   ├── step3_measurements.dart# Step 3: Measurement input
+│   │   │   │   ├── step4_material.dart    # Step 4: Material & lining selection
+│   │   │   │   └── step5_details.dart     # Step 5: Confirmation & pricing
+│   │   │   └── screens/                   # OrderListScreen, OrderDetailsScreen, CustomerListScreen, InvoiceScreen
+│   │   ├── khata/           # KhataScreen, IncomeList, ExpensesList, AddExpenseBottomSheet
+│   │   ├── shop/            # ShopHubScreen, ShopSetupScreen, KarigarsScreen, MachinesScreen, InventoryScreen
+│   │   ├── repairs/         # RepairDashboard
+│   │   ├── profile/         # ProfileScreen with profile, shops, settings, and security tabs
+│   │   ├── notifications/   # NotificationsScreen
+│   │   └── onboarding/      # SplashScreen, LanguageSelectionScreen, OnboardingCarouselScreen
 │   │
 │   ├── firebase_options.dart.example # Template for Firebase platform setup
 │   ├── l10n/                # Localization source files (app_en.arb, app_hi.arb, app_gu.arb)
@@ -89,15 +117,22 @@ cp .env.example .env
 Configure the following variables in `stitchcraft-mobile/.env`:
 
 ```env
-BACKEND_API_URL=http://10.0.2.2:5000/api  # Android emulator localhost (or local network IP)
-SUPABASE_URL=https://qggxfxttveafgptdlmfu.supabase.co
+BACKEND_API_URL=http://10.0.2.2:5000/api  # Android emulator localhost (or your local IP / production URL)
+SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your_supabase_anon_key
+DB_ENCRYPTION_KEY=your_secure_local_database_key_here
 ```
 
 > [!NOTE]
 > `ApiConfig.baseUrl` dynamically reads `BACKEND_API_URL` from `.env`. Never commit the `.env` file.
 
-### 2. Install dependencies & run
+### 2. Firebase Placeholder (for builds and tests without active FCM)
+
+```bash
+cp lib/firebase_options.dart.example lib/firebase_options.dart
+```
+
+### 3. Install dependencies & run
 
 ```bash
 # Get dependencies
@@ -110,7 +145,7 @@ flutter run
 flutter run --release
 ```
 
-### 3. Verification & Testing
+### 4. Verification & Testing
 
 ```bash
 # Analyze Dart code for issues

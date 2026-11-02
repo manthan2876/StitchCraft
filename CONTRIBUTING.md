@@ -24,7 +24,7 @@ Before opening a pull request, ensure the tests and checks pass for every module
 (cd stitchcraft-frontend && npm ci && npm run lint && npm test && npm run build)
 
 # Mobile checks (analysis + unit/widget tests)
-(cd stitchcraft-mobile && cp .env.example .env && flutter pub get && flutter analyze && flutter test)
+(cd stitchcraft-mobile && cp .env.example .env && cp lib/firebase_options.dart.example lib/firebase_options.dart && flutter pub get && flutter analyze && flutter test)
 ```
 
 ## Pull requests
