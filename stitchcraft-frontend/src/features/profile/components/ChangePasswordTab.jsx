@@ -1,5 +1,7 @@
 /* src/features/profile/components/ChangePasswordTab.jsx */
+import React, { useState } from 'react';
 import Card from '../../../components/common/Card';
+import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 
 export const ChangePasswordTab = ({
   passwordForm,
@@ -12,6 +14,9 @@ export const ChangePasswordTab = ({
   handlePasswordSubmit,
   t,
 }) => {
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   return (
     <Card className="flex flex-col gap-5">
       <div className="border-b border-border-subtle pb-4">
@@ -22,17 +27,27 @@ export const ChangePasswordTab = ({
       <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-5">
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('currentPassword')}</label>
-          <input
-            type="password"
-            required
-            value={passwordForm.currentPassword}
-            onChange={e => {
-              setPasswordForm({ ...passwordForm, currentPassword: e.target.value });
-              if (passwordFieldErrors.currentPassword) setPasswordFieldErrors(prev => ({ ...prev, currentPassword: '' }));
-            }}
-            placeholder={t('currentPassword')}
-            className={`px-4 py-2.5 bg-bg-input border ${passwordFieldErrors.currentPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
-          />
+          <div className="relative">
+            <input
+              type={showCurrentPassword ? 'text' : 'password'}
+              required
+              value={passwordForm.currentPassword}
+              onChange={e => {
+                setPasswordForm({ ...passwordForm, currentPassword: e.target.value });
+                if (passwordFieldErrors.currentPassword) setPasswordFieldErrors(prev => ({ ...prev, currentPassword: '' }));
+              }}
+              placeholder={t('currentPassword')}
+              className={`w-full px-4 pr-11 py-2.5 bg-bg-input border ${passwordFieldErrors.currentPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowCurrentPassword(prev => !prev)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+              aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+            >
+              {showCurrentPassword ? <MdVisibilityOff className="w-4.5 h-4.5" /> : <MdVisibility className="w-4.5 h-4.5" />}
+            </button>
+          </div>
           {passwordFieldErrors.currentPassword && (
             <span className="text-[11px] text-color-accent-pink font-semibold">{passwordFieldErrors.currentPassword}</span>
           )}
@@ -40,17 +55,27 @@ export const ChangePasswordTab = ({
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('newPassword')}</label>
-          <input
-            type="password"
-            required
-            value={passwordForm.newPassword}
-            onChange={e => {
-              setPasswordForm({ ...passwordForm, newPassword: e.target.value });
-              if (passwordFieldErrors.newPassword) setPasswordFieldErrors(prev => ({ ...prev, newPassword: '' }));
-            }}
-            placeholder={t('newPassword')}
-            className={`px-4 py-2.5 bg-bg-input border ${passwordFieldErrors.newPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
-          />
+          <div className="relative">
+            <input
+              type={showNewPassword ? 'text' : 'password'}
+              required
+              value={passwordForm.newPassword}
+              onChange={e => {
+                setPasswordForm({ ...passwordForm, newPassword: e.target.value });
+                if (passwordFieldErrors.newPassword) setPasswordFieldErrors(prev => ({ ...prev, newPassword: '' }));
+              }}
+              placeholder={t('newPassword')}
+              className={`w-full px-4 pr-11 py-2.5 bg-bg-input border ${passwordFieldErrors.newPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowNewPassword(prev => !prev)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+              aria-label={showNewPassword ? "Hide password" : "Show password"}
+            >
+              {showNewPassword ? <MdVisibilityOff className="w-4.5 h-4.5" /> : <MdVisibility className="w-4.5 h-4.5" />}
+            </button>
+          </div>
           {passwordFieldErrors.newPassword && (
             <span className="text-[11px] text-color-accent-pink font-semibold">{passwordFieldErrors.newPassword}</span>
           )}
@@ -58,17 +83,27 @@ export const ChangePasswordTab = ({
 
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('confirmNewPassword')}</label>
-          <input
-            type="password"
-            required
-            value={passwordForm.confirmNewPassword}
-            onChange={e => {
-              setPasswordForm({ ...passwordForm, confirmNewPassword: e.target.value });
-              if (passwordFieldErrors.confirmNewPassword) setPasswordFieldErrors(prev => ({ ...prev, confirmNewPassword: '' }));
-            }}
-            placeholder={t('confirmNewPassword')}
-            className={`px-4 py-2.5 bg-bg-input border ${passwordFieldErrors.confirmNewPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
-          />
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              required
+              value={passwordForm.confirmNewPassword}
+              onChange={e => {
+                setPasswordForm({ ...passwordForm, confirmNewPassword: e.target.value });
+                if (passwordFieldErrors.confirmNewPassword) setPasswordFieldErrors(prev => ({ ...prev, confirmNewPassword: '' }));
+              }}
+              placeholder={t('confirmNewPassword')}
+              className={`w-full px-4 pr-11 py-2.5 bg-bg-input border ${passwordFieldErrors.confirmNewPassword ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-sm text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(prev => !prev)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+            >
+              {showConfirmPassword ? <MdVisibilityOff className="w-4.5 h-4.5" /> : <MdVisibility className="w-4.5 h-4.5" />}
+            </button>
+          </div>
           {passwordFieldErrors.confirmNewPassword && (
             <span className="text-[11px] text-color-accent-pink font-semibold">{passwordFieldErrors.confirmNewPassword}</span>
           )}

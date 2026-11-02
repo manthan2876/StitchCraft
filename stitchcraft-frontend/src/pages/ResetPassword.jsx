@@ -3,12 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import supabase from '../services/supabase';
 import { GiScissors, GiPadlock } from 'react-icons/gi';
-import { MdCheckCircleOutline, MdErrorOutline } from 'react-icons/md';
+import { MdCheckCircleOutline, MdErrorOutline, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { validatePassword } from '../utils/formValidators';
 
 export const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSuccess, setIsSuccess] = useState(false);
@@ -147,7 +149,7 @@ export const ResetPassword = () => {
                 <div className="relative">
                   <GiPadlock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-5 h-5" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
@@ -155,9 +157,17 @@ export const ResetPassword = () => {
                       setFieldErrors(prev => ({ ...prev, password: '' }));
                     }}
                     placeholder="••••••••"
-                    className={`w-full pl-11 pr-4 py-3 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    className={`w-full pl-11 pr-11 py-3 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
                       ${fieldErrors.password ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <MdVisibilityOff className="w-5 h-5" /> : <MdVisibility className="w-5 h-5" />}
+                  </button>
                 </div>
                 {fieldErrors.password && (
                   <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.password}</span>
@@ -169,7 +179,7 @@ export const ResetPassword = () => {
                 <div className="relative">
                   <GiPadlock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-5 h-5" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => {
                       setConfirmPassword(e.target.value);
@@ -177,9 +187,17 @@ export const ResetPassword = () => {
                       setFieldErrors(prev => ({ ...prev, confirmPassword: '' }));
                     }}
                     placeholder="••••••••"
-                    className={`w-full pl-11 pr-4 py-3 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                    className={`w-full pl-11 pr-11 py-3 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
                       ${fieldErrors.confirmPassword ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(prev => !prev)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? <MdVisibilityOff className="w-5 h-5" /> : <MdVisibility className="w-5 h-5" />}
+                  </button>
                 </div>
                 {fieldErrors.confirmPassword && (
                   <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.confirmPassword}</span>

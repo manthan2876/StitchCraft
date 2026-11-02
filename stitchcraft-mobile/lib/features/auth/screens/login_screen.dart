@@ -220,6 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _passwordController,
                   hint: '••••••••',
                   keyboardType: TextInputType.visiblePassword,
+                  isPassword: true,
                 ),
                 const SizedBox(height: 8),
                 Align(

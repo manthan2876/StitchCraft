@@ -1,5 +1,6 @@
 /* src/features/profile/components/PrivacyActionConfirmModal.jsx */
-import { MdClose, MdSecurity } from 'react-icons/md';
+import React, { useState } from 'react';
+import { MdClose, MdSecurity, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 
 export const PrivacyActionConfirmModal = ({
   isOpen,
@@ -14,6 +15,7 @@ export const PrivacyActionConfirmModal = ({
   onClose,
   t,
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
   if (!isOpen) return null;
 
   return (
@@ -49,15 +51,25 @@ export const PrivacyActionConfirmModal = ({
           )}
 
           <div className="flex flex-col gap-1">
-            <input
-              type="password"
-              required
-              value={privacyPassword}
-              onChange={e => { setPrivacyPassword(e.target.value); setPrivacyError(''); }}
-              placeholder={t('enterPasswordPlaceholder')}
-              className={`w-full px-4 py-2.5 bg-bg-input border ${privacyError ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={privacyPassword}
+                onChange={e => { setPrivacyPassword(e.target.value); setPrivacyError(''); }}
+                placeholder={t('enterPasswordPlaceholder')}
+                className={`w-full px-4 pr-11 py-2.5 bg-bg-input border ${privacyError ? 'border-color-accent-pink' : 'border-border-medium'} rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50`}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <MdVisibilityOff className="w-4.5 h-4.5" /> : <MdVisibility className="w-4.5 h-4.5" />}
+              </button>
+            </div>
           </div>
 
           {privacyError && (

@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { GiScissors, GiPadlock } from 'react-icons/gi';
-import { MdEmail, MdPerson, MdStore, MdPhone, MdLocationOn } from 'react-icons/md';
+import { MdEmail, MdPerson, MdStore, MdPhone, MdLocationOn, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { validateEmail, validatePhone, validateMinLength, validatePassword } from '../utils/formValidators';
 
 export const Signup = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [shopName, setShopName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -119,13 +120,21 @@ export const Signup = () => {
               <div className="relative">
                 <GiPadlock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-4.5 h-4.5" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setErrorMsg(''); setFieldErrors(prev => ({ ...prev, password: '' })); }}
                   placeholder="Min 6 characters"
-                  className={`w-full pl-11 pr-4 py-2.5 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
+                  className={`w-full pl-11 pr-11 py-2.5 bg-bg-input border rounded-lg text-text-main placeholder:text-text-muted/40 outline-none text-sm transition-all
                     ${fieldErrors.password ? 'border-color-accent-pink' : 'border-border-subtle focus:border-color-accent-purple'}`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors cursor-pointer"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <MdVisibilityOff className="w-4.5 h-4.5" /> : <MdVisibility className="w-4.5 h-4.5" />}
+                </button>
               </div>
               {fieldErrors.password && <span className="text-[11px] text-color-accent-pink font-semibold">{fieldErrors.password}</span>}
             </div>
