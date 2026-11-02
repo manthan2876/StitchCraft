@@ -50,7 +50,7 @@ export const PublicInvoice = () => {
     return (
       <div className="w-screen h-screen flex flex-col items-center justify-center bg-bg-primary gap-4 text-xs font-semibold text-text-muted">
         <div className="w-10 h-10 rounded-full border-4 border-color-accent-purple border-t-transparent animate-spin"></div>
-        <span>Syncing invoice receipt...</span>
+        <span>{tf('syncing', 'Syncing invoice receipt...')}</span>
       </div>
     );
   }
@@ -62,9 +62,9 @@ export const PublicInvoice = () => {
           <div className="w-14 h-14 rounded-full bg-color-accent-pink/15 text-color-accent-pink flex items-center justify-center">
             <MdErrorOutline className="w-8 h-8" />
           </div>
-          <h4 className="text-lg font-bold text-text-main">Invoice Link Expired or Revoked</h4>
+          <h4 className="text-lg font-bold text-text-main">{tf('invoiceExpiredTitle', 'Invoice Link Expired or Revoked')}</h4>
           <p className="text-xs text-text-muted leading-relaxed max-w-sm">
-            For customer privacy and security, guest invoice links expire automatically or when renewed by the tailor shop. Please contact the boutique to request a refreshed link.
+            {tf('invoiceExpiredDesc', 'For customer privacy and security, guest invoice links expire automatically or when renewed by the tailor shop. Please contact the boutique to request a refreshed link.')}
           </p>
         </Card>
       </div>
@@ -206,12 +206,12 @@ export const PublicInvoice = () => {
             </div>
 
             <div className="text-left sm:text-right">
-              <h2 className="text-lg font-black text-color-accent-purple tracking-wide">INVOICE</h2>
+              <h2 className="text-lg font-black text-color-accent-purple tracking-wide">{tf('invoiceTitle', 'INVOICE')}</h2>
               <div className="flex flex-col gap-0.5 mt-1.5 text-xs text-text-muted font-bold">
-                <span>Invoice ID: <strong className="text-text-main font-black">{invoiceCode}</strong></span>
-                <span>Order Ref: <strong className="text-text-main">{order.orderId}</strong></span>
-                <span>Billing Date: <strong>{formatDate(order.date)}</strong></span>
-                <span>Due Date: <strong>{formatDate(order.deliveryDate)}</strong></span>
+                <span>{tf('invoiceid', 'Invoice ID')}: <strong className="text-text-main font-black">{invoiceCode}</strong></span>
+                <span>{tf('orderRef', 'Order Ref')}: <strong className="text-text-main">{order.orderId}</strong></span>
+                <span>{tf('billingDate', 'Billing Date')}: <strong>{formatDate(order.date)}</strong></span>
+                <span>{tf('dueDate', 'Due Date')}: <strong>{formatDate(order.deliveryDate)}</strong></span>
               </div>
             </div>
           </div>
@@ -219,20 +219,20 @@ export const PublicInvoice = () => {
           {/* Customer & Merchant Profiles */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 border-b border-border-subtle pb-6 text-xs text-text-muted">
             <div className="flex flex-col gap-2">
-              <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">Billed To</span>
+              <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">{tf('billedTo', 'Billed To')}</span>
               <div className="flex flex-col gap-1 text-sm font-semibold text-text-main">
                 <span className="font-extrabold text-base text-color-accent-purple">{order.customerName}</span>
-                <span>Phone: {order.customer?.phone || 'No phone recorded'}</span>
+                <span>{tf('phone', 'Phone')}: {order.customer?.phone || 'No phone recorded'}</span>
                 {order.customer?.address && <span className="opacity-80 font-normal leading-relaxed">{order.customer.address}</span>}
               </div>
             </div>
 
             <div className="flex flex-col gap-2 sm:items-end sm:text-right">
-              <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">Merchant Details</span>
+              <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">{tf('merchantDetails', 'Merchant Details')}</span>
               <div className="flex flex-col gap-1 text-sm font-semibold text-text-main">
                 <span className="font-extrabold text-base text-text-main">{order.shop?.shopName || 'StitchCraft Tailors'}</span>
                 <span>{order.shop?.address || 'Boutique Tailoring Studio'}</span>
-                {order.shop?.phone && <span>Phone: {order.shop.phone}</span>}
+                {order.shop?.phone && <span>{tf('phone', 'Phone')}: {order.shop.phone}</span>}
                 {order.shop?.upiId && <span className="text-xs font-mono text-text-muted">UPI: {order.shop.upiId}</span>}
                 {order.shop?.gstin && <span className="text-xs font-mono text-text-muted">GST: {order.shop.gstin}</span>}
               </div>
@@ -241,15 +241,15 @@ export const PublicInvoice = () => {
 
           {/* Line Items Table */}
           <div className="flex flex-col gap-3">
-            <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">Invoice Line Items</span>
+            <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">{tf('invoiceLineItems', 'Invoice Line Items')}</span>
             <div className="overflow-hidden border border-border-subtle rounded-xl bg-bg-primary/20">
               <table className="w-full border-collapse text-left text-xs">
                 <thead>
                   <tr className="bg-bg-secondary border-b border-border-subtle text-[10px] font-extrabold text-text-muted uppercase tracking-wider">
-                    <th className="px-4 py-3">Item Description</th>
-                    <th className="px-4 py-3 text-center">Quantity</th>
-                    <th className="px-4 py-3 text-right">Unit Price</th>
-                    <th className="px-4 py-3 text-right">Amount</th>
+                    <th className="px-4 py-3">{tf('itemDesc', 'Item Description')}</th>
+                    <th className="px-4 py-3 text-center">{tf('quantity', 'Quantity')}</th>
+                    <th className="px-4 py-3 text-right">{tf('unitPrice', 'Unit Price')}</th>
+                    <th className="px-4 py-3 text-right">{tf('amount', 'Amount')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle font-semibold text-text-main">
@@ -258,9 +258,9 @@ export const PublicInvoice = () => {
                     order.items.map((item, idx) => (
                       <tr key={item.id || idx}>
                         <td className="px-4 py-4.5">
-                          <span className="font-bold block text-sm">{item.name || item.apparelType} Stitching</span>
+                          <span className="font-bold block text-sm">{item.name || item.apparelType} {tf('stitchingService', 'Stitching Service')}</span>
                           <span className="text-[10px] text-text-muted font-normal mt-0.5 block">
-                            {item.fabric ? `Fabric: ${item.fabric}` : 'Custom tailoring tailoring package'}
+                            {item.fabric ? `Fabric: ${item.fabric}` : tf('stitchingServiceDesc', 'Custom tailoring package')}
                           </span>
                         </td>
                         <td className="px-4 py-4.5 text-center">{item.quantity || 1}</td>
@@ -271,8 +271,8 @@ export const PublicInvoice = () => {
                   ) : (
                     <tr>
                       <td className="px-4 py-4.5">
-                        <span className="font-bold block text-sm">{order.apparelType} Stitching Service</span>
-                        <span className="text-[10px] text-text-muted font-normal mt-0.5 block">Custom tailoring stitching service package</span>
+                        <span className="font-bold block text-sm">{order.apparelType} {tf('stitchingService', 'Stitching Service')}</span>
+                        <span className="text-[10px] text-text-muted font-normal mt-0.5 block">{tf('stitchingServiceDesc', 'Custom tailoring stitching service package')}</span>
                       </td>
                       <td className="px-4 py-4.5 text-center">1</td>
                       <td className="px-4 py-4.5 text-right">{formatCurrency(order.price)}</td>
@@ -284,7 +284,7 @@ export const PublicInvoice = () => {
                   {order.needsAster && (
                     <tr>
                       <td className="px-4 py-4.5">
-                        <span className="font-bold block text-sm">Lining / Astar Material: {order.asterInventoryItem?.itemName || 'Lining Material'}</span>
+                        <span className="font-bold block text-sm">{tf('liningMaterial', 'Lining / Astar Material')}: {order.asterInventoryItem?.itemName || 'Lining Material'}</span>
                         <span className="text-[10px] text-text-muted font-normal mt-0.5 block">Material used for inner garment lining support</span>
                       </td>
                       <td className="px-4 py-4.5 text-center">{order.asterQuantity} {order.asterInventoryItem?.unit || 'meters'}</td>
@@ -300,10 +300,10 @@ export const PublicInvoice = () => {
           {/* Financial Summary */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-4">
             <div className="flex flex-col gap-2">
-              <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">Invoice Status</span>
+              <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">{tf('invoiceStatus', 'Invoice Status')}</span>
               <div className="flex items-center gap-2">
                 <span className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${getStatusBadgeClass(billingStatus)}`}>
-                  {billingStatus}
+                  {tf(billingStatus.toLowerCase(), billingStatus)}
                 </span>
                 {billingStatus === 'Paid' && <CheckIcon className="w-5 h-5 text-emerald-500" />}
               </div>
@@ -316,42 +316,43 @@ export const PublicInvoice = () => {
                     className="w-16 h-16 rounded-lg border border-border-medium bg-white p-1"
                   />
                   <div className="flex flex-col gap-1 text-left">
-                    <span className="text-[10px] font-bold text-text-main">Pay Balance via UPI</span>
+                    <span className="text-[10px] font-bold text-text-main">{tf('payViaUpi', 'Pay Balance via UPI')}</span>
                     <span className="text-[9px] text-text-muted">UPI ID: <strong className="font-mono text-text-main">{upiVpa}</strong></span>
                     <a
                       href={upiPaymentUri}
                       className="inline-flex items-center text-[10px] font-bold text-color-accent-purple hover:underline"
                     >
-                      Open UPI App ↗
+                      {tf('openUpiApp', 'Open UPI App')} ↗
                     </a>
                   </div>
                 </div>
               )}
 
               <p className="text-[10px] text-text-muted max-w-xs mt-1 leading-relaxed">
-                This is a secure electronic copy of your tailoring invoice at {order.shop?.shopName || 'StitchCraft'}. Thank you for your business.
+                {(tf('secureElectronicInvoice', 'This is a secure electronic copy of your tailoring invoice at {shopName}. Thank you for your business.'))
+                  .replace('{shopName}', order.shop?.shopName || 'StitchCraft')}
               </p>
             </div>
 
             <div className="w-full sm:w-[280px] flex flex-col gap-3 text-xs text-text-muted">
               <div className="flex justify-between font-bold">
-                <span>Subtotal</span>
+                <span>{tf('subtotal', 'Subtotal')}</span>
                 <span className="text-text-main font-semibold">{formatCurrency(billTotal)}</span>
               </div>
               <div className="flex justify-between font-bold">
-                <span>Sales Tax (0%)</span>
+                <span>{tf('salesTax', 'Sales Tax (0%)')}</span>
                 <span className="text-text-main font-semibold">{formatCurrency(0)}</span>
               </div>
               <div className="flex justify-between border-t border-border-subtle pt-2.5 font-bold">
-                <span>Total Bill</span>
+                <span>{tf('totalBill', 'Total Bill')}</span>
                 <span className="text-text-main font-semibold">{formatCurrency(billTotal)}</span>
               </div>
               <div className="flex justify-between font-bold">
-                <span>Total Paid</span>
+                <span>{tf('totalPaid', 'Total Paid')}</span>
                 <span className="text-emerald-500 font-bold">{formatCurrency(paidAmount)}</span>
               </div>
               <div className="flex justify-between border-t border-border-strong border-double pt-2.5 text-sm font-black">
-                <span className="text-text-main uppercase tracking-wider">Balance Due</span>
+                <span className="text-text-main uppercase tracking-wider">{tf('balanceDue', 'Balance Due')}</span>
                 <span className="text-rose-500">{formatCurrency(balanceDue)}</span>
               </div>
             </div>

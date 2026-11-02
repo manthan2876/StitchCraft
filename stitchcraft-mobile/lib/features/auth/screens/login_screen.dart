@@ -3,6 +3,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/widgets/voice_text_field.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,8 +28,8 @@ class _LoginScreenState extends State<LoginScreen> {
       
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login Successful! Welcome to StitchCraft.'),
+        SnackBar(
+          content: Text(context.loc.login_successful),
           backgroundColor: AppTheme.trustGreen,
         ),
       );
@@ -37,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Login Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+          content: Text('${context.loc.login_failed}: ${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppTheme.alertRed,
         ),
       );
@@ -60,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: Theme.of(dialogInnerCtx).cardColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
-            'Reset Password',
+            context.loc.reset_password,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Theme.of(dialogInnerCtx).textTheme.titleLarge?.color,
@@ -70,9 +71,9 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Enter your registered email address to receive a password reset link.',
-                style: TextStyle(
+              Text(
+                context.loc.reset_password_instructions,
+                style: const TextStyle(
                   fontSize: 13,
                   color: AppTheme.darkGrey,
                 ),
@@ -82,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: resetEmailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText: 'Email Address',
+                  labelText: context.loc.email_address,
                   hintText: 'name@shop.com',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   prefixIcon: const Icon(Icons.email_outlined),
@@ -93,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
           actions: [
             TextButton(
               onPressed: isSending ? null : () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel'),
+              child: Text(context.loc.cancel),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -107,8 +108,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       final email = resetEmailController.text.trim();
                       if (email.isEmpty) {
                         messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Please enter an email address'),
+                          SnackBar(
+                            content: Text(context.loc.enter_email_warning),
                             backgroundColor: AppTheme.alertRed,
                           ),
                         );
@@ -124,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (!mounted) return;
                         messenger.showSnackBar(
                           SnackBar(
-                            content: Text('Password reset link sent to $email'),
+                            content: Text('${context.loc.password_reset_sent} $email'),
                             backgroundColor: AppTheme.trustGreen,
                           ),
                         );
@@ -133,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (!mounted) return;
                         messenger.showSnackBar(
                           SnackBar(
-                            content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+                            content: Text('${context.loc.failed}: ${e.toString().replaceAll('Exception: ', '')}'),
                             backgroundColor: AppTheme.alertRed,
                           ),
                         );
@@ -145,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Send Link'),
+                  : Text(context.loc.send_link),
             ),
           ],
         ),
@@ -194,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 Center(
                   child: Text(
-                    'Tailor Business Management',
+                    context.loc.tailor_business_management,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppTheme.darkGrey,
                     ),
@@ -202,21 +203,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 48),
                 Text(
-                  'Sign In',
+                  context.loc.sign_in,
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 20),
                 VoiceTextField(
-                  label: 'Email Address',
+                  label: context.loc.email_address,
                   controller: _emailController,
                   hint: 'ramesh@stitchcraft.com',
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 20),
                 VoiceTextField(
-                  label: 'Password',
+                  label: context.loc.password,
                   controller: _passwordController,
                   hint: '••••••••',
                   keyboardType: TextInputType.visiblePassword,
@@ -233,7 +234,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: Text(
-                      'Forgot Password?',
+                      context.loc.forgot_password,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppTheme.brandPurple,
                         fontWeight: FontWeight.bold,
@@ -243,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 28),
                 PrimaryButton(
-                  text: 'Sign In',
+                  text: context.loc.sign_in,
                   isLoading: _isLoading,
                   onPressed: _handleLogin,
                 ),

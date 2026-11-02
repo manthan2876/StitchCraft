@@ -90,7 +90,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
           tabs: [
             Tab(text: context.loc.expenses),
             Tab(text: context.loc.income),
-            const Tab(text: 'Udhar'),
+            Tab(text: context.loc.udhar_ledger),
           ],
         ),
       ),

@@ -8,6 +8,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/profile_service.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/features/profile/widgets/profile_tab.dart';
 import 'package:stitchcraft/features/profile/widgets/shops_tab.dart';
 import 'package:stitchcraft/features/profile/widgets/settings_tab.dart';
@@ -380,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: CustomAppBar(
-        title: 'Settings & Hub',
+        title: context.loc.settings_and_hub,
         showDrawerButton: !widget.isTab,
         bottom: TabBar(
           controller: _tabController,
@@ -388,11 +389,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           indicatorColor: AppTheme.brandPurple,
           unselectedLabelColor: AppTheme.darkGrey,
           isScrollable: true,
-          tabs: const [
-            Tab(text: 'Profile'),
-            Tab(text: 'Shops'),
-            Tab(text: 'Settings'),
-            Tab(text: 'Security'),
+          tabs: [
+            Tab(text: context.loc.profile),
+            Tab(text: context.loc.shops),
+            Tab(text: context.loc.settings),
+            Tab(text: context.loc.security),
           ],
         ),
       ),

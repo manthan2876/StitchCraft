@@ -34,7 +34,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { name: t('machines') !== 'machines' ? t('machines') : 'Machines', path: '/machines', icon: <GiSewingMachine className="w-5 h-5" /> },
     { name: t('inventory') !== 'inventory' ? t('inventory') : 'Inventory', path: '/inventory', icon: <MdInventory className="w-5 h-5" /> },
     { name: t('ledger') !== 'ledger' ? t('ledger') : 'Ledger', path: '/ledger', icon: <MdAccountBalance className="w-5 h-5" /> },
-    ...(isManagerOrOwner ? [{ name: 'Staff & Roles', path: '/staff', icon: <MdSupervisorAccount className="w-5 h-5" /> }] : []),
+    ...(isManagerOrOwner ? [{ name: t('staffAndRoles'), path: '/staff', icon: <MdSupervisorAccount className="w-5 h-5" /> }] : []),
   ];
 
   return (

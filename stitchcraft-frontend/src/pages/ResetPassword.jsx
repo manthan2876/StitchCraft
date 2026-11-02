@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../context/LanguageContext';
 import supabase from '../services/supabase';
 import { GiScissors, GiPadlock } from 'react-icons/gi';
 import { MdCheckCircleOutline, MdErrorOutline, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { validatePassword } from '../utils/formValidators';
 
 export const ResetPassword = () => {
+  const { t } = useLanguage();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -97,7 +99,7 @@ export const ResetPassword = () => {
             <GiScissors className="w-6 h-6 transform -rotate-45" />
           </div>
           <h1 className="text-xl font-bold text-text-main mt-2 tracking-wide">StitchCraft ERP</h1>
-          <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase">Set New Password</p>
+          <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase">{t('setNewPassword')}</p>
         </div>
 
         {isSuccess ? (
@@ -105,47 +107,47 @@ export const ResetPassword = () => {
             <div className="w-14 h-14 rounded-full bg-color-accent-green/15 text-color-accent-green flex items-center justify-center mb-4">
               <MdCheckCircleOutline className="w-8 h-8" />
             </div>
-            <h2 className="text-lg font-bold text-text-main mb-2">Password Reset Complete!</h2>
+            <h2 className="text-lg font-bold text-text-main mb-2">{t('passwordResetSuccess')}</h2>
             <p className="text-xs text-text-muted leading-relaxed mb-6">
-              Your password has been securely updated. You can now sign in with your new credentials.
+              {t('passwordResetSuccessDesc')}
             </p>
             <button
               onClick={() => navigate('/login')}
               className="w-full py-3 bg-color-accent-purple hover:bg-color-accent-purple-hover text-white font-medium rounded-lg text-sm text-center transition-all shadow-sm cursor-pointer"
             >
-              Go to Sign In
+              {t('backToSignIn')}
             </button>
           </div>
         ) : isCheckingSession ? (
           <div className="flex flex-col items-center justify-center py-8">
             <div className="w-6 h-6 border-2 border-color-accent-purple border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p className="text-xs text-text-muted">Verifying recovery link...</p>
+            <p className="text-xs text-text-muted">{t('syncing')}</p>
           </div>
         ) : !hasValidSession ? (
           <div className="flex flex-col items-center text-center py-4">
             <div className="w-14 h-14 rounded-full bg-color-accent-pink/15 text-color-accent-pink flex items-center justify-center mb-4">
               <MdErrorOutline className="w-8 h-8" />
             </div>
-            <h2 className="text-base font-bold text-text-main mb-2">Invalid or Expired Link</h2>
+            <h2 className="text-base font-bold text-text-main mb-2">{t('invalidOrExpiredSession')}</h2>
             <p className="text-xs text-text-muted leading-relaxed mb-6">
-              The password reset link is invalid or has already expired. Please request a new link to reset your password.
+              {t('invalidOrExpiredSessionDesc')}
             </p>
             <Link
               to="/forgot-password"
               className="w-full py-3 bg-color-accent-purple hover:bg-color-accent-purple-hover text-white font-medium rounded-lg text-sm text-center transition-all shadow-sm"
             >
-              Request New Link
+              {t('requestNewLink')}
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="w-full flex flex-col items-center">
             <p className="text-xs text-text-muted text-center mb-6 leading-relaxed">
-              Create a new secure password for your account (minimum 6 characters).
+              {t('setNewPasswordPrompt')}
             </p>
 
             <div className="flex flex-col gap-4 w-full">
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">New Password</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('newPassword')}</label>
                 <div className="relative">
                   <GiPadlock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-5 h-5" />
                   <input
@@ -175,7 +177,7 @@ export const ResetPassword = () => {
               </div>
 
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Confirm New Password</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('confirmNewPassword')}</label>
                 <div className="relative">
                   <GiPadlock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-5 h-5" />
                   <input
@@ -215,7 +217,7 @@ export const ResetPassword = () => {
                 disabled={loading}
                 className="mt-2 w-full py-3 bg-color-accent-purple hover:bg-color-accent-purple-hover text-white font-medium rounded-lg active:scale-98 transition-all duration-200 cursor-pointer disabled:opacity-50 text-sm shadow-sm"
               >
-                {loading ? 'Updating Password...' : 'Reset Password'}
+                {loading ? t('syncing') : t('changePasswordBtn')}
               </button>
             </div>
 
@@ -224,7 +226,7 @@ export const ResetPassword = () => {
                 to="/login"
                 className="text-xs font-semibold text-color-accent-purple hover:underline transition-colors"
               >
-                ← Back to Sign In
+                ← {t('backToSignIn')}
               </Link>
             </div>
           </form>

@@ -5,6 +5,7 @@ import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:http/http.dart' as http;
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class CustomerListScreen extends StatefulWidget {
   const CustomerListScreen({super.key});
@@ -81,14 +82,14 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Customers'),
+        title: Text(context.loc.customers),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _customers.isEmpty
               ? Center(
                   child: Text(
-                    'No customers registered yet.',
+                    context.loc.no_customers_found,
                     style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
                   ),
                 )

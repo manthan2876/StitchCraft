@@ -417,6 +417,396 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ready to Deliver'**
   String get ready_deliveries;
+
+  /// No description provided for @udhar_ledger.
+  ///
+  /// In en, this message translates to:
+  /// **'Udhar'**
+  String get udhar_ledger;
+
+  /// No description provided for @total_udhar_outstanding.
+  ///
+  /// In en, this message translates to:
+  /// **'TOTAL UDHAR OUTSTANDING'**
+  String get total_udhar_outstanding;
+
+  /// No description provided for @orders_with_balance.
+  ///
+  /// In en, this message translates to:
+  /// **'orders with balance'**
+  String get orders_with_balance;
+
+  /// No description provided for @no_udhar_balances.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending balances (Udhar)!'**
+  String get no_udhar_balances;
+
+  /// No description provided for @all_orders_paid.
+  ///
+  /// In en, this message translates to:
+  /// **'All customer orders are fully paid up.'**
+  String get all_orders_paid;
+
+  /// No description provided for @send_whatsapp_reminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Send WhatsApp Reminder'**
+  String get send_whatsapp_reminder;
+
+  /// No description provided for @order_num.
+  ///
+  /// In en, this message translates to:
+  /// **'Order #'**
+  String get order_num;
+
+  /// No description provided for @due_amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Due'**
+  String get due_amount;
+
+  /// No description provided for @paid_amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get paid_amount;
+
+  /// No description provided for @total_amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get total_amount;
+
+  /// No description provided for @sync_offline_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync & Offline Status'**
+  String get sync_offline_status;
+
+  /// No description provided for @refresh_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh Status'**
+  String get refresh_status;
+
+  /// No description provided for @all_changes_synced.
+  ///
+  /// In en, this message translates to:
+  /// **'All Changes Synced'**
+  String get all_changes_synced;
+
+  /// No description provided for @pending_local_changes.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending Local Changes'**
+  String get pending_local_changes;
+
+  /// No description provided for @last_sync.
+  ///
+  /// In en, this message translates to:
+  /// **'Last sync'**
+  String get last_sync;
+
+  /// No description provided for @sync_now_cloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Now with Cloud'**
+  String get sync_now_cloud;
+
+  /// No description provided for @syncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing...'**
+  String get syncing;
+
+  /// No description provided for @local_queue_breakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Local Queue Breakdown'**
+  String get local_queue_breakdown;
+
+  /// No description provided for @expenses_khata.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses & Khata'**
+  String get expenses_khata;
+
+  /// No description provided for @inventory_materials.
+  ///
+  /// In en, this message translates to:
+  /// **'Inventory Materials'**
+  String get inventory_materials;
+
+  /// No description provided for @failed_records.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed Records'**
+  String get failed_records;
+
+  /// No description provided for @failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get failed;
+
+  /// No description provided for @synced.
+  ///
+  /// In en, this message translates to:
+  /// **'Synced'**
+  String get synced;
+
+  /// No description provided for @pending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get pending;
+
+  /// No description provided for @sync_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync completed successfully!'**
+  String get sync_success;
+
+  /// No description provided for @just_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get just_now;
+
+  /// No description provided for @never_synced.
+  ///
+  /// In en, this message translates to:
+  /// **'Never synced'**
+  String get never_synced;
+
+  /// No description provided for @sign_in.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign In'**
+  String get sign_in;
+
+  /// No description provided for @email_address.
+  ///
+  /// In en, this message translates to:
+  /// **'Email Address'**
+  String get email_address;
+
+  /// No description provided for @password.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get password;
+
+  /// No description provided for @forgot_password.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot Password?'**
+  String get forgot_password;
+
+  /// No description provided for @reset_password.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Password'**
+  String get reset_password;
+
+  /// No description provided for @reset_password_instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your registered email address to receive a password reset link.'**
+  String get reset_password_instructions;
+
+  /// No description provided for @send_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Link'**
+  String get send_link;
+
+  /// No description provided for @login_successful.
+  ///
+  /// In en, this message translates to:
+  /// **'Login Successful! Welcome to StitchCraft.'**
+  String get login_successful;
+
+  /// No description provided for @login_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Login Failed'**
+  String get login_failed;
+
+  /// No description provided for @choose_role.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Role'**
+  String get choose_role;
+
+  /// No description provided for @who_are_you.
+  ///
+  /// In en, this message translates to:
+  /// **'Who are you?'**
+  String get who_are_you;
+
+  /// No description provided for @shop_owner_masterji.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop Owner (Masterji)'**
+  String get shop_owner_masterji;
+
+  /// No description provided for @full_access.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Access'**
+  String get full_access;
+
+  /// No description provided for @staff_karigar.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff (Karigar)'**
+  String get staff_karigar;
+
+  /// No description provided for @tasks_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks Only'**
+  String get tasks_only;
+
+  /// No description provided for @no_orders_found.
+  ///
+  /// In en, this message translates to:
+  /// **'No orders matching filters.'**
+  String get no_orders_found;
+
+  /// No description provided for @no_customers_found.
+  ///
+  /// In en, this message translates to:
+  /// **'No customers registered yet.'**
+  String get no_customers_found;
+
+  /// No description provided for @order_details.
+  ///
+  /// In en, this message translates to:
+  /// **'Order Details'**
+  String get order_details;
+
+  /// No description provided for @invoice_details.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice Details'**
+  String get invoice_details;
+
+  /// No description provided for @share_bill.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Bill'**
+  String get share_bill;
+
+  /// No description provided for @send_reminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Reminder'**
+  String get send_reminder;
+
+  /// No description provided for @download_pdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Download PDF'**
+  String get download_pdf;
+
+  /// No description provided for @send_pdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Send PDF'**
+  String get send_pdf;
+
+  /// No description provided for @total_charges.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Charges'**
+  String get total_charges;
+
+  /// No description provided for @balance_amount_due.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance Amount Due'**
+  String get balance_amount_due;
+
+  /// No description provided for @all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get all;
+
+  /// No description provided for @tailor_business_management.
+  ///
+  /// In en, this message translates to:
+  /// **'Tailor Business Management'**
+  String get tailor_business_management;
+
+  /// No description provided for @enter_email_warning.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter an email address'**
+  String get enter_email_warning;
+
+  /// No description provided for @password_reset_sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset link sent to'**
+  String get password_reset_sent;
+
+  /// No description provided for @profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
+  /// No description provided for @shops.
+  ///
+  /// In en, this message translates to:
+  /// **'Shops'**
+  String get shops;
+
+  /// No description provided for @settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settings;
+
+  /// No description provided for @security.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get security;
+
+  /// No description provided for @settings_and_hub.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings & Hub'**
+  String get settings_and_hub;
+
+  /// No description provided for @profile_updated.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile Updated Successfully!'**
+  String get profile_updated;
+
+  /// No description provided for @password_changed.
+  ///
+  /// In en, this message translates to:
+  /// **'Password Changed Successfully!'**
+  String get password_changed;
+
+  /// No description provided for @shop_updated.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop updated successfully'**
+  String get shop_updated;
+
+  /// No description provided for @fast_lane_repairs.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast Lane Repairs'**
+  String get fast_lane_repairs;
 }
 
 class _AppLocalizationsDelegate

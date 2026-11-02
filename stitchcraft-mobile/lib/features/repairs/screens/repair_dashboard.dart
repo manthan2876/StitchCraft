@@ -3,6 +3,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class RepairDashboard extends StatefulWidget {
   const RepairDashboard({super.key});
@@ -35,7 +36,7 @@ class _RepairDashboardState extends State<RepairDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.cream,
-      appBar: const CustomAppBar(title: 'Fast Lane Repairs'),
+      appBar: CustomAppBar(title: context.loc.fast_lane_repairs),
       body: Column(
         children: [
           Expanded(

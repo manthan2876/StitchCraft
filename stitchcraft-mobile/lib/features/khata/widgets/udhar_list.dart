@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/whatsapp_service.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class UdharList extends StatelessWidget {
   final List<Map<String, dynamic>> orders;
@@ -37,7 +38,7 @@ class UdharList extends StatelessWidget {
             const Icon(Icons.check_circle_outline, size: 56, color: AppTheme.trustGreen),
             const SizedBox(height: 12),
             Text(
-              'No pending balances (Udhar)!',
+              context.loc.no_udhar_balances,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: AppTheme.trustGreen,
@@ -45,7 +46,7 @@ class UdharList extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'All customer orders are fully paid up.',
+              context.loc.all_orders_paid,
               style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
             ),
           ],
@@ -72,7 +73,7 @@ class UdharList extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'TOTAL UDHAR OUTSTANDING',
+                    context.loc.total_udhar_outstanding,
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.1,
@@ -81,7 +82,7 @@ class UdharList extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${udharOrders.length} orders with balance',
+                    '${udharOrders.length} ${context.loc.orders_with_balance}',
                     style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.darkGrey),
                   ),
                 ],
@@ -132,7 +133,7 @@ class UdharList extends StatelessWidget {
                               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             Text(
-                              'Order #$orderId',
+                              '${context.loc.order_num}$orderId',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: AppTheme.darkGrey,
                                 fontSize: 13,
@@ -145,14 +146,14 @@ class UdharList extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            'Due: ₹${balance.toStringAsFixed(0)}',
+                            '${context.loc.due_amount}: ₹${balance.toStringAsFixed(0)}',
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: AppTheme.alertRed,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
                           Text(
-                            'Paid: ₹${advance.toStringAsFixed(0)} / Total: ₹${total.toStringAsFixed(0)}',
+                            '${context.loc.paid_amount}: ₹${advance.toStringAsFixed(0)} / ${context.loc.total_amount}: ₹${total.toStringAsFixed(0)}',
                             style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, color: AppTheme.darkGrey),
                           ),
                         ],
@@ -178,9 +179,9 @@ class UdharList extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       ),
                       icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                      label: const Text(
-                        'Send WhatsApp Reminder',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      label: Text(
+                        context.loc.send_whatsapp_reminder,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ),
                   ),

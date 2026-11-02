@@ -93,7 +93,8 @@ export const StaffManagement = () => {
   };
 
   const handleRemoveStaff = async (staffId, name) => {
-    if (!window.confirm(`Are you sure you want to remove ${name} from this shop?`)) {
+    const confirmMsg = (t('confirmRemoveStaff') || 'Are you sure you want to remove {name} from this shop?').replace('{name}', name);
+    if (!window.confirm(confirmMsg)) {
       return;
     }
 
@@ -121,28 +122,37 @@ export const StaffManagement = () => {
       case 'owner':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-600 border border-amber-500/20">
-            <MdAdminPanelSettings className="w-3.5 h-3.5" /> Owner
+            <MdAdminPanelSettings className="w-3.5 h-3.5" /> {t('roleOwner')}
           </span>
         );
       case 'manager':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-color-accent-purple/15 text-color-accent-purple border border-color-accent-purple/20">
-            <MdWork className="w-3.5 h-3.5" /> Manager
+            <MdWork className="w-3.5 h-3.5" /> {t('roleManager')}
           </span>
         );
       case 'karigar':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">
-            <MdEngineering className="w-3.5 h-3.5" /> Karigar
+            <MdEngineering className="w-3.5 h-3.5" /> {t('roleKarigar')}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-sky-500/15 text-sky-600 border border-sky-500/20">
-            <MdBadge className="w-3.5 h-3.5" /> Staff
+            <MdBadge className="w-3.5 h-3.5" /> {t('roleStaff')}
           </span>
         );
     }
+  };
+
+  const getRoleFilterLabel = (r) => {
+    if (r === 'ALL') return t('all');
+    if (r === 'owner') return t('roleOwner');
+    if (r === 'manager') return t('roleManager');
+    if (r === 'karigar') return t('roleKarigar');
+    if (r === 'staff') return t('roleStaff');
+    return r;
   };
 
   return (
@@ -152,10 +162,10 @@ export const StaffManagement = () => {
         <div>
           <h1 className="text-2xl font-bold text-text-main flex items-center gap-2">
             <MdSupervisorAccount className="text-color-accent-purple w-7 h-7" />
-            Staff & Role Management
+            {t('staffManagement')}
           </h1>
           <p className="text-xs text-text-muted mt-1 font-semibold">
-            Manage your boutique team members, assign operational roles, and control shop access.
+            {t('staffManagementSub')}
           </p>
         </div>
 
@@ -169,7 +179,7 @@ export const StaffManagement = () => {
             className="flex items-center gap-1.5 px-4 py-2.5 bg-color-accent-purple hover:bg-color-accent-purple-hover text-white-forced font-bold rounded-xl text-xs shadow-lg shadow-color-accent-purple/20 transition-all cursor-pointer"
           >
             <MdAdd className="w-4 h-4 text-white-forced" />
-            <span>Add Team Member</span>
+            <span>{t('addTeamMember')}</span>
           </button>
         )}
       </div>
@@ -182,7 +192,7 @@ export const StaffManagement = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, email, or phone..."
+            placeholder={t('searchStaffPlaceholder')}
             className="w-full pl-9 pr-4 py-2 bg-bg-input border border-border-subtle rounded-xl text-xs text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50"
           />
         </div>
@@ -197,7 +207,7 @@ export const StaffManagement = () => {
                   ? 'bg-color-accent-purple text-white-forced border-color-accent-purple shadow-sm'
                   : 'bg-bg-secondary text-text-muted border-border-subtle hover:bg-bg-hover hover:text-text-main'}`}
             >
-              {role}
+              {getRoleFilterLabel(role)}
             </button>
           ))}
         </div>
@@ -208,22 +218,22 @@ export const StaffManagement = () => {
         {loading ? (
           <div className="py-16 text-center text-xs text-text-muted font-bold flex flex-col items-center justify-center gap-3">
             <div className="w-8 h-8 rounded-full border-3 border-color-accent-purple border-t-transparent animate-spin"></div>
-            <span>Loading team members...</span>
+            <span>{t('loadingTeamMembers')}</span>
           </div>
         ) : filteredStaff.length === 0 ? (
           <div className="py-16 text-center text-xs text-text-muted font-semibold">
-            No staff members found matching your search criteria.
+            {t('noStaffFound')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="bg-bg-secondary border-b border-border-subtle text-[10px] font-extrabold text-text-muted uppercase tracking-wider">
-                  <th className="px-5 py-3.5">Member</th>
-                  <th className="px-5 py-3.5">Contact</th>
-                  <th className="px-5 py-3.5">Role</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  {isManagerOrOwner && <th className="px-5 py-3.5 text-right">Actions</th>}
+                  <th className="px-5 py-3.5">{t('member')}</th>
+                  <th className="px-5 py-3.5">{t('contact')}</th>
+                  <th className="px-5 py-3.5">{t('role')}</th>
+                  <th className="px-5 py-3.5">{t('status')}</th>
+                  {isManagerOrOwner && <th className="px-5 py-3.5 text-right">{t('actions')}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle font-medium text-text-main">
@@ -243,7 +253,7 @@ export const StaffManagement = () => {
                               {member.name}
                               {isCurrentLoggedUser && (
                                 <span className="ml-1.5 text-[9px] font-extrabold text-color-accent-purple uppercase tracking-wider bg-color-accent-purple/10 px-1.5 py-0.5 rounded">
-                                  You
+                                  {t('you')}
                                 </span>
                               )}
                             </span>
@@ -263,9 +273,9 @@ export const StaffManagement = () => {
                             onChange={(e) => handleRoleChange(member._id, e.target.value)}
                             className="bg-bg-input border border-border-subtle rounded-lg px-2.5 py-1 text-xs font-bold text-text-main outline-none focus:border-color-accent-purple cursor-pointer"
                           >
-                            <option value="manager">Manager</option>
-                            <option value="karigar">Karigar</option>
-                            <option value="staff">Staff</option>
+                            <option value="manager">{t('roleManager')}</option>
+                            <option value="karigar">{t('roleKarigar')}</option>
+                            <option value="staff">{t('roleStaff')}</option>
                           </select>
                         ) : (
                           getRoleBadge(member.role)
@@ -275,11 +285,11 @@ export const StaffManagement = () => {
                       <td className="px-5 py-4">
                         {member.isActive ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500">
-                            <MdCheckCircle className="w-3.5 h-3.5" /> Active
+                            <MdCheckCircle className="w-3.5 h-3.5" /> {t('active')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500">
-                            <MdBlock className="w-3.5 h-3.5" /> Suspended
+                            <MdBlock className="w-3.5 h-3.5" /> {t('suspended')}
                           </span>
                         )}
                       </td>
@@ -295,21 +305,21 @@ export const StaffManagement = () => {
                                     ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20'
                                     : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'}`}
                               >
-                                {member.isActive ? 'Deactivate' : 'Reactivate'}
+                                {member.isActive ? t('deactivate') : t('reactivate')}
                               </button>
 
                               {isOwner && (
                                 <button
                                   onClick={() => handleRemoveStaff(member._id, member.name)}
                                   className="p-1.5 rounded-lg text-text-muted hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                  title="Remove from shop"
+                                  title={t('confirmRemoveStaff')}
                                 >
                                   <MdDeleteOutline className="w-4 h-4" />
                                 </button>
                               )}
                             </div>
                           ) : (
-                            <span className="text-[10px] font-semibold text-text-muted italic">Protected</span>
+                            <span className="text-[10px] font-semibold text-text-muted italic">{t('protected')}</span>
                           )}
                         </td>
                       )}
@@ -335,15 +345,15 @@ export const StaffManagement = () => {
 
             <h3 className="text-lg font-black text-text-main flex items-center gap-2 mb-1">
               <MdSupervisorAccount className="text-color-accent-purple w-5 h-5" />
-              Add Team Member
+              {t('addTeamMember')}
             </h3>
             <p className="text-xs text-text-muted mb-5 font-semibold">
-              Invite a staff member, karigar, or manager to collaborate in your shop.
+              {t('addMemberDesc')}
             </p>
 
             <form onSubmit={handleAddStaffSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Full Name *</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('fullName')} *</label>
                 <input
                   type="text"
                   required
@@ -356,7 +366,7 @@ export const StaffManagement = () => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Email Address *</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('emailAddress')} *</label>
                 <input
                   type="email"
                   required
@@ -368,7 +378,7 @@ export const StaffManagement = () => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Phone Number (Optional)</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('phoneNumberOptional')}</label>
                 <input
                   type="tel"
                   value={newStaff.phone}
@@ -379,15 +389,15 @@ export const StaffManagement = () => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Assigned Role</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('assignedRole')}</label>
                 <select
                   value={newStaff.role}
                   onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
                   className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-bold cursor-pointer"
                 >
-                  {isOwner && <option value="manager">Manager (Operations & Staff Management)</option>}
-                  <option value="karigar">Karigar (Cutting & Stitching Workshop)</option>
-                  <option value="staff">Staff (Front-desk, Measurements & Orders)</option>
+                  {isOwner && <option value="manager">{t('roleManagerDesc')}</option>}
+                  <option value="karigar">{t('roleKarigarDesc')}</option>
+                  <option value="staff">{t('roleStaffDesc')}</option>
                 </select>
               </div>
 
@@ -403,14 +413,14 @@ export const StaffManagement = () => {
                   onClick={() => setIsAddModalOpen(false)}
                   className="flex-1 py-2.5 bg-bg-secondary border border-border-subtle hover:bg-bg-hover text-text-main font-bold text-sm transition-all cursor-pointer rounded-xl"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={modalLoading}
                   className="flex-1 py-2.5 bg-color-accent-purple text-white-forced rounded-xl font-bold text-sm shadow-lg shadow-color-accent-purple/20 hover:bg-color-accent-purple/90 transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {modalLoading ? 'Adding...' : 'Add Member'}
+                  {modalLoading ? t('adding') : t('addTeamMember')}
                 </button>
               </div>
             </form>

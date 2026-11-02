@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../context/LanguageContext';
 import { GiScissors, GiPadlock } from 'react-icons/gi';
 import { MdEmail, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { validateEmail, validateRequired } from '../utils/formValidators';
 
 export const Login = () => {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -59,12 +61,12 @@ export const Login = () => {
               <GiScissors className="w-6 h-6 transform -rotate-45" />
             </div>
             <h1 className="text-xl font-bold text-text-main mt-2 tracking-wide">StitchCraft ERP</h1>
-            <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase">Masterji Shop Portal</p>
+            <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase">{t('masterjiShopPortal')}</p>
           </div>
 
           <div className="flex flex-col gap-4 w-full">
             <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Email Address</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('emailAddress')}</label>
               <div className="relative">
                 <MdEmail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-5 h-5" />
                 <input
@@ -81,12 +83,12 @@ export const Login = () => {
 
             <div className="flex flex-col gap-1.5 text-left">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Password</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('password') || 'Password'}</label>
                 <Link
                   to="/forgot-password"
                   className="text-[11px] font-semibold text-color-accent-purple hover:underline transition-colors"
                 >
-                  Forgot Password?
+                  {t('forgotPassword')}
                 </Link>
               </div>
               <div className="relative">
@@ -122,15 +124,15 @@ export const Login = () => {
               disabled={loading}
               className="mt-4 w-full py-3 bg-color-accent-purple hover:bg-color-accent-purple-hover text-white font-medium rounded-lg active:scale-98 transition-all duration-200 cursor-pointer disabled:opacity-50 text-sm shadow-sm"
             >
-              {loading ? 'Logging in...' : 'Sign In'}
+              {loading ? t('loggingIn') : t('signIn')}
             </button>
           </div>
 
           <div className="mt-6 text-center flex flex-col gap-2">
             <span className="text-[11px] text-text-muted font-semibold tracking-wider">
-              Don't have an account?{' '}
+              {t('dontHaveAccount')}{' '}
               <Link to="/signup" className="text-color-accent-purple font-bold hover:underline">
-                Sign Up
+                {t('signUp')}
               </Link>
             </span>
           </div>

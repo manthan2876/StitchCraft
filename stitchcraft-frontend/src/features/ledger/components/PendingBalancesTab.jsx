@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../../../components/common/Card';
 import { api } from '../../../services/api';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { useLanguage } from '../../../context/LanguageContext';
 import {
   MdSearch,
   MdPhone,
@@ -17,6 +18,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 export const PendingBalancesTab = () => {
+  const { t } = useLanguage();
   const [data, setData] = useState({ totalOutstanding: 0, customerCount: 0, customers: [] });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -59,7 +61,7 @@ export const PendingBalancesTab = () => {
             <MdWarningAmber className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted">Total Udhar Outstanding</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted">{t('totalUdharOutstanding')}</span>
             <h3 className="text-xl font-black text-rose-500 mt-0.5">{formatCurrency(data.totalOutstanding || 0)}</h3>
           </div>
         </Card>
@@ -69,7 +71,7 @@ export const PendingBalancesTab = () => {
             <MdOutlineAccountBalanceWallet className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted">Customers with Balance</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted">{t('customersWithBalance')}</span>
             <h3 className="text-xl font-black text-text-main mt-0.5">{data.customerCount || 0}</h3>
           </div>
         </Card>
@@ -79,7 +81,7 @@ export const PendingBalancesTab = () => {
             <MdReceiptLong className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted">Average Outstanding</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-text-muted">{t('averageOutstanding')}</span>
             <h3 className="text-xl font-black text-text-main mt-0.5">
               {formatCurrency(data.customerCount > 0 ? (data.totalOutstanding / data.customerCount) : 0)}
             </h3>
@@ -95,12 +97,14 @@ export const PendingBalancesTab = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by customer name, phone, or order ID..."
+            placeholder={t('searchUdharPlaceholder')}
             className="w-full pl-9 pr-4 py-2 bg-bg-input border border-border-subtle rounded-xl text-xs text-text-main outline-none focus:border-color-accent-purple transition-all placeholder:text-text-muted/50"
           />
         </div>
         <span className="text-xs text-text-muted font-bold hidden sm:inline">
-          Showing {filteredCustomers.length} of {data.customerCount} owing balances
+          {(t('showingBalances') || 'Showing {filtered} of {total} owing balances')
+            .replace('{filtered}', filteredCustomers.length)
+            .replace('{total}', data.customerCount)}
         </span>
       </Card>
 
@@ -109,21 +113,21 @@ export const PendingBalancesTab = () => {
         {loading ? (
           <div className="py-16 text-center text-xs text-text-muted font-bold flex flex-col items-center justify-center gap-3">
             <div className="w-8 h-8 rounded-full border-3 border-color-accent-purple border-t-transparent animate-spin"></div>
-            <span>Calculating customer pending balances...</span>
+            <span>{t('calculatingBalances')}</span>
           </div>
         ) : filteredCustomers.length === 0 ? (
           <div className="py-16 text-center text-xs text-text-muted font-semibold">
-            {search ? 'No matching customer balance records found.' : '🎉 All clear! No pending customer balances (Udhar) on record.'}
+            {search ? t('noMatchingUdhar') : t('noUdharRecords')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="bg-bg-secondary border-b border-border-subtle text-[10px] font-extrabold text-text-muted uppercase tracking-wider">
-                  <th className="px-5 py-3.5">Customer</th>
-                  <th className="px-5 py-3.5">Pending Orders</th>
-                  <th className="px-5 py-3.5 text-right">Outstanding Due</th>
-                  <th className="px-5 py-3.5 text-right">Reminder Actions</th>
+                  <th className="px-5 py-3.5">{t('customer')}</th>
+                  <th className="px-5 py-3.5">{t('pendingOrders')}</th>
+                  <th className="px-5 py-3.5 text-right">{t('outstandingDue')}</th>
+                  <th className="px-5 py-3.5 text-right">{t('reminderActions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle font-medium text-text-main">
@@ -167,7 +171,7 @@ export const PendingBalancesTab = () => {
                         </div>
                         {customer.oldestDueDate && (
                           <span className="text-[10px] text-text-muted mt-1 block">
-                            Oldest Due: {formatDate(customer.oldestDueDate)}
+                            {t('oldestDue')}: {formatDate(customer.oldestDueDate)}
                           </span>
                         )}
                       </td>
@@ -189,7 +193,7 @@ export const PendingBalancesTab = () => {
                               title="Send WhatsApp payment reminder"
                             >
                               <FaWhatsapp className="w-3.5 h-3.5" />
-                              <span>WhatsApp</span>
+                              <span>{t('sendWhatsApp')}</span>
                             </a>
                           ) : (
                             <span className="text-[10px] text-text-muted italic">No Phone</span>
@@ -198,7 +202,7 @@ export const PendingBalancesTab = () => {
                           <button
                             onClick={() => handleCopyReminder(customer.whatsappReminderText, customer._id)}
                             className="p-2 rounded-xl bg-bg-secondary hover:bg-bg-hover border border-border-subtle text-text-muted hover:text-text-main transition-colors cursor-pointer"
-                            title="Copy reminder message"
+                            title={t('copyReminder')}
                           >
                             {isCopied ? <MdCheck className="w-3.5 h-3.5 text-emerald-500" /> : <MdContentCopy className="w-3.5 h-3.5" />}
                           </button>

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../context/LanguageContext';
 import { GiScissors, GiPadlock } from 'react-icons/gi';
 import { MdEmail, MdPerson, MdStore, MdPhone, MdLocationOn, MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { validateEmail, validatePhone, validateMinLength, validatePassword } from '../utils/formValidators';
 
 export const Signup = () => {
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,13 +80,13 @@ export const Signup = () => {
             <div className="w-12 h-12 rounded-xl bg-color-accent-purple flex items-center justify-center text-white shadow-sm">
               <GiScissors className="w-6 h-6 transform -rotate-45" />
             </div>
-            <h1 className="text-xl font-bold text-text-main mt-2 tracking-wide">Setup Boutique Shop</h1>
-            <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase">Create Masterji Owner Account</p>
+            <h1 className="text-xl font-bold text-text-main mt-2 tracking-wide">StitchCraft ERP</h1>
+            <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase">{t('masterjiShopPortal')}</p>
           </div>
 
           <div className="flex flex-col gap-3.5 w-full text-left">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Masterji Name *</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('masterjiName')} *</label>
               <div className="relative">
                 <MdPerson className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-4.5 h-4.5" />
                 <input
@@ -100,7 +102,7 @@ export const Signup = () => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Email Address *</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('emailAddress')} *</label>
               <div className="relative">
                 <MdEmail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-4.5 h-4.5" />
                 <input
@@ -116,7 +118,7 @@ export const Signup = () => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Secure Password *</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('password') || 'Password'} *</label>
               <div className="relative">
                 <GiPadlock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-4.5 h-4.5" />
                 <input
@@ -140,7 +142,7 @@ export const Signup = () => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Tailor Shop Name *</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('shopNameRequired')}</label>
               <div className="relative">
                 <MdStore className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-4.5 h-4.5" />
                 <input
@@ -156,7 +158,7 @@ export const Signup = () => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Shop Phone Number</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('contactPhone')}</label>
               <div className="relative">
                 <MdPhone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-4.5 h-4.5" />
                 <input
@@ -172,7 +174,7 @@ export const Signup = () => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Shop Location Address</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('shopAddress')}</label>
               <div className="relative">
                 <MdLocationOn className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-4.5 h-4.5" />
                 <input
@@ -196,15 +198,15 @@ export const Signup = () => {
               disabled={loading}
               className="mt-3 w-full py-3 bg-color-accent-purple hover:bg-color-accent-purple-hover text-white font-medium rounded-lg active:scale-98 transition-all duration-200 cursor-pointer disabled:opacity-50 text-sm shadow-sm"
             >
-              {loading ? 'Registering Shop...' : 'Create Account & Shop'}
+              {loading ? t('creatingAccount') : t('createAccount')}
             </button>
           </div>
 
           <div className="mt-6 text-center">
             <span className="text-[11px] text-text-muted font-semibold tracking-wider">
-              Already have a shop account?{' '}
+              {t('alreadyHaveAccount')}{' '}
               <Link to="/login" className="text-color-accent-purple font-bold hover:underline">
-                Sign In
+                {t('signIn')}
               </Link>
             </span>
           </div>

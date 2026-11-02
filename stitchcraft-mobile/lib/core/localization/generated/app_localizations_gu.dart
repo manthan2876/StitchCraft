@@ -167,4 +167,199 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get ready_deliveries => 'ડિલિવરી માટે તૈયાર';
+
+  @override
+  String get udhar_ledger => 'ઉધાર';
+
+  @override
+  String get total_udhar_outstanding => 'કુલ બાકી ઉધાર';
+
+  @override
+  String get orders_with_balance => 'બાકી રકમ વાળા ઓર્ડર';
+
+  @override
+  String get no_udhar_balances => 'કોઈ બાકી રકમ (ઉધાર) નથી!';
+
+  @override
+  String get all_orders_paid => 'બધા ગ્રાહક ઓર્ડર સંપૂર્ણ ચૂકવાયેલા છે.';
+
+  @override
+  String get send_whatsapp_reminder => 'વોટ્સએપ રીમાઇન્ડર મોકલો';
+
+  @override
+  String get order_num => 'ઓર્ડર #';
+
+  @override
+  String get due_amount => 'બાકી';
+
+  @override
+  String get paid_amount => 'ચૂકવેલ';
+
+  @override
+  String get total_amount => 'કુલ';
+
+  @override
+  String get sync_offline_status => 'સિંક અને ઑફલાઇન સ્થિતિ';
+
+  @override
+  String get refresh_status => 'સ્થિતિ તાજી કરો';
+
+  @override
+  String get all_changes_synced => 'બધા ફેરફારો સિંક થઈ ગયા';
+
+  @override
+  String get pending_local_changes => 'બાકી સ્થાનિક ફેરફારો';
+
+  @override
+  String get last_sync => 'છેલ્લું સિંક';
+
+  @override
+  String get sync_now_cloud => 'ક્લાઉડ સાથે હમણાં સિંક કરો';
+
+  @override
+  String get syncing => 'સિંક થઈ રહ્યું છે...';
+
+  @override
+  String get local_queue_breakdown => 'સ્થાનિક કતાર વિગત';
+
+  @override
+  String get expenses_khata => 'ખર્ચ અને ખાતાવહી';
+
+  @override
+  String get inventory_materials => 'કાપડ સામગ્રી સ્ટોક';
+
+  @override
+  String get failed_records => 'નિષ્ફળ રેકોર્ડ્સ';
+
+  @override
+  String get failed => 'નિષ્ફળ';
+
+  @override
+  String get synced => 'સિંક થયેલ';
+
+  @override
+  String get pending => 'બાકી';
+
+  @override
+  String get sync_success => 'સિંક સફળતાપૂર્વક પૂર્ણ થયું!';
+
+  @override
+  String get just_now => 'હમણાં જ';
+
+  @override
+  String get never_synced => 'ક્યારેય સિંક નથી થયું';
+
+  @override
+  String get sign_in => 'સાઇન ઇન';
+
+  @override
+  String get email_address => 'ઇમેઇલ સરનામું';
+
+  @override
+  String get password => 'પાસવર્ડ';
+
+  @override
+  String get forgot_password => 'પાસવર્ડ ભૂલી ગયા છો?';
+
+  @override
+  String get reset_password => 'પાસવર્ડ રીસેટ કરો';
+
+  @override
+  String get reset_password_instructions => 'પાસવર્ડ રીસેટ લિંક મેળવવા માટે તમારું રજિસ્ટર્ડ ઈમેઈલ સરનામું દાખલ કરો.';
+
+  @override
+  String get send_link => 'લિંક મોકલો';
+
+  @override
+  String get login_successful => 'લૉગિન સફળ! સ્ટીચક્રાફ્ટમાં આપનું સ્વાગત છે.';
+
+  @override
+  String get login_failed => 'લૉગિન નિષ્ફળ';
+
+  @override
+  String get choose_role => 'ભૂમિકા પસંદ કરો';
+
+  @override
+  String get who_are_you => 'તમે કોણ છો?';
+
+  @override
+  String get shop_owner_masterji => 'દુકાન માલિક (માસ્ટરજી)';
+
+  @override
+  String get full_access => 'સંપૂર્ણ ઍક્સેસ';
+
+  @override
+  String get staff_karigar => 'સ્ટાફ (કારીગર)';
+
+  @override
+  String get tasks_only => 'માત્ર સોંપાયેલ કાર્યો';
+
+  @override
+  String get no_orders_found => 'કોઈ મેળ ખાતા ઓર્ડર મળ્યા નથી.';
+
+  @override
+  String get no_customers_found => 'હજી સુધી કોઈ ગ્રાહકો નોંધાયેલા નથી.';
+
+  @override
+  String get order_details => 'ઓર્ડર વિગતો';
+
+  @override
+  String get invoice_details => 'ઇન્વોઇસ વિગતો';
+
+  @override
+  String get share_bill => 'બિલ શેર કરો';
+
+  @override
+  String get send_reminder => 'રિમાઇન્ડર મોકલો';
+
+  @override
+  String get download_pdf => 'પીડીએફ ડાઉનલોડ કરો';
+
+  @override
+  String get send_pdf => 'પીડીએફ મોકલો';
+
+  @override
+  String get total_charges => 'કુલ શુલ્ક';
+
+  @override
+  String get balance_amount_due => 'બાકી રકમ';
+
+  @override
+  String get all => 'બધા';
+
+  @override
+  String get tailor_business_management => 'દરજી બિઝનેસ મેનેજમેન્ટ';
+
+  @override
+  String get enter_email_warning => 'કૃપા કરીને ઇમેઇલ સરનામું દાખલ કરો';
+
+  @override
+  String get password_reset_sent => 'પાસવર્ડ રીસેટ લિંક મોકલાઈ ગઈ છે:';
+
+  @override
+  String get profile => 'પ્રોફાઇલ';
+
+  @override
+  String get shops => 'દુકાનો';
+
+  @override
+  String get settings => 'સેટિંગ્સ';
+
+  @override
+  String get security => 'સુરક્ષા';
+
+  @override
+  String get settings_and_hub => 'સેટિંગ્સ અને હબ';
+
+  @override
+  String get profile_updated => 'પ્રોફાઇલ સફળતાપૂર્વક અપડેટ થઈ!';
+
+  @override
+  String get password_changed => 'પાસવર્ડ સફળતાપૂર્વક બદલાઈ ગયો!';
+
+  @override
+  String get shop_updated => 'દુકાન સફળતાપૂર્વક અપડેટ થઈ';
+
+  @override
+  String get fast_lane_repairs => 'ઝડપી સમારકામ';
 }

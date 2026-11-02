@@ -85,7 +85,7 @@ export const ShopModal = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">UPI ID (VPA for Pay QR)</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('upiIdVpa')}</label>
               <input
                 type="text"
                 value={shopForm.upiId || ''}
@@ -96,7 +96,7 @@ export const ShopModal = ({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">GSTIN Number</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('gstinNumber')}</label>
               <input
                 type="text"
                 maxLength={15}
@@ -110,7 +110,7 @@ export const ShopModal = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Invoice Prefix</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('invoicePrefix')}</label>
               <input
                 type="text"
                 maxLength={8}
@@ -122,7 +122,7 @@ export const ShopModal = ({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Shop Logo Image URL</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('shopLogoUrl')}</label>
               <input
                 type="url"
                 value={shopForm.logoUrl || ''}

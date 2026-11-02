@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../context/LanguageContext';
 import { GiScissors } from 'react-icons/gi';
 import { MdEmail, MdCheckCircleOutline } from 'react-icons/md';
 import { validateEmail } from '../utils/formValidators';
 
 export const ForgotPassword = () => {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
@@ -48,7 +50,7 @@ export const ForgotPassword = () => {
             <GiScissors className="w-6 h-6 transform -rotate-45" />
           </div>
           <h1 className="text-xl font-bold text-text-main mt-2 tracking-wide">StitchCraft ERP</h1>
-          <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase">Password Recovery</p>
+          <p className="text-[10px] text-text-muted font-bold tracking-wider uppercase">{t('forgotPasswordTitle')}</p>
         </div>
 
         {isSubmitted ? (
@@ -56,26 +58,26 @@ export const ForgotPassword = () => {
             <div className="w-14 h-14 rounded-full bg-color-accent-green/15 text-color-accent-green flex items-center justify-center mb-4">
               <MdCheckCircleOutline className="w-8 h-8" />
             </div>
-            <h2 className="text-lg font-bold text-text-main mb-2">Check Your Email</h2>
+            <h2 className="text-lg font-bold text-text-main mb-2">{t('checkYourEmail')}</h2>
             <p className="text-xs text-text-muted leading-relaxed mb-6">
-              We have sent a password reset link to <strong className="text-text-main">{email}</strong>. Follow the instructions in the email to set a new password.
+              {(t('resetLinkSent') || 'We have sent a password reset link to your email. Follow the instructions in the email to set a new password.')}
             </p>
             <Link
               to="/login"
               className="w-full py-3 bg-color-accent-purple hover:bg-color-accent-purple-hover text-white font-medium rounded-lg text-sm text-center transition-all shadow-sm"
             >
-              Back to Sign In
+              {t('backToSignIn')}
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="w-full flex flex-col items-center">
             <p className="text-xs text-text-muted text-center mb-6 leading-relaxed">
-              Enter your registered email address and we'll send you a link to reset your password.
+              {t('forgotPasswordPrompt')}
             </p>
 
             <div className="flex flex-col gap-4 w-full">
               <div className="flex flex-col gap-1.5 text-left">
-                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Email Address</label>
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('emailAddress')}</label>
                 <div className="relative">
                   <MdEmail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-5 h-5" />
                   <input
@@ -107,7 +109,7 @@ export const ForgotPassword = () => {
                 disabled={loading}
                 className="mt-2 w-full py-3 bg-color-accent-purple hover:bg-color-accent-purple-hover text-white font-medium rounded-lg active:scale-98 transition-all duration-200 cursor-pointer disabled:opacity-50 text-sm shadow-sm"
               >
-                {loading ? 'Sending link...' : 'Send Reset Link'}
+                {loading ? t('syncing') : t('sendResetLink')}
               </button>
             </div>
 
@@ -116,7 +118,7 @@ export const ForgotPassword = () => {
                 to="/login"
                 className="text-xs font-semibold text-color-accent-purple hover:underline transition-colors"
               >
-                ← Back to Sign In
+                ← {t('backToSignIn')}
               </Link>
             </div>
           </form>

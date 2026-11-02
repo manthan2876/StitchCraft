@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/common/Button';
+import { useLanguage } from '../context/LanguageContext';
 import { GiScissors } from 'react-icons/gi';
 
 export const NotFound = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   return (
     <div className="w-screen h-screen bg-bg-primary flex flex-col items-center justify-center p-6 text-center select-none">
@@ -21,9 +23,9 @@ export const NotFound = () => {
       </div>
 
       <h1 className="text-7xl font-black text-white tracking-tight">404</h1>
-      <h2 className="text-xl font-bold text-color-accent-pink tracking-wider uppercase mt-2">Stitch Pattern Snapped</h2>
+      <h2 className="text-xl font-bold text-color-accent-pink tracking-wider uppercase mt-2">{t('stitchPatternSnapped')}</h2>
       <p className="text-sm text-text-muted mt-3 max-w-[320px] leading-relaxed">
-        The page you are looking for has been cut from the final fabric or doesn't exist in our pattern directory!
+        {t('pageNotFoundDesc')}
       </p>
 
       <Button 
@@ -31,7 +33,7 @@ export const NotFound = () => {
         onClick={() => navigate('/dashboard')}
         className="mt-8 cursor-pointer"
       >
-        Return to Dashboard
+        {t('returnToDashboard')}
       </Button>
 
     </div>

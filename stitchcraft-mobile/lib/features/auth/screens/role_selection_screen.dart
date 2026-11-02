@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
   const RoleSelectionScreen({super.key});
@@ -10,7 +11,7 @@ class RoleSelectionScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.cream,
       appBar: AppBar(
-        title: const Text('Choose Role'),
+        title: Text(context.loc.choose_role),
         automaticallyImplyLeading: false,
       ),
       body: Padding(
@@ -19,7 +20,7 @@ class RoleSelectionScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 20),
             Text(
-              'તમે કોણ છો?',
+              context.loc.who_are_you,
               style: AppTheme.masterjiTheme.textTheme.headlineMedium,
             ),
             const SizedBox(height: 40),
@@ -29,8 +30,8 @@ class RoleSelectionScreen extends StatelessWidget {
                   children: [
                     _buildRoleCard(
                       context,
-                      'Shop Owner (Masterji)',
-                      'Full Access',
+                      context.loc.shop_owner_masterji,
+                      context.loc.full_access,
                       Icons.store,
                       AppTheme.marigold,
                       () => Navigator.pushNamed(context, '/shop_setup'),
@@ -38,8 +39,8 @@ class RoleSelectionScreen extends StatelessWidget {
                     const SizedBox(height: 24),
                     _buildRoleCard(
                       context,
-                      'Staff (Karigar)',
-                      'Tasks Only',
+                      context.loc.staff_karigar,
+                      context.loc.tasks_only,
                       Icons.cut,
                       AppTheme.emerald,
                       () => Navigator.pushNamed(context, '/home'),

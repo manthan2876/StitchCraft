@@ -32,7 +32,7 @@ class SettingsTab extends StatelessWidget {
             // Cloud Sync & Offline Status Tile
             ListTile(
               leading: const Icon(Icons.sync_rounded, color: AppTheme.brandPurple),
-              title: Text('Cloud Sync & Offline Status', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
+              title: Text(context.loc.sync_offline_status, style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
               subtitle: const Text('Review pending local items & force sync', style: TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.darkGrey),
               onTap: () {
@@ -93,9 +93,9 @@ class SettingsTab extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               tileColor: AppTheme.alertRed.withValues(alpha: 0.08),
               leading: const Icon(Icons.logout_rounded, color: AppTheme.alertRed),
-              title: const Text(
-                'Logout',
-                style: TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold, fontSize: 16),
+              title: Text(
+                context.loc.logout,
+                style: const TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.alertRed),
               onTap: onLogout,
