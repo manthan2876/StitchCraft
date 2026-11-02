@@ -59,8 +59,8 @@ export const ShopInfoTab = ({
                     </div>
                     <div className="min-w-0 pr-12">
                       <h4 className="text-sm font-bold text-text-main truncate">{shop.shopName}</h4>
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#007aff]">
-                        {t((shop.plan || 'Free').toLowerCase() + 'Plan')}
+                      <span className="text-[10px] font-bold text-text-muted">
+                        {shop.invoicePrefix ? `Prefix: ${shop.invoicePrefix}` : 'Tailor Shop'}
                       </span>
                     </div>
                   </div>

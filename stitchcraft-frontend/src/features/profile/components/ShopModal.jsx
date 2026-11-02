@@ -122,28 +122,15 @@ export const ShopModal = ({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('planTier')}</label>
-              <select
-                value={shopForm.plan}
-                onChange={e => setShopForm({ ...shopForm, plan: e.target.value })}
-                className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all cursor-pointer font-bold"
-              >
-                <option value="Free" className="bg-bg-card text-text-main">{t('freePlan')}</option>
-                <option value="Basic" className="bg-bg-card text-text-main">{t('basicPlan')}</option>
-                <option value="Premium" className="bg-bg-card text-text-main">{t('premiumPlan')}</option>
-              </select>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Shop Logo Image URL</label>
+              <input
+                type="url"
+                value={shopForm.logoUrl || ''}
+                onChange={e => setShopForm({ ...shopForm, logoUrl: e.target.value })}
+                placeholder="https://example.com/logo.png"
+                className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+              />
             </div>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Shop Logo Image URL</label>
-            <input
-              type="url"
-              value={shopForm.logoUrl || ''}
-              onChange={e => setShopForm({ ...shopForm, logoUrl: e.target.value })}
-              placeholder="https://example.com/logo.png"
-              className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
-            />
           </div>
 
           {shopError && (
