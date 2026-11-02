@@ -25,24 +25,22 @@ class _LoginScreenState extends State<LoginScreen> {
       
       await _authService.login(email, password);
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login Successful! Welcome to StitchCraft.'),
-            backgroundColor: AppTheme.trustGreen,
-          ),
-        );
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login Successful! Welcome to StitchCraft.'),
+          backgroundColor: AppTheme.trustGreen,
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login Failed: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: AppTheme.alertRed,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppTheme.alertRed,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -52,19 +50,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _showForgotPasswordDialog() async {
     final resetEmailController = TextEditingController(text: _emailController.text.trim());
+    final messenger = ScaffoldMessenger.of(context);
     bool isSending = false;
 
     await showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: Theme.of(context).cardColor,
+        builder: (dialogInnerCtx, setDialogState) => AlertDialog(
+          backgroundColor: Theme.of(dialogInnerCtx).cardColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             'Reset Password',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).textTheme.titleLarge?.color,
+              color: Theme.of(dialogInnerCtx).textTheme.titleLarge?.color,
             ),
           ),
           content: Column(
@@ -107,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   : () async {
                       final email = resetEmailController.text.trim();
                       if (email.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Text('Please enter an email address'),
                             backgroundColor: AppTheme.alertRed,
@@ -122,24 +121,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (dialogCtx.mounted) {
                           Navigator.of(dialogCtx).pop();
                         }
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Password reset link sent to $email'),
-                              backgroundColor: AppTheme.trustGreen,
-                            ),
-                          );
-                        }
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Password reset link sent to $email'),
+                            backgroundColor: AppTheme.trustGreen,
+                          ),
+                        );
                       } catch (e) {
                         setDialogState(() => isSending = false);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
-                              backgroundColor: AppTheme.alertRed,
-                            ),
-                          );
-                        }
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+                            backgroundColor: AppTheme.alertRed,
+                          ),
+                        );
                       }
                     },
               child: isSending
