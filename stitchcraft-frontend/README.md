@@ -49,6 +49,8 @@ stitchcraft-frontend/
 │   │   ├── Profile.jsx           # User profile, shops, security, export/import
 │   │   ├── Login.jsx             # User login
 │   │   ├── Signup.jsx            # Shop & owner registration
+│   │   ├── ForgotPassword.jsx    # Request password recovery email
+│   │   ├── ResetPassword.jsx     # Set new password from recovery link
 │   │   └── NotFound.jsx          # 404 fallback page
 │   │
 │   ├── features/                 # Modular feature domains

@@ -131,6 +131,37 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('stitchcraft_token');
   };
 
+  const forgotPassword = async (email) => {
+    setLoading(true);
+    try {
+      const redirectTo = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+      if (error) throw error;
+      setLoading(false);
+      return { success: true };
+    } catch (err) {
+      setLoading(false);
+      throw err;
+    }
+  };
+
+  const resetPassword = async (newPassword) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) throw error;
+      setLoading(false);
+      return data;
+    } catch (err) {
+      setLoading(false);
+      throw err;
+    }
+  };
+
   const updateUser = (updatedData) => {
     setUser(prev => {
       if (!prev) return null;
@@ -141,7 +172,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, loading, updateUser }}>
+    <AuthContext.Provider value={{ user, login, logout, register, loading, updateUser, forgotPassword, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

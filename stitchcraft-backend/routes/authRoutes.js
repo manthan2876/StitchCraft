@@ -6,6 +6,8 @@ import {
   verifyEmail,
   updatePassword,
   verifyPasswordOnly,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/authController.js';
 import {
   getUserProfile,
@@ -21,11 +23,17 @@ import {
 } from '../controllers/accountController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 import { authLimiter, destructiveLimiter } from '../middleware/securityMiddleware.js';
-import { validateRegisterRequest } from '../middleware/validationMiddleware.js';
+import {
+  validateRegisterRequest,
+  validateForgotPasswordRequest,
+  validateResetPasswordRequest,
+} from '../middleware/validationMiddleware.js';
 
 router.post('/register', authLimiter, validateRegisterRequest, registerUser);
 router.post('/login', authLimiter, loginUser);
 router.post('/verify', authLimiter, verifyEmail);
+router.post('/forgot-password', authLimiter, validateForgotPasswordRequest, forgotPassword);
+router.post('/reset-password', protect, authLimiter, validateResetPasswordRequest, resetPassword);
 router.route('/profile')
   .get(protect, getUserProfile)
   .put(protect, updateUserProfile);

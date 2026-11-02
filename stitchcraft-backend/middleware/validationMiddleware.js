@@ -353,6 +353,40 @@ export const validateRegisterRequest = (req, res, next) => {
   next();
 };
 
+/**
+ * Validate forgot password request
+ */
+export const validateForgotPasswordRequest = (req, res, next) => {
+  const { email } = req.body;
+  const errors = {};
+
+  if (!email || typeof email !== 'string' || email.trim().length > 254 || !EMAIL_REGEX.test(email.trim())) {
+    errors.email = 'Valid email address is required';
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return formatErrorResponse(res, 'Forgot password validation failed', errors);
+  }
+  next();
+};
+
+/**
+ * Validate reset password request
+ */
+export const validateResetPasswordRequest = (req, res, next) => {
+  const { password } = req.body;
+  const errors = {};
+
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    errors.password = 'Password must be at least 6 characters long';
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return formatErrorResponse(res, 'Reset password validation failed', errors);
+  }
+  next();
+};
+
 export default {
   validateCustomerRequest,
   validateOrderCreateRequest,
@@ -363,5 +397,7 @@ export default {
   validateMachineRequest,
   validateExpenseRequest,
   validateRegisterRequest,
+  validateForgotPasswordRequest,
+  validateResetPasswordRequest,
 };
 

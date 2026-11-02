@@ -328,3 +328,57 @@ export const verifyEmail = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Send password reset email via Supabase Auth
+// @route   POST /api/auth/forgot-password
+// @access  Public
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email, redirectTo } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email address is required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const options = {};
+    if (redirectTo && typeof redirectTo === 'string') {
+      options.redirectTo = redirectTo;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, options);
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    res.json({
+      message: 'Password reset link sent to your email address if an account exists.',
+      success: true,
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Reset password using authenticated recovery session
+// @route   POST /api/auth/reset-password
+// @access  Private (recovery session token)
+export const resetPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters long' });
+    }
+
+    const { error } = await supabase.auth.admin.updateUserById(
+      req.user.supabaseId,
+      { password }
+    );
+    if (error) throw error;
+
+    res.json({ message: 'Password has been reset successfully', success: true });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

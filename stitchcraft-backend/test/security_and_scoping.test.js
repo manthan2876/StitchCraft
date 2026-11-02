@@ -291,5 +291,51 @@ describe('API Request Validation Middlewares', () => {
     validateCustomerRequest(req, {}, next);
     assert.equal(nextCalled, true);
   });
+
+  it('should validate forgot-password request email boundaries and rejection of invalid format', async () => {
+    const { validateForgotPasswordRequest } = await import('../middleware/validationMiddleware.js');
+    const invalidReq = { body: { email: 'bad-email' } };
+    let statusCode = null;
+    let jsonBody = null;
+    const res = {
+      status(code) { statusCode = code; return this; },
+      json(body) { jsonBody = body; return this; },
+    };
+    let nextCalled = false;
+    const next = () => { nextCalled = true; };
+
+    validateForgotPasswordRequest(invalidReq, res, next);
+    assert.equal(statusCode, 400);
+    assert.ok(jsonBody.errors?.email);
+    assert.equal(nextCalled, false);
+
+    const validReq = { body: { email: 'user@stitchcraft.in' } };
+    let validNextCalled = false;
+    validateForgotPasswordRequest(validReq, {}, () => { validNextCalled = true; });
+    assert.equal(validNextCalled, true);
+  });
+
+  it('should validate reset-password password length requirements', async () => {
+    const { validateResetPasswordRequest } = await import('../middleware/validationMiddleware.js');
+    const invalidReq = { body: { password: '123' } };
+    let statusCode = null;
+    let jsonBody = null;
+    const res = {
+      status(code) { statusCode = code; return this; },
+      json(body) { jsonBody = body; return this; },
+    };
+    let nextCalled = false;
+    const next = () => { nextCalled = true; };
+
+    validateResetPasswordRequest(invalidReq, res, next);
+    assert.equal(statusCode, 400);
+    assert.ok(jsonBody.errors?.password);
+    assert.equal(nextCalled, false);
+
+    const validReq = { body: { password: 'strongPassword123' } };
+    let validNextCalled = false;
+    validateResetPasswordRequest(validReq, {}, () => { validNextCalled = true; });
+    assert.equal(validNextCalled, true);
+  });
 });
 

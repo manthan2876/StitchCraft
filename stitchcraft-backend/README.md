@@ -203,6 +203,8 @@ All protected routes require an `Authorization: Bearer <token>` header.
 | `POST` | `/register` | Register new user + provision shop | Public | 10 / 15m |
 | `POST` | `/login` | Login through Supabase Auth | Public | 10 / 15m |
 | `POST` | `/verify` | Verify email address | Public | 10 / 15m |
+| `POST` | `/forgot-password` | Send password reset recovery link via email | Public | 10 / 15m |
+| `POST` | `/reset-password` | Set new password using recovery bearer session | Protected | 10 / 15m |
 | `GET` | `/profile` | Get current user profile and associated shops | Protected | 300 / 15m |
 | `PUT` | `/profile` | Update profile (name, phone, avatar) | Protected | 300 / 15m |
 | `PUT` | `/switch-shop/:id` | Switch active shop context | Protected | 300 / 15m |

@@ -79,7 +79,15 @@ export const Login = () => {
             </div>
 
             <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Password</label>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Password</label>
+                <Link
+                  to="/forgot-password"
+                  className="text-[11px] font-semibold text-color-accent-purple hover:underline transition-colors"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
               <div className="relative">
                 <GiPadlock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-muted w-5 h-5" />
                 <input

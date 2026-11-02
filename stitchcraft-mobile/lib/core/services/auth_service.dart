@@ -170,6 +170,21 @@ class AuthService {
     }
   }
 
+  // Send Password Reset Email via Supabase Auth
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      final cleanEmail = email.trim().toLowerCase();
+      if (cleanEmail.isEmpty) {
+        throw Exception('Please enter your email address');
+      }
+
+      await Supabase.instance.client.auth.resetPasswordForEmail(cleanEmail);
+    } catch (e) {
+      developer.log('Password Reset Error: $e', name: 'AuthService');
+      rethrow;
+    }
+  }
+
   // Get Current User Role
   Future<String> getUserRole() async {
     final prefs = await SharedPreferences.getInstance();
