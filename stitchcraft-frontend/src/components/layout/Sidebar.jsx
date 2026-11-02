@@ -13,12 +13,15 @@ import {
   MdInventory,
   MdAccountBalance,
   MdReceiptLong,
+  MdSupervisorAccount,
 } from 'react-icons/md';
 import { GiScissors, GiSewingNeedle, GiSewingMachine } from 'react-icons/gi';
 
 export const Sidebar = ({ isOpen, onClose }) => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { t } = useLanguage();
+
+  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'manager';
 
   const menuItems = [
     { name: t('dashboard'), path: '/dashboard', icon: <MdDashboard className="w-5 h-5" /> },
@@ -31,6 +34,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { name: t('machines') !== 'machines' ? t('machines') : 'Machines', path: '/machines', icon: <GiSewingMachine className="w-5 h-5" /> },
     { name: t('inventory') !== 'inventory' ? t('inventory') : 'Inventory', path: '/inventory', icon: <MdInventory className="w-5 h-5" /> },
     { name: t('ledger') !== 'ledger' ? t('ledger') : 'Ledger', path: '/ledger', icon: <MdAccountBalance className="w-5 h-5" /> },
+    ...(isManagerOrOwner ? [{ name: 'Staff & Roles', path: '/staff', icon: <MdSupervisorAccount className="w-5 h-5" /> }] : []),
   ];
 
   return (

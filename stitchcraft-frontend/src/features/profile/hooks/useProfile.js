@@ -50,7 +50,16 @@ export const useProfile = () => {
   const [isShopModalOpen, setIsShopModalOpen] = useState(false);
   const [shopModalMode, setShopModalMode] = useState('create'); // 'create' | 'edit'
   const [selectedShop, setSelectedShop] = useState(null);
-  const [shopForm, setShopForm] = useState({ shopName: '', phone: '', address: '', plan: 'Free' });
+  const [shopForm, setShopForm] = useState({
+    shopName: '',
+    phone: '',
+    address: '',
+    plan: 'Free',
+    upiId: '',
+    gstin: '',
+    invoicePrefix: 'INV',
+    logoUrl: '',
+  });
   const [shopError, setShopError] = useState('');
   const [shopFieldErrors, setShopFieldErrors] = useState({});
   const [shopModalLoading, setShopModalLoading] = useState(false);
@@ -167,7 +176,16 @@ export const useProfile = () => {
   };
 
   const handleOpenCreateShopModal = () => {
-    setShopForm({ shopName: '', phone: '', address: '', plan: 'Free' });
+    setShopForm({
+      shopName: '',
+      phone: '',
+      address: '',
+      plan: 'Free',
+      upiId: '',
+      gstin: '',
+      invoicePrefix: 'INV',
+      logoUrl: '',
+    });
     setShopModalMode('create');
     setSelectedShop(null);
     setShopError('');
@@ -180,7 +198,11 @@ export const useProfile = () => {
       shopName: shop.shopName,
       phone: shop.phone || '',
       address: shop.address || '',
-      plan: shop.plan || 'Free'
+      plan: shop.plan || 'Free',
+      upiId: shop.upiId || '',
+      gstin: shop.gstin || '',
+      invoicePrefix: shop.invoicePrefix || 'INV',
+      logoUrl: shop.logoUrl || '',
     });
     setShopModalMode('edit');
     setSelectedShop(shop);

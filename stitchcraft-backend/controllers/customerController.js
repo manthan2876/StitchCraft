@@ -1,5 +1,8 @@
 /* controllers/customerController.js */
 import Customer from '../models/Customer.js';
+import Order from '../models/Order.js';
+import Payment from '../models/Payment.js';
+import Shop from '../models/Shop.js';
 import {
   createCustomerService,
   getCustomerProfileService,
@@ -90,6 +93,121 @@ export const deleteCustomer = async (req, res) => {
     res.json({ message: 'Customer profile and measurements deleted successfully' });
   } catch (error) {
     console.error('Delete customer error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get all customers with pending balance (Udhar)
+// @route   GET /api/customers/pending-balances
+// @access  Private
+export const getPendingBalances = async (req, res) => {
+  try {
+    const shopId = req.user.shopId;
+    if (!shopId) {
+      return res.status(400).json({ message: 'No active shop associated with session' });
+    }
+
+    const shop = await Shop.findById(shopId);
+    const shopName = shop?.shopName || 'StitchCraft';
+    const shopUpi = shop?.upiId || '';
+
+    // Find all payments with positive balance
+    const payments = await Payment.find({ shopId });
+    const pendingPayments = (payments || []).filter(p => Number(p.balanceAmount) > 0);
+
+    if (pendingPayments.length === 0) {
+      return res.json({
+        totalOutstanding: 0,
+        customerCount: 0,
+        customers: [],
+      });
+    }
+
+    const orderIds = pendingPayments.map(p => p.orderId);
+    const orders = await Order.find({ _id: { $in: orderIds }, shopId, status: { $ne: 'Cancelled' } }).populate('customer');
+
+    // Map orderId -> payment
+    const paymentMap = new Map();
+    for (const p of pendingPayments) {
+      paymentMap.set(String(p.orderId), p);
+    }
+
+    // Group orders and balances by customer
+    const customerMap = new Map();
+
+    for (const order of orders) {
+      const payment = paymentMap.get(String(order._id));
+      if (!payment || Number(payment.balanceAmount) <= 0) continue;
+
+      const customerId = order.customer ? String(order.customer._id) : (order.customerName || 'Unknown');
+      const customerName = order.customer?.name || order.customerName || 'Valued Customer';
+      const phone = order.customer?.phone || '';
+      const email = order.customer?.email || '';
+
+      if (!customerMap.has(customerId)) {
+        customerMap.set(customerId, {
+          customerId: order.customer?.customerId || customerId,
+          _id: order.customer?._id || customerId,
+          name: customerName,
+          phone,
+          email,
+          totalBalance: 0,
+          orders: [],
+          oldestDueDate: order.deliveryDate || order.createdAt,
+        });
+      }
+
+      const custEntry = customerMap.get(customerId);
+      const balance = Number(payment.balanceAmount);
+      custEntry.totalBalance += balance;
+
+      custEntry.orders.push({
+        _id: order._id,
+        orderId: order.orderId,
+        apparelType: order.apparelType,
+        deliveryDate: order.deliveryDate,
+        totalAmount: Number(payment.totalAmount),
+        paidAmount: Number(payment.paidAmount),
+        balanceAmount: balance,
+        status: order.status,
+        shareToken: order.shareToken,
+      });
+
+      if (order.deliveryDate && new Date(order.deliveryDate) < new Date(custEntry.oldestDueDate)) {
+        custEntry.oldestDueDate = order.deliveryDate;
+      }
+    }
+
+    // Calculate total summary and format WhatsApp reminder messages
+    let totalOutstanding = 0;
+    const customers = Array.from(customerMap.values())
+      .filter(c => c.totalBalance > 0)
+      .sort((a, b) => b.totalBalance - a.totalBalance)
+      .map(c => {
+        totalOutstanding += c.totalBalance;
+
+        const orderRefs = c.orders.map(o => o.orderId).join(', ');
+        let reminderText = `Namaste ${c.name}, this is a gentle reminder from ${shopName}. You have a pending tailoring balance of ₹${c.totalBalance} across order(s) ${orderRefs}. Kindly settle at your convenience.`;
+        if (shopUpi) {
+          reminderText += ` UPI ID: ${shopUpi}`;
+        }
+
+        return {
+          ...c,
+          whatsappReminderText: reminderText,
+          whatsappUrl: c.phone
+            ? `https://wa.me/${c.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(reminderText)}`
+            : null,
+        };
+      });
+
+    res.json({
+      totalOutstanding,
+      customerCount: customers.length,
+      customers,
+    });
+  } catch (error) {
+    console.error('Get pending balances error:', error);
     res.status(500).json({ message: error.message });
   }
 };

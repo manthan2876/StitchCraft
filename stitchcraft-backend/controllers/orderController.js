@@ -222,6 +222,10 @@ export const getOrderByIdPublic = async (req, res) => {
         shopName: shop.shopName,
         phone: shop.phone,
         address: shop.address,
+        upiId: shop.upiId || '',
+        gstin: shop.gstin || '',
+        logoUrl: shop.logoUrl || '',
+        invoicePrefix: shop.invoicePrefix || 'INV',
       } : null,
     };
 

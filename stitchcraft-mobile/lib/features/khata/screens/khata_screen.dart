@@ -5,6 +5,7 @@ import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/features/khata/widgets/add_expense_bottom_sheet.dart';
 import 'package:stitchcraft/features/khata/widgets/expenses_list.dart';
 import 'package:stitchcraft/features/khata/widgets/income_list.dart';
+import 'package:stitchcraft/features/khata/widgets/udhar_list.dart';
 
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
 
@@ -28,7 +29,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTabIndex);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex);
     _loadData();
   }
 
@@ -89,6 +90,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
           tabs: [
             Tab(text: context.loc.expenses),
             Tab(text: context.loc.income),
+            const Tab(text: 'Udhar'),
           ],
         ),
       ),
@@ -104,6 +106,7 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
               children: [
                 ExpensesList(expenses: _expenses),
                 IncomeList(orders: _orders),
+                UdharList(orders: _orders),
               ],
             ),
     );

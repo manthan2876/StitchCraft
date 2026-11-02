@@ -9,6 +9,8 @@ import {
   MdPrint as PrintIcon,
   MdCheckCircle as CheckIcon,
   MdReceipt as InvoiceIcon,
+  MdErrorOutline,
+  MdPhone,
 } from 'react-icons/md';
 
 export const PublicInvoice = () => {
@@ -16,6 +18,8 @@ export const PublicInvoice = () => {
   const { t } = useLanguage();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isExpired, setIsExpired] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const tf = (key, fallback) => {
     const val = t(key);
@@ -30,6 +34,11 @@ export const PublicInvoice = () => {
         setOrder(data);
       } catch (err) {
         console.error('Failed to load guest invoice details:', err);
+        const msg = err.response?.data?.message || err.message || '';
+        if (err.response?.status === 410 || msg.toLowerCase().includes('expired')) {
+          setIsExpired(true);
+        }
+        setErrorMsg(msg);
       } finally {
         setLoading(false);
       }
@@ -46,13 +55,29 @@ export const PublicInvoice = () => {
     );
   }
 
+  if (isExpired) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-bg-primary p-4">
+        <Card className="flex flex-col items-center justify-center py-10 px-6 text-center gap-4 max-w-md w-full border border-border-subtle shadow-theme-md">
+          <div className="w-14 h-14 rounded-full bg-color-accent-pink/15 text-color-accent-pink flex items-center justify-center">
+            <MdErrorOutline className="w-8 h-8" />
+          </div>
+          <h4 className="text-lg font-bold text-text-main">Invoice Link Expired or Revoked</h4>
+          <p className="text-xs text-text-muted leading-relaxed max-w-sm">
+            For customer privacy and security, guest invoice links expire automatically or when renewed by the tailor shop. Please contact the boutique to request a refreshed link.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   if (!order) {
     return (
       <div className="w-screen h-screen flex items-center justify-center bg-bg-primary p-4">
         <Card className="flex flex-col items-center justify-center py-12 text-center gap-4 max-w-sm w-full">
           <InvoiceIcon className="w-12 h-12 text-text-muted opacity-50" />
           <h4 className="text-base font-bold text-text-main">{tf('invoiceNotFound', 'Invoice Not Found')}</h4>
-          <p className="text-xs text-text-muted font-medium">This shared link may have expired or the invoice record does not exist.</p>
+          <p className="text-xs text-text-muted font-medium">{errorMsg || 'This shared link may have expired or the invoice record does not exist.'}</p>
         </Card>
       </div>
     );
@@ -63,6 +88,12 @@ export const PublicInvoice = () => {
   const billTotal = order.price + liningTotal;
   const paidAmount = order.payment?.paidAmount || 0;
   const balanceDue = Math.max(0, billTotal - paidAmount);
+
+  const upiVpa = order.shop?.upiId || (order.shop?.phone ? `${order.shop.phone.replace(/[^0-9]/g, '').slice(-10)}@upi` : '');
+  const upiPaymentUri = upiVpa
+    ? `upi://pay?pa=${encodeURIComponent(upiVpa)}&pn=${encodeURIComponent(order.shop?.shopName || 'StitchCraft')}&am=${balanceDue.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Invoice-${order.orderId}`)}`
+    : '';
+  const invoiceCode = `${order.shop?.invoicePrefix || 'INV'}-${order.orderId}`;
 
   let billingStatus = 'Unpaid';
   if (paidAmount > 0) {
@@ -150,21 +181,34 @@ export const PublicInvoice = () => {
           {/* Invoice Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-border-subtle pb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-color-accent-purple flex items-center justify-center text-white-forced shadow-sm">
-                <InvoiceIcon className="w-7 h-7 text-white-forced" />
-              </div>
+              {order.shop?.logoUrl ? (
+                <img
+                  src={order.shop.logoUrl}
+                  alt={order.shop?.shopName || 'Shop Logo'}
+                  className="w-12 h-12 rounded-xl object-cover border border-border-subtle shadow-sm bg-white"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-color-accent-purple flex items-center justify-center text-white-forced shadow-sm">
+                  <InvoiceIcon className="w-7 h-7 text-white-forced" />
+                </div>
+              )}
               <div>
                 <h1 className="text-2xl font-black text-text-main tracking-wider">{order.shop?.shopName || 'StitchCraft'}</h1>
                 <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mt-0.5">
                   {order.shop?.phone ? `${order.shop.phone}${order.shop.address ? ' • ' + order.shop.address : ''}` : 'Tailor Shop Invoice'}
                 </p>
+                {order.shop?.gstin && (
+                  <p className="text-[9px] font-semibold text-color-accent-purple mt-0.5">
+                    GSTIN: {order.shop.gstin}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="text-left sm:text-right">
               <h2 className="text-lg font-black text-color-accent-purple tracking-wide">INVOICE</h2>
               <div className="flex flex-col gap-0.5 mt-1.5 text-xs text-text-muted font-bold">
-                <span>Invoice ID: <strong className="text-text-main font-black">{`INV-${order.orderId}`}</strong></span>
+                <span>Invoice ID: <strong className="text-text-main font-black">{invoiceCode}</strong></span>
                 <span>Order Ref: <strong className="text-text-main">{order.orderId}</strong></span>
                 <span>Billing Date: <strong>{formatDate(order.date)}</strong></span>
                 <span>Due Date: <strong>{formatDate(order.deliveryDate)}</strong></span>
@@ -186,10 +230,11 @@ export const PublicInvoice = () => {
             <div className="flex flex-col gap-2 sm:items-end sm:text-right">
               <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">Merchant Details</span>
               <div className="flex flex-col gap-1 text-sm font-semibold text-text-main">
-                <span className="font-extrabold text-base text-text-main">StitchCraft Tailors</span>
-                <span>102 Main Street, Central Plaza</span>
-                <span>Phone: +91 98765 43210</span>
-                <span className="opacity-80">support@stitchcraft.com</span>
+                <span className="font-extrabold text-base text-text-main">{order.shop?.shopName || 'StitchCraft Tailors'}</span>
+                <span>{order.shop?.address || 'Boutique Tailoring Studio'}</span>
+                {order.shop?.phone && <span>Phone: {order.shop.phone}</span>}
+                {order.shop?.upiId && <span className="text-xs font-mono text-text-muted">UPI: {order.shop.upiId}</span>}
+                {order.shop?.gstin && <span className="text-xs font-mono text-text-muted">GST: {order.shop.gstin}</span>}
               </div>
             </div>
           </div>
@@ -263,24 +308,18 @@ export const PublicInvoice = () => {
                 {billingStatus === 'Paid' && <CheckIcon className="w-5 h-5 text-emerald-500" />}
               </div>
 
-              {balanceDue > 0 && order.shop?.phone && (
+              {balanceDue > 0 && upiPaymentUri && (
                 <div className="mt-3 p-3 bg-bg-primary/50 border border-border-subtle rounded-xl flex items-center gap-3">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
-                      `upi://pay?pa=${order.shop.phone.replace(/[^0-9]/g, '').slice(-10)}@upi&pn=${encodeURIComponent(
-                        order.shop.shopName || 'StitchCraft'
-                      )}&am=${balanceDue.toFixed(2)}&cu=INR&tn=Invoice-${order.orderId}`
-                    )}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(upiPaymentUri)}`}
                     alt="UPI QR Code"
                     className="w-16 h-16 rounded-lg border border-border-medium bg-white p-1"
                   />
                   <div className="flex flex-col gap-1 text-left">
                     <span className="text-[10px] font-bold text-text-main">Pay Balance via UPI</span>
-                    <span className="text-[9px] text-text-muted">Scan with GPay, PhonePe, or Paytm</span>
+                    <span className="text-[9px] text-text-muted">UPI ID: <strong className="font-mono text-text-main">{upiVpa}</strong></span>
                     <a
-                      href={`upi://pay?pa=${order.shop.phone.replace(/[^0-9]/g, '').slice(-10)}@upi&pn=${encodeURIComponent(
-                        order.shop.shopName || 'StitchCraft'
-                      )}&am=${balanceDue.toFixed(2)}&cu=INR&tn=Invoice-${order.orderId}`}
+                      href={upiPaymentUri}
                       className="inline-flex items-center text-[10px] font-bold text-color-accent-purple hover:underline"
                     >
                       Open UPI App ↗

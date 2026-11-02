@@ -6,11 +6,15 @@ import {
   getCustomerById,
   updateCustomer,
   deleteCustomer,
+  getPendingBalances,
 } from '../controllers/customerController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateCustomerRequest } from '../middleware/validationMiddleware.js';
 
 router.use(protect); // Secure all routes in this module
+
+// Pending balances (Udhar) route must come before /:id param match
+router.get('/pending-balances', getPendingBalances);
 
 router.route('/')
   .post(validateCustomerRequest, createCustomer)

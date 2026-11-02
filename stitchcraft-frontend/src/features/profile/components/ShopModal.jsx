@@ -83,17 +83,67 @@ export const ShopModal = ({
             />
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">UPI ID (VPA for Pay QR)</label>
+              <input
+                type="text"
+                value={shopForm.upiId || ''}
+                onChange={e => setShopForm({ ...shopForm, upiId: e.target.value })}
+                placeholder="merchant@okhdfcbank"
+                className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">GSTIN Number</label>
+              <input
+                type="text"
+                maxLength={15}
+                value={shopForm.gstin || ''}
+                onChange={e => setShopForm({ ...shopForm, gstin: e.target.value.toUpperCase() })}
+                placeholder="22AAAAA0000A1Z5"
+                className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50 uppercase"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Invoice Prefix</label>
+              <input
+                type="text"
+                maxLength={8}
+                value={shopForm.invoicePrefix || ''}
+                onChange={e => setShopForm({ ...shopForm, invoicePrefix: e.target.value.toUpperCase() })}
+                placeholder="INV"
+                className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50 uppercase"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('planTier')}</label>
+              <select
+                value={shopForm.plan}
+                onChange={e => setShopForm({ ...shopForm, plan: e.target.value })}
+                className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all cursor-pointer font-bold"
+              >
+                <option value="Free" className="bg-bg-card text-text-main">{t('freePlan')}</option>
+                <option value="Basic" className="bg-bg-card text-text-main">{t('basicPlan')}</option>
+                <option value="Premium" className="bg-bg-card text-text-main">{t('premiumPlan')}</option>
+              </select>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{t('planTier')}</label>
-            <select
-              value={shopForm.plan}
-              onChange={e => setShopForm({ ...shopForm, plan: e.target.value })}
-              className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all cursor-pointer font-bold"
-            >
-              <option value="Free" className="bg-bg-card text-text-main">{t('freePlan')}</option>
-              <option value="Basic" className="bg-bg-card text-text-main">{t('basicPlan')}</option>
-              <option value="Premium" className="bg-bg-card text-text-main">{t('premiumPlan')}</option>
-            </select>
+            <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Shop Logo Image URL</label>
+            <input
+              type="url"
+              value={shopForm.logoUrl || ''}
+              onChange={e => setShopForm({ ...shopForm, logoUrl: e.target.value })}
+              placeholder="https://example.com/logo.png"
+              className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all placeholder:text-text-muted/50"
+            />
           </div>
 
           {shopError && (

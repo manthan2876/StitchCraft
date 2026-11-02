@@ -19,7 +19,7 @@ export const getShops = async (req, res) => {
 // @access  Private
 export const createShop = async (req, res) => {
   try {
-    const { shopName, phone, address, plan } = req.body;
+    const { shopName, phone, address, plan, upiId, gstin, logoUrl, invoicePrefix, whatsappTemplates } = req.body;
 
     if (!shopName) {
       return res.status(400).json({ message: 'Shop name is required' });
@@ -30,6 +30,11 @@ export const createShop = async (req, res) => {
       phone: phone || '',
       address: address || '',
       plan: plan || 'Free',
+      upiId: typeof upiId === 'string' ? upiId.trim() : '',
+      gstin: typeof gstin === 'string' ? gstin.trim().toUpperCase() : '',
+      logoUrl: typeof logoUrl === 'string' ? logoUrl.trim() : '',
+      invoicePrefix: typeof invoicePrefix === 'string' ? invoicePrefix.trim() : 'INV',
+      whatsappTemplates: typeof whatsappTemplates === 'object' && whatsappTemplates !== null ? whatsappTemplates : {},
       ownerId: req.user._id,
       email: req.user.email || '',
       isActive: true
@@ -78,13 +83,18 @@ export const updateShop = async (req, res) => {
       return res.status(404).json({ message: 'Shop not found or access denied' });
     }
 
-    const { shopName, phone, address, plan, isActive } = req.body;
+    const { shopName, phone, address, plan, isActive, upiId, gstin, logoUrl, invoicePrefix, whatsappTemplates } = req.body;
 
     if (shopName) shop.shopName = shopName;
     if (phone !== undefined) shop.phone = phone;
     if (address !== undefined) shop.address = address;
     if (plan) shop.plan = plan;
     if (isActive !== undefined) shop.isActive = isActive;
+    if (upiId !== undefined) shop.upiId = typeof upiId === 'string' ? upiId.trim() : '';
+    if (gstin !== undefined) shop.gstin = typeof gstin === 'string' ? gstin.trim().toUpperCase() : '';
+    if (logoUrl !== undefined) shop.logoUrl = typeof logoUrl === 'string' ? logoUrl.trim() : '';
+    if (invoicePrefix !== undefined) shop.invoicePrefix = typeof invoicePrefix === 'string' ? invoicePrefix.trim() : 'INV';
+    if (whatsappTemplates !== undefined) shop.whatsappTemplates = typeof whatsappTemplates === 'object' && whatsappTemplates !== null ? whatsappTemplates : {};
 
     const updatedShop = await shop.save();
     res.json(updatedShop);

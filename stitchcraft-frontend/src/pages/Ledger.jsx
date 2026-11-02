@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import Card from '../components/common/Card';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
+import PendingBalancesTab from '../features/ledger/components/PendingBalancesTab';
 import {
   MdSearch as SearchIcon,
   MdFilterList as FilterIcon,
@@ -29,6 +30,7 @@ export const Ledger = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All'); // 'All', 'Sales', 'Payments', 'Expenses', 'Material Cost'
+  const [activeSubTab, setActiveSubTab] = useState('cashbook'); // 'cashbook' | 'udhar'
 
   // Helper with fallbacks for translations
   const tf = (key, fallback) => {
@@ -138,8 +140,41 @@ export const Ledger = () => {
         </div>
       </div>
 
-      {/* Financial Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Sub-tab Navigation (Cashbook vs Udhar) */}
+      <div className="flex border-b border-border-subtle gap-6 print:hidden">
+        <button
+          onClick={() => setActiveSubTab('cashbook')}
+          className={`pb-3 text-sm font-bold transition-all border-b-2 cursor-pointer ${
+            activeSubTab === 'cashbook'
+              ? 'border-color-accent-purple text-color-accent-purple'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          {tf('cashbookJournal', 'Cashbook & Inflows/Outflows')}
+        </button>
+        <button
+          onClick={() => setActiveSubTab('udhar')}
+          className={`pb-3 text-sm font-bold transition-all border-b-2 cursor-pointer flex items-center gap-1.5 ${
+            activeSubTab === 'udhar'
+              ? 'border-color-accent-purple text-color-accent-purple'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          <span>{tf('udharPendingBalances', 'Udhar / Pending Balances')}</span>
+          {summary.totalOutstanding > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/15 text-rose-500">
+              {formatCurrency(summary.totalOutstanding)}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeSubTab === 'udhar' ? (
+        <PendingBalancesTab />
+      ) : (
+        <>
+          {/* Financial Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="flex items-center gap-4 py-4 px-6 border-l-4 border-l-emerald-500 bg-bg-card">
           <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
             <WalletIcon className="w-6 h-6" />
@@ -290,6 +325,8 @@ export const Ledger = () => {
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

@@ -49,6 +49,50 @@ class SyncService {
     }
   }
 
+  /// Get detailed breakdown of pending items and failed records for the sync status screen
+  Future<Map<String, dynamic>> getDetailedSyncBreakdown() async {
+    try {
+      final tables = ['orders', 'customers', 'expenses', 'inventory'];
+      final Map<String, int> pendingByTable = {};
+      final List<Map<String, dynamic>> failedRecords = [];
+      int totalPending = 0;
+
+      for (final table in tables) {
+        final unsynced = await _localDb.getUnsyncedRecords(table);
+        pendingByTable[table] = unsynced.length;
+        totalPending += unsynced.length;
+        for (final rec in unsynced) {
+          if (rec['sync_status'] == 2) {
+            failedRecords.add({
+              'table': table,
+              'id': rec['id']?.toString() ?? '',
+              'title': rec['customerName']?.toString() ?? rec['name']?.toString() ?? rec['category']?.toString() ?? rec['id']?.toString() ?? 'Record',
+            });
+          }
+        }
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      final lastSyncStr = prefs.getString('lastSyncTime');
+      final lastSyncTime = lastSyncStr != null ? DateTime.tryParse(lastSyncStr) : null;
+
+      return {
+        'totalPending': totalPending,
+        'pendingByTable': pendingByTable,
+        'failedRecords': failedRecords,
+        'lastSyncTime': lastSyncTime,
+      };
+    } catch (e) {
+      developer.log('Error getting detailed sync breakdown: $e', name: 'SyncService');
+      return {
+        'totalPending': 0,
+        'pendingByTable': {'orders': 0, 'customers': 0, 'expenses': 0, 'inventory': 0},
+        'failedRecords': <Map<String, dynamic>>[],
+        'lastSyncTime': null,
+      };
+    }
+  }
+
   /// Sync all tables with progress callback
   Future<void> syncAll({Function(String table, int current, int total)? onProgress}) async {
     developer.log('Starting full REST sync...', name: 'SyncService');

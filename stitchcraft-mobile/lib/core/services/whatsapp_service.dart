@@ -54,4 +54,14 @@ class WhatsAppService {
     }
     await openWhatsApp(phoneNumber: phoneNumber, message: message);
   }
+
+  Future<void> sendPaymentReminder({
+    required String phoneNumber,
+    required String customerName,
+    required String orderId,
+    required double balanceAmount,
+  }) async {
+    final message = 'Namaste $customerName, this is a gentle reminder regarding your pending tailoring balance of ₹${balanceAmount.toStringAsFixed(0)} for Order #$orderId. Kindly settle at your convenience.';
+    await openWhatsApp(phoneNumber: phoneNumber, message: message);
+  }
 }

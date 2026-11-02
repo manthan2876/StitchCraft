@@ -56,6 +56,18 @@ export const validateDocument = (collection, doc) => {
           errors.phone = 'Shop contact phone must contain 10-15 digits';
         }
       }
+      if (doc.upiId && typeof doc.upiId === 'string' && doc.upiId.trim()) {
+        const cleanUpi = doc.upiId.trim();
+        if (!cleanUpi.includes('@') || cleanUpi.length < 5 || cleanUpi.length > 50) {
+          errors.upiId = 'UPI ID must be a valid VPA (e.g., merchant@upi)';
+        }
+      }
+      if (doc.gstin && typeof doc.gstin === 'string' && doc.gstin.trim()) {
+        const cleanGstin = doc.gstin.trim();
+        if (cleanGstin.length !== 15) {
+          errors.gstin = 'GSTIN must contain exactly 15 characters';
+        }
+      }
       break;
     }
 

@@ -68,6 +68,8 @@ export const ShopInfoTab = ({
                   <div className="flex flex-col gap-1 text-xs text-text-muted border-t border-border-subtle pt-3">
                     {shop.phone && <span className="truncate">📞 {shop.phone}</span>}
                     {shop.address && <span className="truncate">📍 {shop.address}</span>}
+                    {shop.upiId && <span className="truncate text-color-accent-purple font-mono text-[11px]">💳 UPI: {shop.upiId}</span>}
+                    {shop.gstin && <span className="truncate text-text-main font-mono text-[11px]">🏢 GST: {shop.gstin}</span>}
                   </div>
 
                   <div className="flex items-center gap-2 border-t border-border-subtle pt-3 mt-auto">

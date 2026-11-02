@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/services/theme_service.dart';
+import 'package:stitchcraft/features/profile/screens/sync_status_screen.dart';
 
 class SettingsTab extends StatelessWidget {
   final VoidCallback onDownloadData;
@@ -28,6 +29,21 @@ class SettingsTab extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            // Cloud Sync & Offline Status Tile
+            ListTile(
+              leading: const Icon(Icons.sync_rounded, color: AppTheme.brandPurple),
+              title: Text('Cloud Sync & Offline Status', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Review pending local items & force sync', style: TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.darkGrey),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SyncStatusScreen()),
+                );
+              },
+            ),
+            const Divider(color: Colors.white10),
+
             // Language Settings Tile
             ListTile(
               leading: Icon(Icons.language, color: theme.colorScheme.onSurface),
