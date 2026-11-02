@@ -9,6 +9,7 @@ class AppTheme {
   
   static const Color trustGreen = Color(0xFF2E7D32); // Success, Profit, money
   static const Color safetyOrange = Color(0xFFF59E0B); // Warnings, Non-critical errors
+  static const Color warmAmber = safetyOrange; // Amber alias
   static const Color alertRed = Color(0xFFF43F5E); // Critical alerts
   static const Color softWhite = Color(0xFFFAFAFA); 
   static const Color darkEarth = Color(0xFFFFFFFF); // Primary text (White)

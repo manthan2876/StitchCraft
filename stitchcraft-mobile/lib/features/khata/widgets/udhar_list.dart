@@ -117,10 +117,10 @@ class UdharList extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppTheme.warmAmber.withValues(alpha: 0.15),
+                          color: AppTheme.safetyOrange.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.account_balance_wallet, color: AppTheme.warmAmber, size: 24),
+                        child: const Icon(Icons.account_balance_wallet, color: AppTheme.safetyOrange, size: 24),
                       ),
                       const SizedBox(width: 14),
                       Expanded(

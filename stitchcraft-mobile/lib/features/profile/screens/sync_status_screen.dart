@@ -139,12 +139,12 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                     decoration: BoxDecoration(
                       color: _totalPending == 0
                           ? AppTheme.trustGreen.withValues(alpha: 0.12)
-                          : AppTheme.warmAmber.withValues(alpha: 0.12),
+                          : AppTheme.safetyOrange.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: _totalPending == 0
                             ? AppTheme.trustGreen.withValues(alpha: 0.3)
-                            : AppTheme.warmAmber.withValues(alpha: 0.3),
+                            : AppTheme.safetyOrange.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Column(
@@ -152,7 +152,7 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                         Icon(
                           _totalPending == 0 ? Icons.cloud_done : Icons.cloud_upload,
                           size: 48,
-                          color: _totalPending == 0 ? AppTheme.trustGreen : AppTheme.warmAmber,
+                          color: _totalPending == 0 ? AppTheme.trustGreen : AppTheme.safetyOrange,
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -161,7 +161,7 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                               : '$_totalPending Pending Local Changes',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: _totalPending == 0 ? AppTheme.trustGreen : AppTheme.warmAmber,
+                            color: _totalPending == 0 ? AppTheme.trustGreen : AppTheme.safetyOrange,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -264,7 +264,7 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                         margin: const EdgeInsets.only(bottom: 8),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: Border.all(color: AppTheme.alertRed.withValues(alpha: 0.3)),
+                          side: BorderSide(color: AppTheme.alertRed.withValues(alpha: 0.3)),
                         ),
                         child: ListTile(
                           title: Text(
@@ -316,7 +316,7 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: count > 0
-                  ? AppTheme.warmAmber.withValues(alpha: 0.15)
+                  ? AppTheme.safetyOrange.withValues(alpha: 0.15)
                   : AppTheme.trustGreen.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -325,7 +325,7 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: count > 0 ? AppTheme.warmAmber : AppTheme.trustGreen,
+                color: count > 0 ? AppTheme.safetyOrange : AppTheme.trustGreen,
               ),
             ),
           ),
