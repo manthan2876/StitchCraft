@@ -298,9 +298,11 @@ class PdfService {
       await file.writeAsBytes(pdfBytes);
 
       // This opens the native share sheet where the user selects "WhatsApp"
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'Here is your invoice #$invoiceNumber.',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'Here is your invoice #$invoiceNumber.',
+        ),
       );
     } else {
       await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdfBytes, name: filename);
