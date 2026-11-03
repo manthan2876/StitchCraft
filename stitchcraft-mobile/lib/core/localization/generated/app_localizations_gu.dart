@@ -265,7 +265,8 @@ class AppLocalizationsGu extends AppLocalizations {
   String get reset_password => 'પાસવર્ડ રીસેટ કરો';
 
   @override
-  String get reset_password_instructions => 'પાસવર્ડ રીસેટ લિંક મેળવવા માટે તમારું રજિસ્ટર્ડ ઈમેઈલ સરનામું દાખલ કરો.';
+  String get reset_password_instructions =>
+      'પાસવર્ડ રીસેટ લિંક મેળવવા માટે તમારું રજિસ્ટર્ડ ઈમેઈલ સરનામું દાખલ કરો.';
 
   @override
   String get send_link => 'લિંક મોકલો';
@@ -362,4 +363,25 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get fast_lane_repairs => 'ઝડપી સમારકામ';
+
+  @override
+  String get import_contacts => 'મોબાઇલ સંપર્કોમાંથી પસંદ કરો';
+
+  @override
+  String get save_contact_to_phone => 'ફોનમાં સંપર્ક સાચવો';
+
+  @override
+  String get already_in_contacts => 'તમારા ફોન સંપર્કોમાં પહેલેથી જ છે';
+
+  @override
+  String get select_phone_number => 'ફોન નંબર પસંદ કરો';
+
+  @override
+  String get contact_saved_to_phone => 'ફોનમાં સંપર્ક સાચવવામાં આવ્યો';
+
+  @override
+  String get add_customer => 'ગ્રાહક ઉમેરો';
+
+  @override
+  String get customer_added_successfully => 'ગ્રાહક સફળતાપૂર્વક ઉમેરાયો';
 }

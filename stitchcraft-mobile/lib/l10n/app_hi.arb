@@ -117,5 +117,12 @@
   "profile_updated": "प्रोफाइल सफलतापूर्वक अपडेट हो गई!",
   "password_changed": "पासवर्ड सफलतापूर्वक बदल दिया गया!",
   "shop_updated": "दुकान सफलतापूर्वक अपडेट हो गई",
-  "fast_lane_repairs": "त्वरित मरम्मत"
+  "fast_lane_repairs": "त्वरित मरम्मत",
+  "import_contacts": "फ़ोन कॉन्टैक्ट्स से चुनें",
+  "save_contact_to_phone": "फ़ोन में कॉन्टैक्ट सेव करें",
+  "already_in_contacts": "पहले से आपके फ़ोन में मौजूद है",
+  "select_phone_number": "फ़ोन नंबर चुनें",
+  "contact_saved_to_phone": "फ़ोन में संपर्क सुरक्षित हो गया",
+  "add_customer": "ग्राहक जोड़ें",
+  "customer_added_successfully": "ग्राहक सफलतापूर्वक जोड़ा गया"
 }

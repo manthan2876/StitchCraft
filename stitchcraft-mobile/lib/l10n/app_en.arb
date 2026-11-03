@@ -117,5 +117,12 @@
   "profile_updated": "Profile Updated Successfully!",
   "password_changed": "Password Changed Successfully!",
   "shop_updated": "Shop updated successfully",
-  "fast_lane_repairs": "Fast Lane Repairs"
+  "fast_lane_repairs": "Fast Lane Repairs",
+  "import_contacts": "Pick from Mobile Contacts",
+  "save_contact_to_phone": "Save contact in your phone",
+  "already_in_contacts": "Already saved in your phone contacts",
+  "select_phone_number": "Select Phone Number",
+  "contact_saved_to_phone": "Contact saved to your phone",
+  "add_customer": "Add Customer",
+  "customer_added_successfully": "Customer added successfully"
 }

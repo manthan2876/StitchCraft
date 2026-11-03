@@ -807,6 +807,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Fast Lane Repairs'**
   String get fast_lane_repairs;
+
+  /// No description provided for @import_contacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick from Mobile Contacts'**
+  String get import_contacts;
+
+  /// No description provided for @save_contact_to_phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Save contact in your phone'**
+  String get save_contact_to_phone;
+
+  /// No description provided for @already_in_contacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Already saved in your phone contacts'**
+  String get already_in_contacts;
+
+  /// No description provided for @select_phone_number.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Phone Number'**
+  String get select_phone_number;
+
+  /// No description provided for @contact_saved_to_phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact saved to your phone'**
+  String get contact_saved_to_phone;
+
+  /// No description provided for @add_customer.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Customer'**
+  String get add_customer;
+
+  /// No description provided for @customer_added_successfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer added successfully'**
+  String get customer_added_successfully;
 }
 
 class _AppLocalizationsDelegate

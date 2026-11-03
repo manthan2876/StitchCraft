@@ -266,7 +266,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reset_password => 'Reset Password';
 
   @override
-  String get reset_password_instructions => 'Enter your registered email address to receive a password reset link.';
+  String get reset_password_instructions =>
+      'Enter your registered email address to receive a password reset link.';
 
   @override
   String get send_link => 'Send Link';
@@ -363,4 +364,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fast_lane_repairs => 'Fast Lane Repairs';
+
+  @override
+  String get import_contacts => 'Pick from Mobile Contacts';
+
+  @override
+  String get save_contact_to_phone => 'Save contact in your phone';
+
+  @override
+  String get already_in_contacts => 'Already saved in your phone contacts';
+
+  @override
+  String get select_phone_number => 'Select Phone Number';
+
+  @override
+  String get contact_saved_to_phone => 'Contact saved to your phone';
+
+  @override
+  String get add_customer => 'Add Customer';
+
+  @override
+  String get customer_added_successfully => 'Customer added successfully';
 }

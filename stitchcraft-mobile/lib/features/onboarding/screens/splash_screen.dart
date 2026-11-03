@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
+import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
@@ -21,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 2));
     final prefs = await SharedPreferences.getInstance();
     final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-    final String? token = prefs.getString('token');
+    final String? token = await AuthService().getToken();
 
     if (mounted) {
       if (isLoggedIn && token != null && token.isNotEmpty) {
@@ -70,9 +71,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              color: AppTheme.brandPurple,
-            ),
+            const CircularProgressIndicator(color: AppTheme.brandPurple),
           ],
         ),
       ),

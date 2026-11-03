@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/models/user_model.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
@@ -10,6 +11,12 @@ import 'package:stitchcraft/core/config/api_config.dart';
 
 class AuthService {
   final DatabaseService _dbService = DatabaseService();
+
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
+  static const String _tokenKey = 'auth_token';
 
   static String get baseUrl => ApiConfig.baseUrl;
 
@@ -60,8 +67,11 @@ class AuthService {
         );
         await _dbService.addUser(newUser);
 
+        // Save session token in hardware-backed secure storage
+        await _secureStorage.write(key: _tokenKey, value: token);
+
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', token);
+        await prefs.remove('token'); // Clear from plaintext storage
         await prefs.setString('userId', newUser.id);
         await prefs.setString('userName', newUser.name);
         await prefs.setString('userRole', data['role'] ?? 'staff');
@@ -126,9 +136,12 @@ class AuthService {
         );
         await _dbService.addUser(newUser);
 
+        // Save session token in hardware-backed secure storage
+        await _secureStorage.write(key: _tokenKey, value: token);
+
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
-        await prefs.setString('token', token);
+        await prefs.remove('token'); // Clear from plaintext storage
         await prefs.setString('userId', userId);
         await prefs.setString('userName', userName);
         await prefs.setString('userRole', role);
@@ -156,6 +169,7 @@ class AuthService {
   Future<void> logout() async {
     try {
       await Supabase.instance.client.auth.signOut();
+      await _secureStorage.delete(key: _tokenKey);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', false);
       await prefs.remove('token');
@@ -191,10 +205,23 @@ class AuthService {
     return prefs.getString('userRole') ?? 'staff';
   }
 
-  // Get Current JWT Token
+  // Get Current JWT Token (from Secure Storage with legacy SharedPreferences fallback)
   Future<String?> getToken() async {
+    final secureToken = await _secureStorage.read(key: _tokenKey);
+    if (secureToken != null && secureToken.isNotEmpty) {
+      return secureToken;
+    }
+
+    // Auto-migrate legacy token if present
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+    final legacyToken = prefs.getString('token');
+    if (legacyToken != null && legacyToken.isNotEmpty) {
+      await _secureStorage.write(key: _tokenKey, value: legacyToken);
+      await prefs.remove('token');
+      return legacyToken;
+    }
+
+    return null;
   }
 
   // Get Current User Data

@@ -3,13 +3,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/localization_service.dart';
+import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class LanguageSelectionScreen extends StatefulWidget {
   const LanguageSelectionScreen({super.key});
 
   @override
-  State<LanguageSelectionScreen> createState() => _LanguageSelectionScreenState();
+  State<LanguageSelectionScreen> createState() =>
+      _LanguageSelectionScreenState();
 }
 
 class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
@@ -37,7 +39,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
 
     final prefs = await SharedPreferences.getInstance();
     final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-    final String? token = prefs.getString('token');
+    final String? token = await AuthService().getToken();
 
     if (mounted) {
       if (isLoggedIn && token != null && token.isNotEmpty) {
@@ -58,7 +60,9 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: Navigator.canPop(context) ? AppBar(title: Text(context.loc.language_settings)) : null,
+      appBar: Navigator.canPop(context)
+          ? AppBar(title: Text(context.loc.language_settings))
+          : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -68,7 +72,9 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
               const SizedBox(height: 20),
               Text(
                 context.loc.select_language,
-                style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
                 'તમારી ભાષા પસંદ કરો',
@@ -80,24 +86,9 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
               Expanded(
                 child: ListView(
                   children: [
-                    _buildLanguageCard(
-                      context,
-                      'English',
-                      'English',
-                      'en',
-                    ),
-                    _buildLanguageCard(
-                      context,
-                      'ગુજરાતી',
-                      'Gujarati',
-                      'gu',
-                    ),
-                    _buildLanguageCard(
-                      context,
-                      'हिंदी',
-                      'Hindi',
-                      'hi',
-                    ),
+                    _buildLanguageCard(context, 'English', 'English', 'en'),
+                    _buildLanguageCard(context, 'ગુજરાતી', 'Gujarati', 'gu'),
+                    _buildLanguageCard(context, 'हिंदी', 'Hindi', 'hi'),
                   ],
                 ),
               ),
@@ -108,7 +99,12 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     );
   }
 
-  Widget _buildLanguageCard(BuildContext context, String nativeName, String englishName, String code) {
+  Widget _buildLanguageCard(
+    BuildContext context,
+    String nativeName,
+    String englishName,
+    String code,
+  ) {
     final theme = Theme.of(context);
     final isSelected = _selectedLang == code;
 
@@ -132,13 +128,19 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                 ),
                 Text(
                   englishName,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.darkGrey,
+                  ),
                 ),
               ],
             ),
           ),
           if (isSelected)
-            const Icon(Icons.check_circle, color: AppTheme.brandPurple, size: 28)
+            const Icon(
+              Icons.check_circle,
+              color: AppTheme.brandPurple,
+              size: 28,
+            )
           else
             IconButton(
               onPressed: () {

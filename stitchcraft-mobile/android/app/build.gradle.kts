@@ -7,18 +7,16 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.projectDir.resolve("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
     namespace = "com.example.stitchcraft"
-    compileSdk = 34
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
-
-    buildToolsVersion = "34.0.0"
-
-    val keystoreProperties = Properties()
-    val keystorePropertiesFile = rootProject.projectDir.resolve("key.properties")
-    if (keystorePropertiesFile.exists()) {
-        keystoreProperties.load(keystorePropertiesFile.inputStream())
-    }
 
     signingConfigs {
         create("release") {
@@ -30,12 +28,9 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -51,13 +46,19 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
             }
+        }
+    }
+}
+
+if (!keystorePropertiesFile.exists()) {
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { it.path.contains(":app:assembleRelease") || it.path.contains(":app:bundleRelease") }) {
+            throw GradleException(
+                "Missing android/key.properties; release builds must use production signing."
+            )
         }
     }
 }
@@ -67,5 +68,11 @@ flutter {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }

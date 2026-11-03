@@ -1,1 +1,21 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"stitchcraft-57925","appId":"1:201612651769:android:a2cfc1fd21fd6fca12c628","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"stitchcraft-57925","configurations":{"android":"1:201612651769:android:a2cfc1fd21fd6fca12c628","ios":"1:201612651769:ios:b972fdf8f7ccfeab12c628","macos":"1:201612651769:ios:b972fdf8f7ccfeab12c628","web":"1:201612651769:web:5dfdc3a9611bd0bd12c628","windows":"1:201612651769:web:93b0c88e6a1b94fb12c628"}}}}},"emulators":{"singleProjectMode":true,"auth":{"port":9099},"firestore":{"port":8080},"database":{"port":9000},"ui":{"enabled":true}},"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "stitchcraft-32da8",
+          "appId": "1:1063057899307:android:4321ed9bf2d859cb630f6e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "stitchcraft-32da8",
+          "configurations": {
+            "android": "1:1063057899307:android:4321ed9bf2d859cb630f6e"
+          }
+        }
+      }
+    }
+  }
+}

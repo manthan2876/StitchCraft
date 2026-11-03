@@ -6,6 +6,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/services/device_contacts_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
@@ -191,6 +192,14 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
         if (custResponse.statusCode == 200 || custResponse.statusCode == 201) {
           final custData = json.decode(custResponse.body);
           customerId = custData['_id'] ?? custData['id'];
+
+          if (newCust['saveToDeviceContacts'] == true) {
+            // Asynchronously save to mobile phone contacts
+            DeviceContactsService().saveContactToPhone(
+              fullName: newCust['name'] ?? '',
+              phoneNumber: newCust['phone'] ?? '',
+            );
+          }
         } else {
           throw Exception('Failed to register new customer in application database');
         }

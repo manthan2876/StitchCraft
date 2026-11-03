@@ -45,45 +45,63 @@ import 'package:stitchcraft/features/shop/screens/inventory_details_screen.dart'
 import 'package:stitchcraft/features/orders/screens/invoice_details_screen.dart';
 import 'package:stitchcraft/features/shop/screens/karigar_details_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:stitchcraft/core/config/app_env.dart';
+import 'package:stitchcraft/core/services/sync_worker.dart';
+import 'dart:developer' as developer;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: '.env');
-
-  final supabaseUrl = dotenv.env['SUPABASE_URL']?.trim() ?? '';
-  final supabasePublishableKey = dotenv.env['SUPABASE_ANON_KEY']?.trim() ?? '';
-  if (supabaseUrl.isEmpty) {
-    throw StateError('Missing SUPABASE_URL. Add it to stitchcraft-mobile/.env.');
-  }
-  if (supabasePublishableKey.isEmpty) {
-    throw StateError(
-      'Missing SUPABASE_ANON_KEY. Add it to stitchcraft-mobile/.env.',
-    );
-  }
+  AppEnv.validate();
 
   await Supabase.initialize(
-    url: supabaseUrl,
-    publishableKey: supabasePublishableKey,
+    url: AppEnv.supabaseUrl,
+    publishableKey: AppEnv.supabaseAnonKey,
   );
-  
+
   // Load localizations and theme before run
   await LocalizationService().loadLanguage();
   await ThemeService().loadTheme();
 
-  final isMobile = !kIsWeb && 
-      (defaultTargetPlatform == TargetPlatform.android || 
-       defaultTargetPlatform == TargetPlatform.iOS);
+  final isMobile =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   if (isMobile) {
     try {
       await Firebase.initializeApp();
-      // Initialize Notifications
+    } catch (error, stackTrace) {
+      developer.log(
+        'Firebase initialization failed; push notifications are unavailable',
+        name: 'Startup',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    try {
       final notificationService = NotificationService();
       await notificationService.init();
-    } catch (e) {
-      debugPrint("Failed to initialize mobile services: $e");
+    } catch (error, stackTrace) {
+      developer.log(
+        'Notification initialization failed',
+        name: 'Startup',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    try {
+      await SyncWorker.initialize();
+      await SyncWorker.schedulePeriodicSync();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Background sync initialization failed',
+        name: 'Startup',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -121,14 +139,19 @@ class StitchCraftApp extends StatelessWidget {
                 '/role_selection': (context) => const RoleSelectionScreen(),
                 '/shop_setup': (context) => const ShopSetupScreen(),
                 '/home': (context) => const MainNavigationContainer(),
-                
+
                 // Order Wizard
-                '/create_order_step1': (context) => const GarmentSelectionScreen(),
-                '/create_order_step2': (context) => const CustomerSelectionScreen(),
-                '/create_order_step3': (context) => const MeasurementInputScreen(),
-                '/create_order_step4': (context) => const MaterialSelectionScreen(),
-                '/create_order_step5': (context) => const OrderConfirmationScreen(),
-                
+                '/create_order_step1': (context) =>
+                    const GarmentSelectionScreen(),
+                '/create_order_step2': (context) =>
+                    const CustomerSelectionScreen(),
+                '/create_order_step3': (context) =>
+                    const MeasurementInputScreen(),
+                '/create_order_step4': (context) =>
+                    const MaterialSelectionScreen(),
+                '/create_order_step5': (context) =>
+                    const OrderConfirmationScreen(),
+
                 // Modules
                 '/repairs': (context) => const RepairDashboard(),
                 '/khata': (context) => const KhataScreen(initialTabIndex: 0),
@@ -142,11 +165,18 @@ class StitchCraftApp extends StatelessWidget {
                 '/order_details': (context) => const OrderDetailsScreen(),
                 '/customer_details': (context) => const CustomerDetailsScreen(),
                 '/machine_details': (context) => const MachineDetailsScreen(),
-                '/inventory_details': (context) => const InventoryDetailsScreen(),
+                '/inventory_details': (context) =>
+                    const InventoryDetailsScreen(),
                 '/invoice_details': (context) => const InvoiceDetailsScreen(),
                 '/karigar_details': (context) => const KarigarDetailsScreen(),
-                '/orders_pending': (context) => const OrderListScreen(title: 'Pending Orders', statusFilter: 'pending'),
-                '/deliveries': (context) => const OrderListScreen(title: 'Deliveries', statusFilter: 'completed'),
+                '/orders_pending': (context) => const OrderListScreen(
+                  title: 'Pending Orders',
+                  statusFilter: 'pending',
+                ),
+                '/deliveries': (context) => const OrderListScreen(
+                  title: 'Deliveries',
+                  statusFilter: 'completed',
+                ),
                 '/invoices': (context) => const InvoiceScreen(),
                 '/payments': (context) => const KhataScreen(initialTabIndex: 1),
               },

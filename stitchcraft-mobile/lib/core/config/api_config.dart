@@ -1,11 +1,11 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:stitchcraft/core/config/app_env.dart';
 
 class ApiConfig {
   static String get baseUrl {
-    final value = dotenv.env['BACKEND_API_URL']?.trim() ?? '';
+    final value = AppEnv.backendApiUrl.trim();
     if (value.isEmpty) {
       throw StateError(
-        'Missing BACKEND_API_URL. Add it to stitchcraft-mobile/.env.',
+        'Missing BACKEND_API_URL. Provide it via --dart-define-from-file=env/dev.json',
       );
     }
 

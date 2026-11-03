@@ -4,6 +4,8 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/services/device_contacts_service.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 
@@ -27,6 +29,9 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
   final _newCustNameController = TextEditingController();
   final _newCustPhoneController = TextEditingController();
   bool _isNewCustomer = false;
+  bool _saveToDeviceContacts = true;
+  bool _isContactAlreadySaved = false;
+  final _deviceContactsService = DeviceContactsService();
 
   @override
   void didChangeDependencies() {
@@ -73,6 +78,18 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
     });
   }
 
+  Future<void> _pickFromContacts() async {
+    final result = await _deviceContactsService.pickContact(context);
+    if (result != null) {
+      setState(() {
+        _newCustNameController.text = result.fullName;
+        _newCustPhoneController.text = result.phoneNumber;
+        _isContactAlreadySaved = true;
+        _saveToDeviceContacts = false;
+      });
+    }
+  }
+
   void _onNext() {
     if (_wizardData == null) return;
 
@@ -85,7 +102,11 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
         );
         return;
       }
-      _wizardData!['newCustomer'] = {'name': newName, 'phone': newPhone};
+      _wizardData!['newCustomer'] = {
+        'name': newName,
+        'phone': newPhone,
+        'saveToDeviceContacts': _saveToDeviceContacts,
+      };
       _wizardData!.remove('customer');
     } else {
       if (_selectedCustomer == null) {
@@ -198,22 +219,90 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Register Customer Details',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Register Customer Details',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.brandPurple,
+                              side: const BorderSide(color: AppTheme.brandPurple, width: 1.5),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.contacts_outlined, size: 20),
+                            label: Text(
+                              context.loc.import_contacts,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            onPressed: _pickFromContacts,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         TextField(
                           controller: _newCustNameController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(labelText: 'Customer Full Name'),
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                          onChanged: (_) {
+                            if (_isContactAlreadySaved) {
+                              setState(() => _isContactAlreadySaved = false);
+                            }
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Customer Full Name',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         TextField(
                           controller: _newCustPhoneController,
                           keyboardType: TextInputType.phone,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(labelText: 'Mobile Phone Number'),
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                          onChanged: (_) {
+                            if (_isContactAlreadySaved) {
+                              setState(() => _isContactAlreadySaved = false);
+                            }
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Mobile Phone Number',
+                            prefixIcon: Icon(Icons.phone_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        NeoCard(
+                          child: CheckboxListTile(
+                            value: _saveToDeviceContacts,
+                            onChanged: _isContactAlreadySaved
+                                ? null
+                                : (val) => setState(() => _saveToDeviceContacts = val ?? false),
+                            title: Text(
+                              context.loc.save_contact_to_phone,
+                              style: TextStyle(
+                                color: _isContactAlreadySaved ? AppTheme.darkGrey : theme.colorScheme.onSurface,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: _isContactAlreadySaved
+                                ? Text(
+                                    context.loc.already_in_contacts,
+                                    style: const TextStyle(color: AppTheme.trustGreen, fontSize: 12),
+                                  )
+                                : null,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: AppTheme.brandPurple,
+                          ),
                         ),
                       ],
                     ),

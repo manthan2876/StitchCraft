@@ -266,7 +266,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get reset_password => 'पासवर्ड रीसेट करें';
 
   @override
-  String get reset_password_instructions => 'पासवर्ड रीसेट लिंक प्राप्त करने के लिए अपना पंजीकृत ईमेल पता दर्ज करें।';
+  String get reset_password_instructions =>
+      'पासवर्ड रीसेट लिंक प्राप्त करने के लिए अपना पंजीकृत ईमेल पता दर्ज करें।';
 
   @override
   String get send_link => 'लिंक भेजें';
@@ -363,4 +364,25 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get fast_lane_repairs => 'त्वरित मरम्मत';
+
+  @override
+  String get import_contacts => 'फ़ोन कॉन्टैक्ट्स से चुनें';
+
+  @override
+  String get save_contact_to_phone => 'फ़ोन में कॉन्टैक्ट सेव करें';
+
+  @override
+  String get already_in_contacts => 'पहले से आपके फ़ोन में मौजूद है';
+
+  @override
+  String get select_phone_number => 'फ़ोन नंबर चुनें';
+
+  @override
+  String get contact_saved_to_phone => 'फ़ोन में संपर्क सुरक्षित हो गया';
+
+  @override
+  String get add_customer => 'ग्राहक जोड़ें';
+
+  @override
+  String get customer_added_successfully => 'ग्राहक सफलतापूर्वक जोड़ा गया';
 }

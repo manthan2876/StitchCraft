@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
+import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/config/api_config.dart';
 import 'dart:developer' as developer;
 
@@ -13,8 +14,7 @@ class SyncService {
   static String get baseUrl => ApiConfig.baseUrl;
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+    return AuthService().getToken();
   }
 
   Future<String?> _getShopId() async {
@@ -34,18 +34,14 @@ class SyncService {
 
       final prefs = await SharedPreferences.getInstance();
       final lastSyncStr = prefs.getString('lastSyncTime');
-      final lastSyncTime = lastSyncStr != null ? DateTime.tryParse(lastSyncStr) : null;
+      final lastSyncTime = lastSyncStr != null
+          ? DateTime.tryParse(lastSyncStr)
+          : null;
 
-      return {
-        'pendingCount': totalPending,
-        'lastSyncTime': lastSyncTime,
-      };
+      return {'pendingCount': totalPending, 'lastSyncTime': lastSyncTime};
     } catch (e) {
       developer.log('Error getting sync status: $e', name: 'SyncService');
-      return {
-        'pendingCount': 0,
-        'lastSyncTime': null,
-      };
+      return {'pendingCount': 0, 'lastSyncTime': null};
     }
   }
 
@@ -66,7 +62,12 @@ class SyncService {
             failedRecords.add({
               'table': table,
               'id': rec['id']?.toString() ?? '',
-              'title': rec['customerName']?.toString() ?? rec['name']?.toString() ?? rec['category']?.toString() ?? rec['id']?.toString() ?? 'Record',
+              'title':
+                  rec['customerName']?.toString() ??
+                  rec['name']?.toString() ??
+                  rec['category']?.toString() ??
+                  rec['id']?.toString() ??
+                  'Record',
             });
           }
         }
@@ -74,7 +75,9 @@ class SyncService {
 
       final prefs = await SharedPreferences.getInstance();
       final lastSyncStr = prefs.getString('lastSyncTime');
-      final lastSyncTime = lastSyncStr != null ? DateTime.tryParse(lastSyncStr) : null;
+      final lastSyncTime = lastSyncStr != null
+          ? DateTime.tryParse(lastSyncStr)
+          : null;
 
       return {
         'totalPending': totalPending,
@@ -83,10 +86,18 @@ class SyncService {
         'lastSyncTime': lastSyncTime,
       };
     } catch (e) {
-      developer.log('Error getting detailed sync breakdown: $e', name: 'SyncService');
+      developer.log(
+        'Error getting detailed sync breakdown: $e',
+        name: 'SyncService',
+      );
       return {
         'totalPending': 0,
-        'pendingByTable': {'orders': 0, 'customers': 0, 'expenses': 0, 'inventory': 0},
+        'pendingByTable': {
+          'orders': 0,
+          'customers': 0,
+          'expenses': 0,
+          'inventory': 0,
+        },
         'failedRecords': <Map<String, dynamic>>[],
         'lastSyncTime': null,
       };
@@ -94,9 +105,11 @@ class SyncService {
   }
 
   /// Sync all tables with progress callback
-  Future<void> syncAll({Function(String table, int current, int total)? onProgress}) async {
+  Future<void> syncAll({
+    Function(String table, int current, int total)? onProgress,
+  }) async {
     developer.log('Starting full REST sync...', name: 'SyncService');
-    
+
     final token = await _getToken();
     if (token == null || token.isEmpty) {
       developer.log('Sync skipped: No auth token found.', name: 'SyncService');
@@ -104,64 +117,97 @@ class SyncService {
     }
 
     final tables = ['customers', 'orders', 'expenses', 'inventory'];
-    
+
+    var failedTables = 0;
     for (int i = 0; i < tables.length; i++) {
       final table = tables[i];
       onProgress?.call(table, i + 1, tables.length);
       try {
         await syncTable(table, token);
       } catch (e) {
+        failedTables++;
         developer.log('Failed to sync table $table: $e', name: 'SyncService');
       }
     }
-    
-    // Update last sync time
+
+    if (failedTables > 0) {
+      throw StateError('$failedTables table(s) failed to sync');
+    }
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('lastSyncTime', DateTime.now().toIso8601String());
-    
+
     developer.log('Sync complete.', name: 'SyncService');
   }
 
   Future<void> syncTable(String table, String token) async {
     final shopId = await _getShopId();
     if (shopId == null || shopId.isEmpty) {
-      developer.log('Sync skipped for $table: No active shopId session found.', name: 'SyncService');
+      developer.log(
+        'Sync skipped for $table: No active shopId session found.',
+        name: 'SyncService',
+      );
       return;
     }
 
     // 1. PUSH local changes to Server
     final unsynced = await _localDb.getUnsyncedRecords(table);
     if (unsynced.isNotEmpty) {
-      developer.log('Pushing ${unsynced.length} unsynced records for $table', name: 'SyncService');
+      developer.log(
+        'Pushing ${unsynced.length} unsynced records for $table',
+        name: 'SyncService',
+      );
       for (final record in unsynced) {
         final id = record['id'] as String;
         final syncStatus = record['sync_status'] as int;
+        final endpoint = table == 'expenses' ? 'ledger/expenses' : table;
 
-        if (syncStatus != 0) { // New (1) or Updated (2)
+        if (syncStatus == 2) {
+          final deleteResponse = await http.delete(
+            Uri.parse('$baseUrl/$endpoint/$id'),
+            headers: {'Authorization': 'Bearer $token'},
+          );
+          if (deleteResponse.statusCode != 200 &&
+              deleteResponse.statusCode != 204 &&
+              deleteResponse.statusCode != 404) {
+            throw StateError(
+              'Failed to delete $table record $id: ${deleteResponse.statusCode}',
+            );
+          }
+          await _localDb.deleteRecordPermanently(table, id);
+          continue;
+        }
+
+        if (syncStatus == 1) {
           final payload = Map<String, dynamic>.from(record);
           payload.remove('sync_status');
           payload['shopId'] = shopId;
 
           // Mapping customizations for Node Express backend
-          String endpoint = table;
-          if (table == 'expenses') {
-            endpoint = 'ledger/expenses';
-          }
-
           // Embed measurements snapshot into order if available
           if (table == 'orders') {
             // Read measurements for order
-            final measurements = await _localDb.getRecords('measurements', where: 'order_id = ?', whereArgs: [id]);
+            final measurements = await _localDb.getRecords(
+              'measurements',
+              where: 'order_id = ?',
+              whereArgs: [id],
+            );
             if (measurements.isNotEmpty) {
               final firstMeasure = measurements.first;
-              final measurementsJson = firstMeasure['measurements_json'] as String?;
-              final Map<String, dynamic> parsedMeasurements = measurementsJson != null 
-                  ? json.decode(measurementsJson) 
-                  : {};
-              
-              final apparelType = record['apparelType'] ?? record['item_types']?.toString().split(',').first ?? 'Shirt';
+              final measurementsJson =
+                  firstMeasure['measurements_json'] as String?;
+              final Map<String, dynamic> parsedMeasurements =
+                  measurementsJson != null ? json.decode(measurementsJson) : {};
+
+              final apparelType =
+                  record['apparelType'] ??
+                  record['item_types']?.toString().split(',').first ??
+                  'Shirt';
               payload['measurementsSnapshot'] = {
-                apparelType.toString().toLowerCase().contains('pant') ? 'pant' : 'shirt': parsedMeasurements,
+                apparelType.toString().toLowerCase().contains('pant')
+                        ? 'pant'
+                        : 'shirt':
+                    parsedMeasurements,
               };
             }
             // Format order keys for Mongoose validation rules
@@ -169,10 +215,15 @@ class SyncService {
               payload['customerName'] = record['customer_name'];
             }
             if (record['apparelType'] != null || record['item_types'] != null) {
-              payload['apparelType'] = record['apparelType'] ?? record['item_types']?.toString().split(',').first ?? 'Shirt';
+              payload['apparelType'] =
+                  record['apparelType'] ??
+                  record['item_types']?.toString().split(',').first ??
+                  'Shirt';
             }
             if (record['due_date'] != null) {
-              payload['deliveryDate'] = DateTime.fromMillisecondsSinceEpoch(record['due_date']).toUtc().toIso8601String();
+              payload['deliveryDate'] = DateTime.fromMillisecondsSinceEpoch(
+                record['due_date'],
+              ).toUtc().toIso8601String();
             }
             if (record['total_amount'] != null) {
               payload['price'] = record['total_amount'];
@@ -195,29 +246,13 @@ class SyncService {
             'Authorization': 'Bearer $token',
           };
 
-          final isUpdate = syncStatus == 2;
           http.Response response;
 
-          if (isUpdate) {
-            response = await http.put(
-              Uri.parse('$baseUrl/$endpoint/$id'),
-              headers: headers,
-              body: json.encode(payload),
-            );
-            if (response.statusCode == 404) {
-              response = await http.post(
-                Uri.parse('$baseUrl/$endpoint'),
-                headers: headers,
-                body: json.encode(payload),
-              );
-            }
-          } else {
-            response = await http.post(
-              Uri.parse('$baseUrl/$endpoint'),
-              headers: headers,
-              body: json.encode(payload),
-            );
-          }
+          response = await http.post(
+            Uri.parse('$baseUrl/$endpoint'),
+            headers: headers,
+            body: json.encode(payload),
+          );
 
           if (response.statusCode == 200 || response.statusCode == 201) {
             final responseData = json.decode(response.body);
@@ -227,9 +262,14 @@ class SyncService {
             } else {
               await _localDb.updateSyncStatus(table, id, 0);
             }
-            developer.log('Successfully pushed $id to server for $table', name: 'SyncService');
+            developer.log(
+              'Successfully pushed $id to server for $table',
+              name: 'SyncService',
+            );
           } else {
-            developer.log('Failed to push $id: ${response.statusCode} - ${response.body}', name: 'SyncService');
+            throw StateError(
+              'Failed to push $table record $id: ${response.statusCode}',
+            );
           }
         }
       }
@@ -252,36 +292,28 @@ class SyncService {
     developer.log('Response Body: ${response.body}');
 
     if (response.statusCode == 200) {
-      final List<dynamic> remoteData = json.decode(response.body);
-      developer.log('Pulled ${remoteData.length} records from server for $table', name: 'SyncService');
-
-      // 2a. Prune local database of orphaned records deleted on the server
-      final localRecords = await _localDb.getRecords(table);
-      final remoteIds = remoteData.map<String>((rawRecord) {
-        final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(rawRecord);
-        return (remoteRecord['_id'] ?? remoteRecord['id'] ?? '').toString();
-      }).toSet();
-
-      for (final localRec in localRecords) {
-        final id = localRec['id'] as String;
-        final syncStatus = localRec['sync_status'] as int;
-        if (syncStatus == 0 && !remoteIds.contains(id)) {
-          developer.log('Deleting orphaned local record $id from table $table', name: 'SyncService');
-          await _localDb.deleteRecordPermanently(table, id);
-        }
+      final decoded = json.decode(response.body);
+      if (decoded is! List) {
+        throw const FormatException('Sync response must be a JSON array');
       }
+      final remoteData = decoded;
+      developer.log(
+        'Pulled ${remoteData.length} records from server for $table',
+        name: 'SyncService',
+      );
 
-      // 2b. Insert or replace remote records
       for (final rawRecord in remoteData) {
-        final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(rawRecord);
+        if (rawRecord is! Map) {
+          throw const FormatException('Sync record must be a JSON object');
+        }
+        final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(
+          rawRecord,
+        );
         final String id = remoteRecord['_id'] ?? remoteRecord['id'] ?? '';
         if (id.isEmpty) continue;
 
         // Map backend schema parameters to local SQLite table schemas
-        final Map<String, dynamic> sqliteRecord = {
-          'id': id,
-          'sync_status': 0,
-        };
+        final Map<String, dynamic> sqliteRecord = {'id': id, 'sync_status': 0};
 
         if (table == 'customers') {
           sqliteRecord['name'] = remoteRecord['name'] ?? 'Unknown';
@@ -289,33 +321,48 @@ class SyncService {
           sqliteRecord['email'] = remoteRecord['email'] ?? '';
           sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
         } else if (table == 'orders') {
-          sqliteRecord['customer_id'] = remoteRecord['customer'] is Map ? remoteRecord['customer']['_id'] : remoteRecord['customer'] ?? '';
-          sqliteRecord['customer_name'] = remoteRecord['customerName'] ?? 'Walk-in Customer';
-          sqliteRecord['order_date'] = remoteRecord['date'] != null 
-              ? DateTime.parse(remoteRecord['date'].toString()).millisecondsSinceEpoch
+          sqliteRecord['customer_id'] = remoteRecord['customer'] is Map
+              ? remoteRecord['customer']['_id']
+              : remoteRecord['customer'] ?? '';
+          sqliteRecord['customer_name'] =
+              remoteRecord['customerName'] ?? 'Walk-in Customer';
+          sqliteRecord['order_date'] = remoteRecord['date'] != null
+              ? DateTime.parse(
+                  remoteRecord['date'].toString(),
+                ).millisecondsSinceEpoch
               : DateTime.now().millisecondsSinceEpoch;
-          sqliteRecord['due_date'] = remoteRecord['deliveryDate'] != null 
-              ? DateTime.parse(remoteRecord['deliveryDate'].toString()).millisecondsSinceEpoch
+          sqliteRecord['due_date'] = remoteRecord['deliveryDate'] != null
+              ? DateTime.parse(
+                  remoteRecord['deliveryDate'].toString(),
+                ).millisecondsSinceEpoch
               : DateTime.now().millisecondsSinceEpoch;
           sqliteRecord['status'] = remoteRecord['status'] ?? 'Incoming';
-          sqliteRecord['total_amount'] = (remoteRecord['price'] as num?)?.toDouble() ?? 0.0;
+          sqliteRecord['total_amount'] =
+              (remoteRecord['price'] as num?)?.toDouble() ?? 0.0;
           sqliteRecord['description'] = remoteRecord['fabric'] ?? '';
-          sqliteRecord['fabric_photo_url'] = remoteRecord['fabricImageUrl'] ?? '';
+          sqliteRecord['fabric_photo_url'] =
+              remoteRecord['fabricImageUrl'] ?? '';
           sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
         } else if (table == 'expenses') {
           sqliteRecord['category'] = remoteRecord['category'] ?? 'General';
-          sqliteRecord['amount'] = (remoteRecord['amount'] as num?)?.toDouble() ?? 0.0;
+          sqliteRecord['amount'] =
+              (remoteRecord['amount'] as num?)?.toDouble() ?? 0.0;
           sqliteRecord['description'] = remoteRecord['description'] ?? '';
-          sqliteRecord['date'] = remoteRecord['date'] != null 
-              ? DateTime.parse(remoteRecord['date'].toString()).millisecondsSinceEpoch
+          sqliteRecord['date'] = remoteRecord['date'] != null
+              ? DateTime.parse(
+                  remoteRecord['date'].toString(),
+                ).millisecondsSinceEpoch
               : DateTime.now().millisecondsSinceEpoch;
           sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
         } else if (table == 'inventory') {
           sqliteRecord['name'] = remoteRecord['itemName'] ?? 'Inventory Item';
           sqliteRecord['category'] = remoteRecord['itemType'] ?? 'accessories';
-          sqliteRecord['quantity'] = (remoteRecord['quantity'] as num?)?.toDouble() ?? 0.0;
-          sqliteRecord['unit_price'] = (remoteRecord['costPerUnit'] as num?)?.toDouble() ?? 0.0;
-          sqliteRecord['low_stock_threshold'] = (remoteRecord['minQuantity'] as num?)?.toDouble() ?? 10.0;
+          sqliteRecord['quantity'] =
+              (remoteRecord['quantity'] as num?)?.toDouble() ?? 0.0;
+          sqliteRecord['unit_price'] =
+              (remoteRecord['costPerUnit'] as num?)?.toDouble() ?? 0.0;
+          sqliteRecord['low_stock_threshold'] =
+              (remoteRecord['minQuantity'] as num?)?.toDouble() ?? 10.0;
           sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
         }
 
@@ -325,7 +372,7 @@ class SyncService {
         if (table == 'expenses') DatabaseService.expenseSignal.add(null);
       }
     } else {
-      developer.log('Failed to pull records for $table: ${response.statusCode} - ${response.body}', name: 'SyncService');
+      throw StateError('Failed to pull $table records: ${response.statusCode}');
     }
   }
 }

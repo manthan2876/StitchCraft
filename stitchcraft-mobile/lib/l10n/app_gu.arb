@@ -117,5 +117,12 @@
   "profile_updated": "પ્રોફાઇલ સફળતાપૂર્વક અપડેટ થઈ!",
   "password_changed": "પાસવર્ડ સફળતાપૂર્વક બદલાઈ ગયો!",
   "shop_updated": "દુકાન સફળતાપૂર્વક અપડેટ થઈ",
-  "fast_lane_repairs": "ઝડપી સમારકામ"
+  "fast_lane_repairs": "ઝડપી સમારકામ",
+  "import_contacts": "મોબાઇલ સંપર્કોમાંથી પસંદ કરો",
+  "save_contact_to_phone": "ફોનમાં સંપર્ક સાચવો",
+  "already_in_contacts": "તમારા ફોન સંપર્કોમાં પહેલેથી જ છે",
+  "select_phone_number": "ફોન નંબર પસંદ કરો",
+  "contact_saved_to_phone": "ફોનમાં સંપર્ક સાચવવામાં આવ્યો",
+  "add_customer": "ગ્રાહક ઉમેરો",
+  "customer_added_successfully": "ગ્રાહક સફળતાપૂર્વક ઉમેરાયો"
 }

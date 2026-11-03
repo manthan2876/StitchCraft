@@ -1,14 +1,24 @@
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'dart:developer' as developer;
 import '../config/database_tables.dart';
 
 class LocalDatabaseService {
-  static final LocalDatabaseService _instance = LocalDatabaseService._internal();
+  static final LocalDatabaseService _instance =
+      LocalDatabaseService._internal();
   static Database? _database;
   static final Map<String, List<Map<String, dynamic>>> _webDb = {};
+
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
+  static const String _dbKeyStorageKey = 'stitchcraft_sqlcipher_key_v1';
+  static const String _legacyCommittedKey = 'stitchcraft_secure_key_2026';
 
   LocalDatabaseService._internal();
 
@@ -16,8 +26,15 @@ class LocalDatabaseService {
 
   Future<void> _initWebDb() async {
     final tables = [
-      'users', 'customers', 'measurements', 'orders', 
-      'expenses', 'repair_jobs', 'lining_items', 'gallery_items', 'inventory'
+      'users',
+      'customers',
+      'measurements',
+      'orders',
+      'expenses',
+      'repair_jobs',
+      'lining_items',
+      'gallery_items',
+      'inventory',
     ];
     for (final table in tables) {
       _webDb.putIfAbsent(table, () => []);
@@ -34,28 +51,85 @@ class LocalDatabaseService {
     return _database!;
   }
 
+  Future<String> _getOrGenerateDatabaseKey() async {
+    var key = await _secureStorage.read(key: _dbKeyStorageKey);
+    if (key != null && key.isNotEmpty) {
+      return key;
+    }
+
+    // Generate a 256-bit cryptographically secure random key
+    final randomBytes = List<int>.generate(
+      32,
+      (_) => Random.secure().nextInt(256),
+    );
+    key = base64UrlEncode(randomBytes);
+    await _secureStorage.write(key: _dbKeyStorageKey, value: key);
+    return key;
+  }
+
   Future<Database> _initDatabase() async {
     final path = p.join(await getDatabasesPath(), 'stitchcraft_v1.db');
-    final envKey = dotenv.env['DB_ENCRYPTION_KEY'];
-    final dbPassword = (envKey != null && envKey.isNotEmpty)
-        ? envKey
-        : 'stitchcraft_secure_key_2026';
+    final secureKey = await _getOrGenerateDatabaseKey();
 
-    return await openDatabase(
-      path,
-      password: dbPassword,
-      version: 5, // Incremented for new tables
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
+    try {
+      return await openDatabase(
+        path,
+        password: secureKey,
+        version: 5, // Incremented for new tables
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+        onConfigure: (db) async {
+          await db.execute('PRAGMA foreign_keys = ON');
+        },
+      );
+    } catch (e) {
+      // Database may have been encrypted with the legacy committed key
+      try {
+        final legacyDb = await openDatabase(
+          path,
+          password: _legacyCommittedKey,
+        );
+        await legacyDb.rawQuery("PRAGMA rekey = '$secureKey';");
+        await legacyDb.close();
+        developer.log(
+          'Successfully re-keyed database to hardware-backed key',
+          name: 'LocalDatabaseService',
+        );
+
+        return await openDatabase(
+          path,
+          password: secureKey,
+          version: 5,
+          onCreate: _onCreate,
+          onUpgrade: _onUpgrade,
+          onConfigure: (db) async {
+            await db.execute('PRAGMA foreign_keys = ON');
+          },
+        );
+      } catch (migrationErr) {
+        developer.log(
+          'Could not open or migrate the local database: $migrationErr',
+          name: 'LocalDatabaseService',
+          error: migrationErr,
+        );
+        throw StateError(
+          'Local database recovery failed. Existing data was preserved.',
+        );
+      }
+    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    developer.log('Upgrading database from version $oldVersion to $newVersion...', name: 'LocalDatabaseService');
+    developer.log(
+      'Upgrading database from version $oldVersion to $newVersion...',
+      name: 'LocalDatabaseService',
+    );
     if (oldVersion < 5) {
       // Add the missing column to your orders table only if it doesn't already exist
       final columns = await db.rawQuery('PRAGMA table_info(orders)');
-      final hasColumn = columns.any((column) => column['name'] == 'fabric_photo_url');
+      final hasColumn = columns.any(
+        (column) => column['name'] == 'fabric_photo_url',
+      );
       if (!hasColumn) {
         await db.execute('ALTER TABLE orders ADD COLUMN fabric_photo_url TEXT');
       }
@@ -68,15 +142,24 @@ class LocalDatabaseService {
         }
       }
     }
-    developer.log('Database upgraded successfully', name: 'LocalDatabaseService');
+    developer.log(
+      'Database upgraded successfully',
+      name: 'LocalDatabaseService',
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    developer.log('Creating local database tables...', name: 'LocalDatabaseService');
+    developer.log(
+      'Creating local database tables...',
+      name: 'LocalDatabaseService',
+    );
     for (final statement in createTableStatements) {
       await db.execute(statement);
     }
-    developer.log('Database tables created successfully', name: 'LocalDatabaseService');
+    developer.log(
+      'Database tables created successfully',
+      name: 'LocalDatabaseService',
+    );
   }
 
   // ============== GENERIC CRUD HELPERS ==============
@@ -85,7 +168,7 @@ class LocalDatabaseService {
       await _initWebDb();
       final list = _webDb[table]!;
       final id = data['id'] ?? '';
-      
+
       list.removeWhere((item) => item['id'] == id);
       list.add(Map<String, dynamic>.from(data));
       return;
@@ -94,7 +177,11 @@ class LocalDatabaseService {
     await db!.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<Map<String, dynamic>?> getRecordById(String table, String id, {String idColumn = 'id'}) async {
+  Future<Map<String, dynamic>?> getRecordById(
+    String table,
+    String id, {
+    String idColumn = 'id',
+  }) async {
     if (kIsWeb) {
       await _initWebDb();
       final list = _webDb[table]!;
@@ -102,23 +189,36 @@ class LocalDatabaseService {
       return match.isNotEmpty ? match.first : null;
     }
     final db = await database;
-    final results = await db!.query(table, where: '$idColumn = ?', whereArgs: [id]);
+    final results = await db!.query(
+      table,
+      where: '$idColumn = ?',
+      whereArgs: [id],
+    );
     return results.isNotEmpty ? results.first : null;
   }
 
-  Future<List<Map<String, dynamic>>> getRecords(String table, {String? where, List<Object?>? whereArgs, String? orderBy}) async {
+  Future<List<Map<String, dynamic>>> getRecords(
+    String table, {
+    String? where,
+    List<Object?>? whereArgs,
+    String? orderBy,
+  }) async {
     if (kIsWeb) {
       await _initWebDb();
       final list = _webDb[table]!;
       var filtered = list.where((item) => item['sync_status'] != 2).toList();
-      
+
       if (where != null && whereArgs != null && whereArgs.isNotEmpty) {
         if (where.contains('customer_id = ?')) {
           final customerId = whereArgs[0];
-          filtered = filtered.where((item) => item['customer_id'] == customerId).toList();
+          filtered = filtered
+              .where((item) => item['customer_id'] == customerId)
+              .toList();
         } else if (where.contains('order_id = ?')) {
           final orderId = whereArgs[0];
-          filtered = filtered.where((item) => item['order_id'] == orderId).toList();
+          filtered = filtered
+              .where((item) => item['order_id'] == orderId)
+              .toList();
         }
       }
       return filtered;
@@ -126,10 +226,19 @@ class LocalDatabaseService {
     final db = await database;
     final baseWhere = 'sync_status != 2';
     final resolvedWhere = where != null ? '$baseWhere AND ($where)' : baseWhere;
-    return await db!.query(table, where: resolvedWhere, whereArgs: whereArgs, orderBy: orderBy);
+    return await db!.query(
+      table,
+      where: resolvedWhere,
+      whereArgs: whereArgs,
+      orderBy: orderBy,
+    );
   }
 
-  Future<void> softDeleteRecord(String table, String id, {String idColumn = 'id'}) async {
+  Future<void> softDeleteRecord(
+    String table,
+    String id, {
+    String idColumn = 'id',
+  }) async {
     if (kIsWeb) {
       await _initWebDb();
       final list = _webDb[table]!;
@@ -144,10 +253,19 @@ class LocalDatabaseService {
       return;
     }
     final db = await database;
-    await db!.update(table, {'sync_status': 2}, where: '$idColumn = ?', whereArgs: [id]);
+    await db!.update(
+      table,
+      {'sync_status': 2},
+      where: '$idColumn = ?',
+      whereArgs: [id],
+    );
   }
 
-  Future<void> deleteRecordPermanently(String table, String id, {String idColumn = 'id'}) async {
+  Future<void> deleteRecordPermanently(
+    String table,
+    String id, {
+    String idColumn = 'id',
+  }) async {
     if (kIsWeb) {
       await _initWebDb();
       _webDb[table]!.removeWhere((item) => item[idColumn] == id);
@@ -158,15 +276,20 @@ class LocalDatabaseService {
   }
 
   // ============== USER CRUD ==============
-  Future<void> insertUser(Map<String, dynamic> user) => insertRecord('users', user);
-  Future<Map<String, dynamic>?> getUser(String id) => getRecordById('users', id);
-  Future<Map<String, dynamic>?> getUserByPhone(String phone) => getRecordById('users', phone, idColumn: 'phone');
-  
+  Future<void> insertUser(Map<String, dynamic> user) =>
+      insertRecord('users', user);
+  Future<Map<String, dynamic>?> getUser(String id) =>
+      getRecordById('users', id);
+  Future<Map<String, dynamic>?> getUserByPhone(String phone) =>
+      getRecordById('users', phone, idColumn: 'phone');
+
   // ============== CUSTOMER CRUD ==============
-  Future<void> insertCustomer(Map<String, dynamic> customer) => insertRecord('customers', customer);
+  Future<void> insertCustomer(Map<String, dynamic> customer) =>
+      insertRecord('customers', customer);
   Future<List<Map<String, dynamic>>> getCustomers() => getRecords('customers');
-  Future<Map<String, dynamic>?> getCustomer(String id) => getRecordById('customers', id);
-  
+  Future<Map<String, dynamic>?> getCustomer(String id) =>
+      getRecordById('customers', id);
+
   Future<void> updateSyncStatus(String table, String id, int status) async {
     if (kIsWeb) {
       await _initWebDb();
@@ -182,39 +305,62 @@ class LocalDatabaseService {
       return;
     }
     final db = await database;
-    await db!.update(table, {'sync_status': status}, where: 'id = ?', whereArgs: [id]);
+    await db!.update(
+      table,
+      {'sync_status': status},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ============== MEASUREMENT CRUD ==============
-  Future<void> insertMeasurement(Map<String, dynamic> measurement) => insertRecord('measurements', measurement);
-  Future<List<Map<String, dynamic>>> getMeasurementsByCustomer(String customerId) =>
-      getRecords('measurements', where: 'customer_id = ?', whereArgs: [customerId]);
+  Future<void> insertMeasurement(Map<String, dynamic> measurement) =>
+      insertRecord('measurements', measurement);
+  Future<List<Map<String, dynamic>>> getMeasurementsByCustomer(
+    String customerId,
+  ) => getRecords(
+    'measurements',
+    where: 'customer_id = ?',
+    whereArgs: [customerId],
+  );
 
   // ============== ORDER CRUD ==============
-  Future<void> insertOrder(Map<String, dynamic> order) => insertRecord('orders', order);
-  Future<List<Map<String, dynamic>>> getAllOrders() => getRecords('orders', orderBy: 'order_date DESC');
+  Future<void> insertOrder(Map<String, dynamic> order) =>
+      insertRecord('orders', order);
+  Future<List<Map<String, dynamic>>> getAllOrders() =>
+      getRecords('orders', orderBy: 'order_date DESC');
   Future<void> deleteOrder(String id) => deleteRecordPermanently('orders', id);
 
   // ============== EXPENSE CRUD ==============
-  Future<void> insertExpense(Map<String, dynamic> expense) => insertRecord('expenses', expense);
-  Future<List<Map<String, dynamic>>> getAllExpenses() => getRecords('expenses', orderBy: 'date DESC');
+  Future<void> insertExpense(Map<String, dynamic> expense) =>
+      insertRecord('expenses', expense);
+  Future<List<Map<String, dynamic>>> getAllExpenses() =>
+      getRecords('expenses', orderBy: 'date DESC');
   Future<void> deleteExpense(String id) => softDeleteRecord('expenses', id);
 
   // ============== REPAIR JOBS CRUD ==============
-  Future<void> insertRepairJob(Map<String, dynamic> job) => insertRecord('repair_jobs', job);
-  Future<List<Map<String, dynamic>>> getAllRepairJobs() => getRecords('repair_jobs', orderBy: 'created_date DESC');
-  Future<void> deleteRepairJob(String id) => softDeleteRecord('repair_jobs', id);
+  Future<void> insertRepairJob(Map<String, dynamic> job) =>
+      insertRecord('repair_jobs', job);
+  Future<List<Map<String, dynamic>>> getAllRepairJobs() =>
+      getRecords('repair_jobs', orderBy: 'created_date DESC');
+  Future<void> deleteRepairJob(String id) =>
+      softDeleteRecord('repair_jobs', id);
 
   // ============== LINING ITEMS CRUD ==============
-  Future<void> insertLiningItem(Map<String, dynamic> item) => insertRecord('lining_items', item);
+  Future<void> insertLiningItem(Map<String, dynamic> item) =>
+      insertRecord('lining_items', item);
   Future<List<Map<String, dynamic>>> getLiningItemsByOrder(String orderId) =>
       getRecords('lining_items', where: 'order_id = ?', whereArgs: [orderId]);
-  Future<void> deleteLiningItem(String id) => softDeleteRecord('lining_items', id);
+  Future<void> deleteLiningItem(String id) =>
+      softDeleteRecord('lining_items', id);
 
   // ============== GALLERY ITEMS CRUD ==============
-  Future<void> insertGalleryItem(Map<String, dynamic> item) => insertRecord('gallery_items', item);
-  Future<List<Map<String, dynamic>>> getAllGalleryItems() => getRecords('gallery_items', orderBy: 'updated_at DESC');
-  Future<void> deleteGalleryItem(String id) => softDeleteRecord('gallery_items', id);
+  Future<void> insertGalleryItem(Map<String, dynamic> item) =>
+      insertRecord('gallery_items', item);
+  Future<List<Map<String, dynamic>>> getAllGalleryItems() =>
+      getRecords('gallery_items', orderBy: 'updated_at DESC');
+  Future<void> deleteGalleryItem(String id) =>
+      softDeleteRecord('gallery_items', id);
 
   // ============== SYNC HELPERS ==============
   Future<List<Map<String, dynamic>>> getUnsyncedRecords(String table) async {
@@ -268,12 +414,32 @@ class LocalDatabaseService {
     }
     final db = await database;
     await db!.transaction((txn) async {
-      await txn.update(table, {'id': newId, 'sync_status': 0}, where: 'id = ?', whereArgs: [oldId]);
+      await txn.update(
+        table,
+        {'id': newId, 'sync_status': 0},
+        where: 'id = ?',
+        whereArgs: [oldId],
+      );
       if (table == 'orders') {
-        await txn.update('measurements', {'order_id': newId}, where: 'order_id = ?', whereArgs: [oldId]);
+        await txn.update(
+          'measurements',
+          {'order_id': newId},
+          where: 'order_id = ?',
+          whereArgs: [oldId],
+        );
       } else if (table == 'customers') {
-        await txn.update('measurements', {'customer_id': newId}, where: 'customer_id = ?', whereArgs: [oldId]);
-        await txn.update('orders', {'customer_id': newId}, where: 'customer_id = ?', whereArgs: [oldId]);
+        await txn.update(
+          'measurements',
+          {'customer_id': newId},
+          where: 'customer_id = ?',
+          whereArgs: [oldId],
+        );
+        await txn.update(
+          'orders',
+          {'customer_id': newId},
+          where: 'customer_id = ?',
+          whereArgs: [oldId],
+        );
       }
     });
   }
