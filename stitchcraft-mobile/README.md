@@ -33,12 +33,14 @@ The Flutter mobile application for **StitchCraft** — a full-featured tailor sh
   - **Step 4 — Material Selection**: Fabric details, lining (astar) assignment, and karigar selection.
   - **Step 5 — Order Confirmation**: Final pricing, advance payment, delivery date, and urgency settings.
 - **Order Pipeline & Tracking**: Track all 8 stages from *Incoming* to *Delivered*.
-- **Offline-First Khata Ledger**: Local SQLite database with AES encryption (`sqflite_sqlcipher`) for tracking income and expenses even without internet connectivity.
+- **Offline-First Khata Ledger & Udhar Tracking**: Local SQLite database with AES encryption (`sqflite_sqlcipher`) for tracking income and expenses even without internet connectivity. Includes a dedicated **Udhar (Pending Balances)** ledger displaying customer dues with one-tap WhatsApp payment reminders.
+- **Cloud Sync Status Monitor**: `SyncStatusScreen` provides full visibility into offline queues (orders, customers, inventory), last sync timestamps, failed mutation details, and a manual "Sync Now" trigger.
 - **Automated Background Sync**: `SyncWorker` powered by `workmanager` automatically syncs pending local records when network connectivity is restored.
-- **Customer WhatsApp Updates**: Send one-click order confirmations, trial-ready notices, and delivery updates directly to customer WhatsApp numbers.
+- **Customer WhatsApp Updates**: Send one-click order confirmations, trial-ready notices, delivery updates, and balance reminders directly to customer WhatsApp numbers.
 - **Invoices & Receipts**: Generate, preview, and print PDF invoices or share via system share sheets.
-- **Shop Management**: Manage karigars, sewing machines, fabric/aster inventory, and alteration/repair jobs.
-- **Multi-Language Support**: Runtime language switching between English (`en`), Hindi (`hi`), and Gujarati (`gu`).
+- **Shop & Staff Management**: Manage karigars, sewing machines, fabric/aster inventory, alteration/repair jobs, and multi-role access control (`owner`, `manager`, `staff`, `karigar`).
+- **Authentication & Security**: Email/password authentication with password visibility toggles, forgot/reset password recovery dialogs, and AES-encrypted local storage.
+- **Multi-Language Support**: Runtime language switching between English (`en`), Hindi (`hi`), and Gujarati (`gu`) with 118 localized getters.
 - **Onboarding Flow**: Splash screen → Language picker → Feature introduction carousel → Login/Register → Role & Shop Setup.
 
 ---
@@ -50,7 +52,8 @@ stitchcraft-mobile/
 ├── lib/
 │   ├── core/
 │   │   ├── config/          # ApiConfig (reads BACKEND_API_URL from .env), database_tables.dart, theme.dart
-│   │   ├── localization/    # AppLocalizations delegates & extension helpers
+│   │   ├── localization/    # AppLocalizations delegates & extension helpers (118 getters)
+│   │   │   └── generated/   # app_localizations.dart, app_localizations_en.dart, app_localizations_gu.dart, app_localizations_hi.dart
 │   │   ├── models/          # Dart domain models (CustomerModel, OrderModel, MeasurementModel, UserModel, RepairJobModel, LiningItemModel)
 │   │   ├── services/
 │   │   │   ├── auth_service.dart          # Supabase auth & session persistence
@@ -70,7 +73,7 @@ stitchcraft-mobile/
 │   │   └── widgets/         # NeoCard, PrimaryButton, CustomAppBar, VoiceTextField
 │   │
 │   ├── features/
-│   │   ├── auth/            # LoginScreen, RoleSelectionScreen
+│   │   ├── auth/            # LoginScreen (password toggle & reset dialog), RoleSelectionScreen
 │   │   ├── dashboard/       # MainNavigationContainer, DashboardScreen, MetricCard, DrawerMenu
 │   │   ├── orders/
 │   │   │   ├── screens/create_order/
@@ -79,11 +82,11 @@ stitchcraft-mobile/
 │   │   │   │   ├── step3_measurements.dart# Step 3: Measurement input
 │   │   │   │   ├── step4_material.dart    # Step 4: Material & lining selection
 │   │   │   │   └── step5_details.dart     # Step 5: Confirmation & pricing
-│   │   │   └── screens/                   # OrderListScreen, OrderDetailsScreen, CustomerListScreen, InvoiceScreen
-│   │   ├── khata/           # KhataScreen, IncomeList, ExpensesList, AddExpenseBottomSheet
+│   │   │   └── screens/                   # OrderListScreen, OrderDetailsScreen, CustomerListScreen, InvoiceDetailsScreen
+│   │   ├── khata/           # KhataScreen, IncomeList, ExpensesList, UdharList (pending balances + WhatsApp reminder)
 │   │   ├── shop/            # ShopHubScreen, ShopSetupScreen, KarigarsScreen, MachinesScreen, InventoryScreen
 │   │   ├── repairs/         # RepairDashboard
-│   │   ├── profile/         # ProfileScreen with profile, shops, settings, and security tabs
+│   │   ├── profile/         # ProfileScreen (profile, shops, settings, security tabs), SyncStatusScreen
 │   │   ├── notifications/   # NotificationsScreen
 │   │   └── onboarding/      # SplashScreen, LanguageSelectionScreen, OnboardingCarouselScreen
 │   │
@@ -176,10 +179,12 @@ ARB files reside in `lib/l10n/`:
 - `app_hi.arb` (Hindi)
 - `app_gu.arb` (Gujarati)
 
-To update strings:
-1. Update entries in all three `.arb` files.
-2. Run `flutter gen-l10n` to regenerate localization classes.
-3. Access translated strings via `context.loc.<stringKey>`.
+The application provides full tri-lingual coverage across 118 synchronized translation keys.
+
+To update or add strings:
+1. Update entries in all three `.arb` files (`app_en.arb`, `app_hi.arb`, `app_gu.arb`).
+2. Keep the generated localization classes in `lib/core/localization/generated/` synchronized (`app_localizations.dart`, `app_localizations_en.dart`, `app_localizations_gu.dart`, `app_localizations_hi.dart`).
+3. Access translated strings in any widget via `context.loc.<stringKey>`.
 
 ---
 

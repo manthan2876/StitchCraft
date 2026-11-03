@@ -16,8 +16,8 @@ React web dashboard for the StitchCraft tailor shop management platform. Built w
 | Storage & Auth | Supabase Client (`@supabase/supabase-js` 2.118.0) |
 | Analytics | `@vercel/analytics` 2.0.1 |
 | Validation | Form validators with safe non-backtracking regexes (`src/utils/formValidators.js`) |
-| Testing | Node.js native test runner (`node --test`) for unit and validation suites |
-| i18n | Custom `LanguageContext` (English, Hindi, Gujarati via locale JSONs) |
+| Testing | Node.js native test runner (`node --test`) for unit and validation suites (18 tests) |
+| i18n | Tri-lingual `LanguageContext` with 558 synchronized translation keys (English, Hindi, Gujarati) |
 | Theme | Custom `ThemeContext` (Dark / Light mode) |
 
 ---
@@ -40,14 +40,15 @@ stitchcraft-frontend/
 │   │   ├── Machines.jsx          # Machine registry & maintenance status
 │   │   ├── Inventory.jsx         # Inventory / accessories / aster stock
 │   │   ├── Payments.jsx          # Payment tracking across orders
-│   │   ├── Ledger.jsx            # Income & expense khata ledger with journal
+│   │   ├── Ledger.jsx            # Income & expense khata ledger with journal & Udhar tab
 │   │   ├── Invoices.jsx          # Invoice list
 │   │   ├── InvoiceDetails.jsx    # Full printable invoice view
-│   │   ├── PublicInvoice.jsx     # Shareable guest invoice (/invoice/share/:id)
+│   │   ├── PublicInvoice.jsx     # Shareable guest invoice (/invoice/public/:token) with UPI QR
 │   │   ├── Delivery.jsx          # Delivery tracking & completion
+│   │   ├── StaffManagement.jsx   # Team member invitation, role assignment & status toggle
 │   │   ├── Notifications.jsx     # In-app shop alerts
-│   │   ├── Profile.jsx           # User profile, shops, security, export/import
-│   │   ├── Login.jsx             # User login
+│   │   ├── Profile.jsx           # User profile, shop settings (UPI, GST, logo), export/import
+│   │   ├── Login.jsx             # User login with password visibility toggle
 │   │   ├── Signup.jsx            # Shop & owner registration
 │   │   ├── ForgotPassword.jsx    # Request password recovery email
 │   │   ├── ResetPassword.jsx     # Set new password from recovery link
@@ -63,10 +64,12 @@ stitchcraft-frontend/
 │   │   ├── inventory/
 │   │   │   ├── hooks/            # useInventory.js
 │   │   │   └── components/       # InventoryModal.jsx, InventoryDeleteModal.jsx
+│   │   ├── ledger/
+│   │   │   └── components/       # PendingBalancesTab.jsx (Udhar dues + WhatsApp reminders)
 │   │   └── profile/
 │   │       ├── hooks/            # useProfile.js (settings, shops, export/import, password)
 │   │       └── components/       # ProfileTab, SettingsTab, ShopInfoTab, ChangePasswordTab,
-│   │                             # ShopModal, DeleteShopModal, DataConflictModal,
+│   │                             # ShopModal (UPI, GST, prefix, logo), DeleteShopModal, DataConflictModal,
 │   │                             # PrivacyActionConfirmModal, DeletionReasonModal
 │   │
 │   ├── components/
@@ -195,37 +198,50 @@ A streamlined 3-step creation wizard:
 - **Step 2 — Measurements**: Shirt, pant, or custom measurements + maap photo upload.
 - **Step 3 — Material & Assignment**: Fabric type, astar (lining) assignment, karigar assignment.
 
-### Public Invoice (`/invoice/share/:id`)
+### Public Invoice (`/invoice/public/:token`)
 - Shareable client-facing invoice link requiring no login.
-- Resolves by order ID or secure share token.
+- Resolves by secure guest share token or order ID.
 - Strips internal wholesale costs, profit margins, and artisan assignments to present only customer-facing line items and balance.
+- Dynamically generates and displays a UPI payment QR code using the shop's configured UPI VPA for instant customer payment.
+- Handles invalid or revoked tokens with a friendly expiration message.
 
-### Khata Ledger (`/ledger`)
+### Staff & Role Management (`/staff`)
+- Displays team members and active assignments across four roles: **Owner**, **Manager**, **Staff**, and **Karigar**.
+- Shop owners can invite team members by email or phone, assign specific permissions, toggle active status, or unlink members.
+- Visual status badges and deletion confirmation modals prevent accidental access revocation.
+
+### Khata Ledger & Udhar Recovery (`/ledger`)
 - Financial summary: total sales, fabric profit, shop expenses, and net profit.
 - Chronological journal entries (running cash book).
 - Order transaction ledger and category-based expense management.
+- **Pending Balances (Udhar) Tab**: Comprehensive ledger of customers with outstanding balances, showing total due, order counts, and a one-click WhatsApp payment reminder generator.
+
+### Password Recovery (`/forgot-password` & `/reset-password`)
+- Request password reset recovery links sent securely to registered email addresses.
+- Handles Supabase recovery sessions and allows updating credentials with real-time validation and password visibility toggles.
 
 ### Profile & Shop Hub (`/profile`)
 - **Profile Tab**: Update personal contact information and avatar.
-- **Shop Info & Shops Tab**: Switch active shop branches, create new shops, or delete branches.
+- **Shop Info & Shops Tab**: Switch active shop branches, create new shops, or edit shop configuration.
+- **Shop Settings (Customization)**: Configure custom invoice numbering prefix (e.g., `INV`, `SC`), GSTIN identification number, shop logo URL, and UPI ID (VPA).
 - **Settings Tab**: Customizable dashboard widgets.
-- **Change Password Tab**: Password updates with verification checks.
+- **Change Password Tab**: Password updates with verification checks and visibility toggles.
 - **Data Privacy & Portability**: Export all shop data as JSON, import data with conflict checking (`DataConflictModal`), and account deletion workflows.
 
 ---
 
 ## 🌍 Internationalization
 
-Supported languages:
+StitchCraft features full tri-lingual localization across the entire web application:
 - **English** (`en`)
 - **Hindi** (`hi`)
 - **Gujarati** (`gu`)
 
-Translations are maintained in [`src/config/locales/`](./src/config/locales/) and loaded through [`src/context/LanguageContext.jsx`](./src/context/LanguageContext.jsx). Use the `useLanguage` hook:
+All 558 translation keys are synchronized across [`src/config/locales/`](./src/config/locales/) (`en.json`, `gu.json`, `hi.json`) and loaded through [`src/context/LanguageContext.jsx`](./src/context/LanguageContext.jsx). Real-time language switching is available via the globe picker in the top bar. Use the `useLanguage` hook:
 
 ```jsx
 const { t } = useLanguage();
-return <button>{t('save')}</button>;
+return <button>{t('saveDetails')}</button>;
 ```
 
 ---

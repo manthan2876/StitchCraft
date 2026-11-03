@@ -107,11 +107,11 @@ flutter run
 
 Always run the verification commands for the modules you touched before submitting a pull request:
 
-### Backend Checks (28 Automated Tests + Syntax Check)
+### Backend Checks (37 Automated Tests + Syntax Check)
 ```bash
 cd stitchcraft-backend
 
-# 1. Run automated test suites (order lifecycle, ledger, security, shop isolation)
+# 1. Run automated test suites (order lifecycle, ledger, udhar balances, staff management, security, shop isolation)
 npm test
 
 # 2. Check JavaScript syntax on backend files

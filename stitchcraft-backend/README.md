@@ -46,7 +46,8 @@ stitchcraft-backend/
 │   ├── notificationController.js # In-app notifications & device FCM token registration
 │   ├── orderController.js     # CRUD orders, payments, notes, public invoice & share tokens
 │   ├── profileController.js   # User profile read/update & active shop switching
-│   ├── shopController.js      # Multi-shop management & shop switching
+│   ├── shopController.js      # Multi-shop management & shop customization (UPI, GST, prefix)
+│   ├── staffController.js     # Shop staff member invitation, role assignment & status
 │   └── uploadController.js    # Supabase signed URL generation (upload + view)
 │
 ├── middleware/
@@ -67,14 +68,14 @@ stitchcraft-backend/
 │   ├── Notification.js
 │   ├── Order.js               # Includes notes[], measurementsSnapshot
 │   ├── Payment.js             # Recalculated from Transactions
-│   ├── Shop.js
+│   ├── Shop.js                # Includes upiId, gstin, invoicePrefix, logoUrl
 │   ├── Transaction.js         # Immutable payment ledger per order
-│   └── User.js
+│   └── User.js                # Includes multi-tenant shop associations & roles
 │
 ├── routes/
 │   ├── index.js               # Central router — mounts sub-routes & global DELETE limiter
 │   ├── authRoutes.js          # /api/auth
-│   ├── customerRoutes.js      # /api/customers
+│   ├── customerRoutes.js      # /api/customers (includes /pending-balances)
 │   ├── dashboardRoutes.js     # /api/dashboard
 │   ├── deliveryRoutes.js      # /api/deliveries
 │   ├── inventoryRoutes.js     # /api/inventory
@@ -82,8 +83,9 @@ stitchcraft-backend/
 │   ├── ledgerRoutes.js        # /api/ledger
 │   ├── machineRoutes.js       # /api/machines
 │   ├── notificationRoutes.js  # /api/notifications
-│   ├── orderRoutes.js         # /api/orders
+│   ├── orderRoutes.js         # /api/orders (includes public guest invoices)
 │   ├── shopRoutes.js          # /api/shops
+│   ├── staffRoutes.js         # /api/staff
 │   └── uploadRoutes.js        # /api/upload
 │
 ├── services/
@@ -93,11 +95,13 @@ stitchcraft-backend/
 │   ├── notificationService.js # In-app notifications & Firebase Cloud Messaging (FCM)
 │   └── orderService.js        # createOrder, updateOrder, deleteOrder, syncPayment
 │
-├── test/                      # Automated test suites (Node.js native test runner)
+├── test/                      # Automated test suites (37 tests across 14 suites)
 │   ├── ledger_and_expenses.test.js  # Ledger aggregation & balance tests
 │   ├── order_lifecycle.test.js      # Order status transitions & financial math
-│   ├── security_and_scoping.test.js # Auth, rate limiting & identifier tests
-│   └── shop_isolation.test.js       # Multi-tenant cross-shop boundary tests
+│   ├── pending_balances.test.js     # Udhar balance aggregation & WhatsApp reminders
+│   ├── security_and_scoping.test.js # Auth, reset password, rate limiting & input tests
+│   ├── shop_isolation.test.js       # Multi-tenant cross-shop boundary tests
+│   └── staff_management.test.js     # Multi-role policies & staff assignment tests
 │
 ├── utils/
 │   ├── identifiers.js         # UUID & ObjectId validation
@@ -232,6 +236,7 @@ All protected routes require an `Authorization: Bearer <token>` header.
 ### Customers — `/api/customers`
 | Method | Path | Description | Access | Rate Limit |
 |---|---|---|---|---|
+| `GET` | `/pending-balances` | Aggregated pending balances (Udhar) across all unpaid/partial customer orders | Protected | 300 / 15m |
 | `GET` | `/` | List all customers (supports search) | Protected | 300 / 15m |
 | `POST` | `/` | Create customer with optional initial measurements | Protected | 300 / 15m |
 | `GET` | `/:id` | Get customer profile + measurement history | Protected | 300 / 15m |
@@ -295,8 +300,17 @@ All protected routes require an `Authorization: Bearer <token>` header.
 | `GET` | `/` | List all shops associated with the user | Protected | 300 / 15m |
 | `POST` | `/` | Create a new shop branch | Protected | 300 / 15m |
 | `GET` | `/:id` | Get shop branch details | Protected | 300 / 15m |
-| `PUT` | `/:id` | Update shop information | Protected | 300 / 15m |
+| `PUT` | `/:id` | Update shop details (name, phone, address, UPI ID, GSTIN, invoice prefix, logo URL) | Protected | 300 / 15m |
 | `DELETE` | `/:id` | Delete shop branch | Owner only | 10 / 15m |
+
+### Staff & Role Management — `/api/staff`
+| Method | Path | Description | Access | Rate Limit |
+|---|---|---|---|---|
+| `GET` | `/` | List team members and assigned roles (`owner`, `manager`, `staff`, `karigar`) | Owner / Manager | 300 / 15m |
+| `POST` | `/` | Link or invite new team member to active shop | Owner / Manager | 300 / 15m |
+| `PUT` | `/:id/status` | Toggle staff member active/inactive status | Owner / Manager | 300 / 15m |
+| `PUT` | `/:id/role` | Update team member role assignment | Owner only | 300 / 15m |
+| `DELETE` | `/:id` | Unlink team member from shop | Owner only | 10 / 15m |
 
 ### Dashboard Analytics — `/api/dashboard`
 | Method | Path | Description | Access | Rate Limit |
@@ -325,3 +339,9 @@ When an order is created, the customer's current measurement set is snapshotted 
 
 ### Aster (Lining) Inventory Integration
 When an order moves into active production stages defined by `ASTAR_DEDUCT_STATUSES` (`['Stitching', 'Checking', 'Ready', 'Delivered']`), the required aster quantity is automatically deducted from active inventory records. Cancelling an order restores the deducted quantity.
+
+### Udhar (Pending Balances) Aggregation
+The `/api/customers/pending-balances` endpoint aggregates outstanding balances across all unpaid or partially paid orders grouped by customer. It calculates the total shop receivable and formats WhatsApp reminder links for quick collection.
+
+### Tokenized Public Guest Invoices
+Guest invoices accessible via `/api/orders/public/:id` (using shareToken or Order ID) strictly strip wholesale fabric costs, profit margins, internal karigar assignments, and audit logs. The response provides sanitized customer-facing order items, financial balances, and shop UPI details for instant QR settlement.

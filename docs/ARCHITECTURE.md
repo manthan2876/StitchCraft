@@ -55,20 +55,40 @@ The Express API is the single source of truth for business rules, calculations, 
 
 ---
 
-## 2. Multi-Tenant Shop Isolation
+## 2. Multi-Tenant Shop Isolation & Role-Based Access Control
 
 StitchCraft is multi-tenant by design. A single user profile can own or associate with multiple tailor shops, but operational data is strictly partitioned.
 
 1. **Tenant Identifier (`shopId`)**:
    - Every domain entity (`Order`, `Customer`, `Karigar`, `Machine`, `Inventory`, `Payment`, `Transaction`, `LedgerEntry`, `Delivery`, `Notification`) carries a mandatory `shopId`.
 2. **Context Resolution**:
-   - The `protect` middleware verifies the incoming Supabase bearer token and attaches the authenticated user record (`req.user`) including their active `shopId`.
+   - The `protect` middleware verifies the incoming Supabase bearer token and attaches the authenticated user record (`req.user`) including their active `shopId` and shop-specific role.
    - Users can switch their active branch context at any time via `PUT /api/auth/switch-shop/:id`.
 3. **Query Scoping**:
    - All controller queries and service functions scope database operations using `{ shopId: req.user.shopId }`.
    - `SupabaseModel` filters data sets and prevents cross-tenant records from being queried or mutated.
 4. **Isolated Resource Access**:
    - Cross-shop boundary checks are verified by automated tests (`shop_isolation.test.js`), ensuring users cannot read or mutate data belonging to other tailor shops even if an entity's primary ID is known.
+
+### Role Authorization & Capabilities Matrix
+
+StitchCraft defines four explicit user roles per shop branch:
+
+| Capability | Owner | Manager | Staff | Karigar |
+|---|:---:|:---:|:---:|:---:|
+| View Dashboard & Analytics | ✅ | ✅ | ❌ | ❌ |
+| Order Creation & Lifecycle | ✅ | ✅ | ✅ (Assigned) | ✅ (Status only) |
+| Customer Profiles & Measurements | ✅ | ✅ | ✅ | ❌ |
+| Khata Ledger & Udhar Recovery | ✅ | ✅ | ❌ | ❌ |
+| Shop Expenses Management | ✅ | ✅ (Read/Create) | ❌ | ❌ |
+| Inventory & Lining (Aster) Stock | ✅ | ✅ | ✅ (Read) | ❌ |
+| Karigar & Machine Registry | ✅ | ✅ | ❌ | ❌ |
+| Staff Invitation & Role Delegation | ✅ | ❌ | ❌ | ❌ |
+| Shop Settings (UPI, GST, Logo) | ✅ | ❌ | ❌ | ❌ |
+| Data Export / Import / Wiping | ✅ | ❌ | ❌ | ❌ |
+| Account Deletion | ✅ | ❌ | ❌ | ❌ |
+
+- **Staff Management (`/api/shops/:shopId/staff`)**: Shop owners can list, invite, update roles (`owner`, `manager`, `staff`, `karigar`), toggle active status, and unlink members. Managers can view staff but cannot modify roles. Standard staff and karigars are blocked with HTTP 403.
 
 ---
 
@@ -123,16 +143,24 @@ sequenceDiagram
 
 ### Multi-Tier Rate Limiting (`express-rate-limit`)
 - **API Limiter**: 300 requests / 15 minutes per IP across all `/api` routes.
-- **Auth Limiter**: 10 requests / 15 minutes per IP on `/api/auth/login`, `/api/auth/register`, and `/api/auth/verify`.
+- **Auth & Password Recovery Limiter**: 10 requests / 15 minutes per IP on `/api/auth/login`, `/api/auth/register`, `/api/auth/verify`, `/api/auth/forgot-password`, and `/api/auth/reset-password`.
 - **Upload Limiter**: 30 requests / 15 minutes per IP on `/api/upload/*`.
 - **Destructive Actions Limiter**: 10 requests / 15 minutes per IP on sensitive operations (account deletion, database exports/imports, password updates, and **all HTTP `DELETE` requests** across `/api`).
 
 ### Role-Based Authorization (`authorize`)
-- Strict role checking (`owner`, `manager`, `karigar`, `staff`).
-- Destructive operations (account deletion, database wiping, expense deletion, shop deletion) strictly require the `owner` role.
+- Strict multi-role checking (`owner`, `manager`, `karigar`, `staff`).
+- Destructive operations (account deletion, database wiping, expense deletion, shop deletion) and administrative staff delegation strictly require the `owner` role.
+- Managers are permitted day-to-day workshop coordination (orders, customers, inventory, khata, viewing staff) without access to destructive or owner-only settings.
 
-### Public Receipt & Invoice Sanitization
-- Public client receipts accessible via `/api/orders/public/:id` (using order ID or guest share token) strip wholesale fabric costs, profit margins, internal karigar assignments, and audit trails.
+### Public Receipt & Tokenized Invoice Sanitization
+- Public client invoices accessible via `/api/invoices/public/:token` (or order ID fallback) strictly sanitize all internal workshop data before rendering.
+- Strips internal profit margins, wholesale fabric costs, assigned karigar IDs, and internal audit notes.
+- Generates dynamic UPI payment QR codes using the shop's configured `upiId` (VPA) for instant client settlement.
+- Expired or revoked share tokens cleanly display an invalid/expired state without leaking information.
+
+### Password Recovery Security
+- Implements secure, time-bounded crypto reset tokens with automatic invalidation upon successful reset.
+- Rate-limited to prevent brute-force attacks, with server-side validation enforcing a minimum of 6 characters and strict email format checks.
 
 ### ReDoS & Injection Hardening
 - All regular expressions in backend middleware and frontend validators are bounded and linear (deterministic, non-backtracking).
@@ -151,6 +179,14 @@ Payments are **never updated directly**.
 - Every payment or refund produces an immutable `Transaction` record.
 - `syncPaymentFromTransactions()` aggregates all transactions to calculate `paidAmount`, `balanceAmount`, and payment `status` (`Pending`, `Partial`, `Paid`).
 
+### Udhar & Pending Balances Aggregation
+- Outstanding customer balances are computed on demand across all unpaid or partially paid orders via `/api/shops/:shopId/pending-balances`.
+- Generates pre-formatted WhatsApp payment reminder messages containing customer name, shop details, total due, and payment prompts for one-tap dispatch.
+
+### Shop Branding & Invoice Customization
+- Shop owners can configure custom invoice prefixes (e.g., `INV`, `SC`), GSTIN identification numbers, shop logo URLs, and UPI IDs (VPAs).
+- Invoices dynamically compute invoice numbers using the configured prefix and render the shop logo and UPI QR code.
+
 ### Measurement Snapshotting
 - When creating an order, the customer's current measurements are snapshotted into `order.measurementsSnapshot`.
 - Future customer measurement changes do not retroactively alter completed or in-progress orders.
@@ -159,12 +195,18 @@ Payments are **never updated directly**.
 - When an order transitions into active workshop stages defined by `ASTAR_DEDUCT_STATUSES` (`['Stitching', 'Checking', 'Ready', 'Delivered']`), required astar/fabric quantities are deducted from active inventory records.
 - Cancelling an order automatically restores the deducted inventory quantity.
 
-### Offline-First Mobile Architecture & Sync
+### Offline-First Mobile Architecture & Sync Monitor
 - Mobile app persists data locally in an encrypted SQLite database (`LocalDatabaseService` using `sqflite_sqlcipher`).
 - `SyncWorker` powered by `workmanager` runs background synchronization every 15 minutes to reconcile pending offline mutations with the REST API.
+- `SyncStatusScreen` provides visibility into the offline queue (pending orders, customers, inventory), last sync timestamps, and a manual "Sync Now" trigger with retry logic.
 
 ### Customer WhatsApp Integration
-- `WhatsAppService` generates direct WhatsApp messaging links (`https://wa.me/`) with pre-composed order updates for booking, trial ready, and delivery notices.
+- `WhatsAppService` generates direct WhatsApp messaging links (`https://wa.me/`) with pre-composed order updates for booking, trial ready, delivery notices, and pending balance (udhar) reminders.
+
+### Full Tri-Lingual Internationalization (i18n)
+- Native localization in **English (`en`)**, **Gujarati (`gu`)**, and **Hindi (`hi`)**.
+- **Web Frontend**: Managed via `LanguageContext` and `translations.js` with 558 synchronized translation keys loaded from locale JSONs. Real-time language switching in the top bar.
+- **Mobile App**: Managed via Flutter ARB files (`app_en.arb`, `app_gu.arb`, `app_hi.arb`) and synchronized `AppLocalizations` delegates with 118 getters across all 3 languages.
 
 ---
 
@@ -172,11 +214,14 @@ Payments are **never updated directly**.
 
 StitchCraft maintains automated test suites across all three modules:
 
-### Backend (`node --test`) — 28 Automated Tests
+### Backend (`node --test`) — 37 Automated Tests Across 14 Suites
 - **`order_lifecycle.test.js`**: Order creation math, aster deductions, status progressions, note appending, and payment calculations.
 - **`ledger_and_expenses.test.js`**: Khata ledger entry aggregation, cash book running balance calculation, and category reporting.
+- **`udhar_balances.test.js`**: Udhar calculation math across orders and pre-filled WhatsApp reminder generation.
+- **`staff_management.test.js`**: Multi-role authorization policies, owner vs manager privileges, role updates, and member unlinking.
 - **`security_and_scoping.test.js`**: Role authorization, rate-limiting handlers, ReDoS bounds, public receipt sanitization, notification dispatch fallbacks, and identifier validation.
 - **`shop_isolation.test.js`**: Multi-role permission checks, cross-tenant data isolation, and multi-shop boundary controls.
+- **`auth_and_validation.test.js`**: Customer input validation, forgot/reset password boundaries, and database model layer schema checks.
 
 ### Frontend (`node --test`) — 18 Automated Tests
 - **`form_validators.test.js`**: Form validation rules, regex edge cases, required fields, and boundary checks.
