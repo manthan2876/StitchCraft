@@ -63,8 +63,18 @@ export const registerUserDeviceToken = async (userId, token) => {
   }
 };
 
+// Allowed categories for device push notifications (Lock screen / Notification tray).
+// Routine events (new orders, stage progress, deliveries, payments, routine inventory)
+// are strictly In-App Only!
+export const PUSH_ALLOWED_TYPES = [
+  'order_due_reminder',
+  'low_stock',
+  'delegated_order_completed',
+  'delegated_order_assigned',
+];
+
 /**
- * Dispatch an in-app and push notification
+ * Dispatch an in-app notification (always saved to DB) and optionally an FCM push notification
  *
  * @param {Object} params
  * @param {string} params.shopId - Shop ID for multi-tenant isolation
@@ -72,7 +82,8 @@ export const registerUserDeviceToken = async (userId, token) => {
  * @param {string} [params.orderId] - Associated order ID
  * @param {string} [params.title] - Notification title (e.g. 'Order Delivered')
  * @param {string} params.message - Notification body text
- * @param {string} [params.type] - Category (e.g. 'order_status', 'payment', 'inventory')
+ * @param {string} [params.type] - Category (e.g. 'order_status', 'payment', 'inventory', 'low_stock', 'order_due_reminder')
+ * @param {boolean} [params.sendPush] - Explicit override for device push notification
  * @param {Object} [params.data] - Additional metadata for FCM data payload
  */
 export const dispatchNotification = async ({
@@ -82,6 +93,7 @@ export const dispatchNotification = async ({
   title,
   message,
   type = 'general',
+  sendPush,
   data = {},
 }) => {
   if (!shopId || !message) {
@@ -89,7 +101,7 @@ export const dispatchNotification = async ({
     return null;
   }
 
-  // 1. Create in-app notification record in DB
+  // 1. Create in-app notification record in DB (Always preserved for In-App Bell list)
   let dbNotification = null;
   try {
     dbNotification = await Notification.create({
@@ -105,7 +117,17 @@ export const dispatchNotification = async ({
     console.error('[NotificationService] Failed to persist in-app notification:', err.message);
   }
 
-  // 2. Dispatch FCM Push Notifications if Firebase is available
+  // 2. Determine whether to send device push notification (FCM)
+  const shouldSendPush = sendPush !== undefined ? Boolean(sendPush) : PUSH_ALLOWED_TYPES.includes(type);
+  if (!shouldSendPush) {
+    return {
+      notification: dbNotification,
+      pushSentCount: 0,
+      channel: 'in_app_only',
+    };
+  }
+
+  // 3. Dispatch FCM Push Notifications if Firebase is available
   let pushSentCount = 0;
   try {
     const isReady = initFirebase();

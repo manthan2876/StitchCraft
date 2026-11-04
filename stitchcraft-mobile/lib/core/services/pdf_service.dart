@@ -43,6 +43,10 @@ class PdfService {
     final double asterPrice = (order['asterSellingPrice'] as num?)?.toDouble() ?? 0.0;
     final double liningTotal = needsAster ? (asterQty * asterPrice) : 0.0;
     final double billTotal = price + liningTotal;
+
+    final String liningName = order['asterInventoryItem'] is Map
+        ? (order['asterInventoryItem']['itemName'] ?? order['asterInventoryItem']['name'] ?? 'Lining Material')
+        : (order['asterItemName'] ?? (order['astar_source'] != 'Customer' ? order['astar_source'] : null) ?? 'Lining Material');
     
     final double paidAmount = (order['payment']?['paidAmount'] as num?)?.toDouble() ?? 0.0;
     final double balanceDue = billTotal - paidAmount;
@@ -218,7 +222,7 @@ class PdfService {
                           pw.Padding(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                             child: pw.Text(
-                              'Lining (Aster) Material Used',
+                              'Inventory Material: $liningName',
                               style: const pw.TextStyle(fontSize: 10),
                             ),
                           ),

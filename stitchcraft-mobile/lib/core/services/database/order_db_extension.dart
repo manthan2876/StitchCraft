@@ -40,18 +40,17 @@ extension OrderDbExtension on DatabaseService {
     
     if (updatedOrder.dueDate != null) {
       try {
-        final reminderDate = updatedOrder.dueDate!.subtract(const Duration(days: 1));
-        if (reminderDate.isAfter(DateTime.now())) {
-          final seconds = reminderDate.difference(DateTime.now()).inSeconds;
-          await NotificationService().scheduleNotification(
-            id.hashCode,
-            'Order Due Soon',
-            'Order for ${updatedOrder.customerName} is due tomorrow!',
-            seconds,
-          );
-        }
+        final garment = updatedOrder.itemTypes.isNotEmpty
+            ? updatedOrder.itemTypes.first
+            : (updatedOrder.description.isNotEmpty ? updatedOrder.description : 'Garment');
+        await NotificationService().scheduleOrderDueReminders(
+          orderId: id,
+          customerName: updatedOrder.customerName,
+          garmentType: garment,
+          dueDate: updatedOrder.dueDate!,
+        );
       } catch (e) {
-        developer.log('Failed to schedule notification: $e', name: 'DatabaseService');
+        developer.log('Failed to schedule order due reminders: $e', name: 'DatabaseService');
       }
     }
 
@@ -122,21 +121,24 @@ extension OrderDbExtension on DatabaseService {
     
     await localDb.insertOrder(map);
 
-    if (updatedOrder.dueDate != null) {
+    if (updatedOrder.dueDate != null && updatedOrder.status != 'Delivered' && updatedOrder.status != 'Cancelled') {
       try {
-        final reminderDate = updatedOrder.dueDate!.subtract(const Duration(days: 1));
-        if (reminderDate.isAfter(DateTime.now())) {
-          final seconds = reminderDate.difference(DateTime.now()).inSeconds;
-          await NotificationService().scheduleNotification(
-            order.id.hashCode,
-            'Order Due Soon',
-            'Order for ${updatedOrder.customerName} is due tomorrow!',
-            seconds,
-          );
-        }
+        final garment = updatedOrder.itemTypes.isNotEmpty
+            ? updatedOrder.itemTypes.first
+            : (updatedOrder.description.isNotEmpty ? updatedOrder.description : 'Garment');
+        await NotificationService().scheduleOrderDueReminders(
+          orderId: order.id,
+          customerName: updatedOrder.customerName,
+          garmentType: garment,
+          dueDate: updatedOrder.dueDate!,
+        );
       } catch (e) {
-        developer.log('Failed to schedule notification: $e', name: 'DatabaseService');
+        developer.log('Failed to schedule order due reminders: $e', name: 'DatabaseService');
       }
+    } else if (updatedOrder.status == 'Delivered' || updatedOrder.status == 'Cancelled') {
+      try {
+        await NotificationService().cancelOrderDueReminders(order.id);
+      } catch (_) {}
     }
 
     DatabaseService.orderSignal.add(null);

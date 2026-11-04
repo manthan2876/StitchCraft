@@ -21,7 +21,6 @@ import Delivery from './pages/Delivery';
 import Notifications from './pages/Notifications';
 import Karigars from './pages/Karigars';
 import KarigarDetails from './pages/KarigarDetails';
-import Machines from './pages/Machines';
 import Inventory from './pages/Inventory';
 import Invoices from './pages/Invoices';
 import InvoiceDetails from './pages/InvoiceDetails';
@@ -63,7 +62,6 @@ export const App = () => {
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/karigars" element={<Karigars />} />
                 <Route path="/karigars/:id" element={<KarigarDetails />} />
-                <Route path="/machines" element={<Machines />} />
                 <Route path="/staff" element={<StaffManagement />} />
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />

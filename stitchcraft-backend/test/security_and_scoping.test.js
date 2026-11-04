@@ -170,6 +170,32 @@ describe('Notification Dispatch Service', () => {
     assert.ok(result);
     assert.equal(result.pushSentCount, 0);
   });
+
+  it('should route routine events to in-app notifications only without triggering push', async () => {
+    const { dispatchNotification } = await import('../services/notificationService.js');
+    const inAppTypes = ['order_status', 'payment', 'inventory'];
+
+    for (const type of inAppTypes) {
+      const res = await dispatchNotification({
+        shopId: 'shop-test-123',
+        title: `Event ${type}`,
+        message: `Message for ${type}`,
+        type,
+      });
+      assert.ok(res);
+      assert.equal(res.channel, 'in_app_only');
+      assert.equal(res.pushSentCount, 0);
+    }
+  });
+
+  it('should authorize device push for order due reminders and low stock alerts', async () => {
+    const { PUSH_ALLOWED_TYPES } = await import('../services/notificationService.js');
+    assert.ok(PUSH_ALLOWED_TYPES.includes('order_due_reminder'));
+    assert.ok(PUSH_ALLOWED_TYPES.includes('low_stock'));
+    assert.equal(PUSH_ALLOWED_TYPES.includes('payment'), false);
+    assert.equal(PUSH_ALLOWED_TYPES.includes('order_status'), false);
+    assert.equal(PUSH_ALLOWED_TYPES.includes('inventory'), false);
+  });
 });
 
 describe('Relational Schema Migration Transformation', () => {

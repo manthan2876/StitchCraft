@@ -15,9 +15,13 @@ import { dispatchNotification } from './notificationService.js';
 export const ASTAR_DEDUCT_STATUSES = ['Stitching', 'Checking', 'Ready', 'Delivered'];
 
 export const findOrderScoped = async (id, shopId) => {
-  const query = isValidIdentifier(id)
-    ? { _id: id, shopId }
-    : { orderId: typeof id === 'string' ? id : '', shopId };
+  const baseCondition = isValidIdentifier(id)
+    ? { _id: id }
+    : { orderId: typeof id === 'string' ? id : '' };
+  const query = {
+    ...baseCondition,
+    $or: [{ shopId }, { delegatedToShopId: shopId }],
+  };
   return await Order.findOne(query)
     .populate('assignedKarigar')
     .populate('assignedMachine')
@@ -136,6 +140,19 @@ export const handleAstarStockAdjustment = async (order, newStatus, shopId) => {
           message: `Astar stock reduced by ${order.asterQuantity} ${invItem.unit} for order ${order.orderId} (${invItem.itemName}).`,
           type: 'inventory',
         });
+
+        // Trigger device push if stock reaches or drops below minimum threshold
+        const threshold = invItem.minQuantity !== undefined ? invItem.minQuantity : 5;
+        if (invItem.quantity <= threshold) {
+          await dispatchNotification({
+            shopId,
+            orderId: order._id,
+            title: '⚠️ Low Stock Alert',
+            message: `${invItem.itemName} is running low! Remaining: ${invItem.quantity} ${invItem.unit} (Minimum: ${threshold} ${invItem.unit}).`,
+            type: 'low_stock',
+            sendPush: true,
+          });
+        }
       }
     } else if (!willDeduct && wasDeducted) {
       const invItem = await Inventory.findOne({ _id: order.asterInventoryItem, shopId });
@@ -422,13 +439,37 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
   await syncPaymentFromTransactions(order._id, shopId);
 
   if (statusChanged) {
+    // If update is performed by partner tailor who received the delegated order
+    if (order.delegatedToShopId && String(shopId) === String(order.delegatedToShopId)) {
+      const isCompleted = newStatus === 'Ready' || newStatus === 'Delivered';
+      if (isCompleted) {
+        order.delegationStatus = 'completed';
+        await order.save();
+      }
+
+      const partnerShop = await Shop.findById(order.delegatedToShopId);
+      const partnerName = partnerShop?.shopName || 'Partner tailor';
+
+      // Push notification to originating Main Tailor
+      await dispatchNotification({
+        shopId: order.shopId,
+        orderId: order._id,
+        title: isCompleted
+            ? 'Order Completed by Partner Tailor! 🎉'
+            : 'Partner Tailor Updated Order Stage',
+        message: `${partnerName} has updated order #${order.orderId || order._id} (${order.apparelType || order.customerName}) to ${newStatus}.`,
+        type: 'delegated_order_completed',
+        sendPush: true,
+      });
+    }
+
     if (status === 'Delivered') {
       await Delivery.updateOne(
         { orderId: order._id },
         { status: 'Delivered', deliveredBy: userName || 'Owner' }
       );
       await dispatchNotification({
-        shopId,
+        shopId: order.shopId,
         customerId: order.customer,
         orderId: order._id,
         title: 'Order Delivered',
@@ -437,7 +478,7 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
       });
     } else {
       await dispatchNotification({
-        shopId,
+        shopId: order.shopId,
         customerId: order.customer,
         orderId: order._id,
         title: 'Status Updated',
@@ -454,6 +495,73 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
   result.payment = payment;
   result.delivery = delivery;
   return result;
+};
+
+// Delegate Order to Another Tailor
+export const delegateOrderService = async (orderId, shopId, { targetShopId, targetShopName, targetPhone, notes }) => {
+  const query = isValidIdentifier(orderId)
+    ? { _id: orderId, shopId }
+    : { orderId: typeof orderId === 'string' ? orderId : '', shopId };
+  const order = await Order.findOne(query);
+  if (!order) return null;
+
+  const originShop = await Shop.findById(shopId);
+
+  order.delegatedToShopId = targetShopId;
+  order.delegatedToShopName = targetShopName || '';
+  order.delegatedToPhone = targetPhone || '';
+  order.delegatedAt = new Date();
+  order.delegationStatus = 'assigned';
+  order.delegatedNotes = notes || '';
+  order.originShopId = shopId;
+  order.originShopName = originShop?.shopName || 'Main Shop';
+  order.originPhone = originShop?.phone || '';
+
+  const updated = await order.save();
+
+  // Send push notification to target partner tailor
+  await dispatchNotification({
+    shopId: targetShopId,
+    orderId: order._id,
+    title: 'New Job from Partner Tailor! 🧵',
+    message: `${originShop?.shopName || 'Another tailor shop'} sent you an order for ${order.customerName} (${order.apparelType || 'Garment'}).`,
+    type: 'delegated_order_assigned',
+    sendPush: true,
+  });
+
+  return updated;
+};
+
+// Revoke Delegated Order back to originating tailor
+export const revokeDelegationService = async (orderId, shopId) => {
+  const query = isValidIdentifier(orderId)
+    ? { _id: orderId, shopId }
+    : { orderId: typeof orderId === 'string' ? orderId : '', shopId };
+  const order = await Order.findOne(query);
+  if (!order) return null;
+
+  const previousPartnerShopId = order.delegatedToShopId;
+
+  order.delegatedToShopId = null;
+  order.delegatedToShopName = null;
+  order.delegatedToPhone = null;
+  order.delegationStatus = 'none';
+  order.delegatedNotes = null;
+
+  const updated = await order.save();
+
+  if (previousPartnerShopId) {
+    await dispatchNotification({
+      shopId: previousPartnerShopId,
+      orderId: order._id,
+      title: 'Delegated Order Recalled',
+      message: `The delegated order #${order.orderId || order._id} was cancelled by the originating shop.`,
+      type: 'general',
+      sendPush: false,
+    });
+  }
+
+  return updated;
 };
 
 // Core Business Logic: Delete Order (Soft-delete to preserve financial audit trail)

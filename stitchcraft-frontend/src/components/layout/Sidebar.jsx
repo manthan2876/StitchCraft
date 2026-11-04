@@ -15,13 +15,13 @@ import {
   MdReceiptLong,
   MdSupervisorAccount,
 } from 'react-icons/md';
-import { GiScissors, GiSewingNeedle, GiSewingMachine } from 'react-icons/gi';
+import { GiScissors, GiSewingNeedle } from 'react-icons/gi';
 
 export const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
 
-  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'manager';
+  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'manager';
 
   const menuItems = [
     { name: t('dashboard'), path: '/dashboard', icon: <MdDashboard className="w-5 h-5" /> },
@@ -31,7 +31,6 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { name: t('invoices') !== 'invoices' ? t('invoices') : 'Invoices', path: '/invoices', icon: <MdReceiptLong className="w-5 h-5" /> },
     { name: t('payments') !== 'payments' ? t('payments') : 'Payments', path: '/payments', icon: <MdReceipt className="w-5 h-5" /> },
     { name: t('karigars') !== 'karigars' ? t('karigars') : 'Karigars', path: '/karigars', icon: <MdAssignmentInd className="w-5 h-5" /> },
-    { name: t('machines') !== 'machines' ? t('machines') : 'Machines', path: '/machines', icon: <GiSewingMachine className="w-5 h-5" /> },
     { name: t('inventory') !== 'inventory' ? t('inventory') : 'Inventory', path: '/inventory', icon: <MdInventory className="w-5 h-5" /> },
     { name: t('ledger') !== 'ledger' ? t('ledger') : 'Ledger', path: '/ledger', icon: <MdAccountBalance className="w-5 h-5" /> },
     ...(isManagerOrOwner ? [{ name: t('staffAndRoles'), path: '/staff', icon: <MdSupervisorAccount className="w-5 h-5" /> }] : []),

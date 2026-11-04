@@ -8,12 +8,18 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   final bool showDrawerButton;
   final PreferredSizeWidget? bottom;
+  final List<Widget>? actions;
+  final bool automaticallyImplyLeading;
+  final Widget? leading;
 
   const CustomAppBar({
     super.key,
     required this.title,
     this.showDrawerButton = false,
     this.bottom,
+    this.actions,
+    this.automaticallyImplyLeading = true,
+    this.leading,
   });
 
   @override
@@ -104,13 +110,16 @@ class _CustomAppBarState extends State<CustomAppBar> {
     return AppBar(
       title: Text(widget.title),
       bottom: widget.bottom,
-      leading: widget.showDrawerButton
-          ? IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            )
-          : null,
+      automaticallyImplyLeading: widget.automaticallyImplyLeading,
+      leading: widget.leading ??
+          (widget.showDrawerButton
+              ? IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                )
+              : null),
       actions: [
+        if (widget.actions != null) ...widget.actions!,
         IconButton(
           icon: const Icon(Icons.notifications_none_rounded),
           tooltip: 'Notifications',

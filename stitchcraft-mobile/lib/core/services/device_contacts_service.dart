@@ -20,7 +20,9 @@ class DeviceContactsService {
   Future<PickedContactResult?> pickContact(BuildContext context) async {
     try {
       // 1. Ensure runtime READ_CONTACTS permission is granted
-      final hasPermission = await FlutterContacts.requestPermission(readonly: true);
+      final permissionStatus = await FlutterContacts.permissions.request(PermissionType.read);
+      final hasPermission = permissionStatus == PermissionStatus.granted ||
+          permissionStatus == PermissionStatus.limited;
       if (!hasPermission) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -36,9 +38,11 @@ class DeviceContactsService {
       // 2. Open external system contact picker
       Contact? contact;
       try {
-        contact = await FlutterContacts.openExternalPick();
+        contact = await FlutterContacts.native.showPicker(
+          properties: ContactProperties.allProperties,
+        );
       } catch (e) {
-        debugPrint('openExternalPick failed, falling back to in-app picker: $e');
+        debugPrint('showPicker failed, falling back to in-app picker: $e');
         if (context.mounted) {
           return await _showInAppContactPicker(context);
         }
@@ -50,9 +54,12 @@ class DeviceContactsService {
 
       // 3. Retrieve full properties if external pick returned a lightweight shell
       Contact fullContact = contact;
-      if (fullContact.phones.isEmpty) {
+      if (fullContact.phones.isEmpty && contact.id != null) {
         try {
-          final fetched = await FlutterContacts.getContact(contact.id);
+          final fetched = await FlutterContacts.get(
+            contact.id!,
+            properties: ContactProperties.allProperties,
+          );
           if (fetched != null) {
             fullContact = fetched;
           }
@@ -62,9 +69,11 @@ class DeviceContactsService {
       }
 
       final phones = fullContact.phones;
-      String name = fullContact.displayName.trim();
+      String name = fullContact.displayName?.trim() ?? '';
       if (name.isEmpty) {
-        name = '${fullContact.name.first} ${fullContact.name.last}'.trim();
+        final first = fullContact.name?.first ?? '';
+        final last = fullContact.name?.last ?? '';
+        name = '$first $last'.trim();
       }
       if (name.isEmpty && phones.isNotEmpty) {
         name = phones.first.number;
@@ -152,9 +161,11 @@ class DeviceContactsService {
               ),
               const Divider(height: 1),
               ...phones.map((p) {
-                final labelText = p.label == PhoneLabel.custom
-                    ? (p.customLabel.isNotEmpty ? p.customLabel : 'Custom')
-                    : p.label.name;
+                final labelText = p.label.label == PhoneLabel.custom
+                    ? ((p.label.customLabel != null && p.label.customLabel!.isNotEmpty)
+                        ? p.label.customLabel!
+                        : 'Custom')
+                    : p.label.label.name;
                 return ListTile(
                   leading: Container(
                     padding: const EdgeInsets.all(8),
@@ -193,9 +204,8 @@ class DeviceContactsService {
   /// In-app searchable contact picker bottom sheet fallback
   Future<PickedContactResult?> _showInAppContactPicker(BuildContext context) async {
     try {
-      final contacts = await FlutterContacts.getContacts(
-        withProperties: true,
-        withPhoto: false,
+      final contacts = await FlutterContacts.getAll(
+        properties: ContactProperties.allProperties,
       );
 
       if (!context.mounted) return null;
@@ -207,9 +217,12 @@ class DeviceContactsService {
         return null;
       }
 
-      final validContacts = contacts.where((c) =>
-        c.displayName.trim().isNotEmpty || c.phones.isNotEmpty
-      ).toList();
+      final validContacts = contacts.where((c) {
+        final dName = c.displayName?.trim() ?? '';
+        final fName = c.name?.first?.trim() ?? '';
+        final lName = c.name?.last?.trim() ?? '';
+        return dName.isNotEmpty || fName.isNotEmpty || lName.isNotEmpty || c.phones.isNotEmpty;
+      }).toList();
 
       return await showModalBottomSheet<PickedContactResult>(
         context: context,
@@ -238,7 +251,9 @@ class DeviceContactsService {
       if (trimmedName.isEmpty || cleanedPhone.isEmpty) return false;
 
       // 1. Request contact write permission
-      final hasPermission = await FlutterContacts.requestPermission(readonly: false);
+      final permissionStatus = await FlutterContacts.permissions.request(PermissionType.readWrite);
+      final hasPermission = permissionStatus == PermissionStatus.granted ||
+          permissionStatus == PermissionStatus.limited;
       if (!hasPermission) {
         debugPrint('Contact write permission was denied by user.');
         return false;
@@ -250,17 +265,29 @@ class DeviceContactsService {
       final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
       // 3. Construct Contact object
-      final newContact = Contact()
-        ..name.first = firstName
-        ..name.last = lastName
-        ..phones = [Phone(cleanedPhone, label: PhoneLabel.mobile)];
-
-      if (email != null && email.trim().isNotEmpty) {
-        newContact.emails = [Email(email.trim(), label: EmailLabel.home)];
-      }
+      final newContact = Contact(
+        name: Name(
+          first: firstName,
+          last: lastName,
+        ),
+        phones: [
+          Phone(
+            number: cleanedPhone,
+            label: const Label(PhoneLabel.mobile),
+          ),
+        ],
+        emails: (email != null && email.trim().isNotEmpty)
+            ? [
+                Email(
+                  address: email.trim(),
+                  label: const Label(EmailLabel.home),
+                ),
+              ]
+            : const [],
+      );
 
       // 4. Save into native contact book
-      await newContact.insert();
+      await FlutterContacts.create(newContact);
       debugPrint('Successfully saved contact to mobile phone directory: $trimmedName ($cleanedPhone)');
       return true;
     } catch (e) {
@@ -304,7 +331,11 @@ class _InAppContactPickerSheetState extends State<_InAppContactPickerSheet> {
         _filtered = widget.contacts;
       } else {
         _filtered = widget.contacts.where((c) {
-          final name = (c.displayName.isNotEmpty ? c.displayName : '${c.name.first} ${c.name.last}').toLowerCase();
+          final displayName = c.displayName?.trim() ?? '';
+          final fullName = displayName.isNotEmpty
+              ? displayName
+              : '${c.name?.first ?? ''} ${c.name?.last ?? ''}'.trim();
+          final name = fullName.toLowerCase();
           final phoneMatches = c.phones.any((p) => p.number.replaceAll(RegExp(r'\s+'), '').contains(query));
           return name.contains(query) || phoneMatches;
         }).toList();
@@ -387,11 +418,13 @@ class _InAppContactPickerSheetState extends State<_InAppContactPickerSheet> {
                     itemCount: _filtered.length,
                     itemBuilder: (ctx, index) {
                       final c = _filtered[index];
-                      final name = c.displayName.isNotEmpty
-                          ? c.displayName
-                          : '${c.name.first} ${c.name.last}'.trim();
+                      final displayName = c.displayName?.trim() ?? '';
+                      final resolvedName = displayName.isNotEmpty
+                          ? displayName
+                          : '${c.name?.first ?? ''} ${c.name?.last ?? ''}'.trim();
                       final hasPhones = c.phones.isNotEmpty;
                       final primaryPhone = hasPhones ? c.phones.first.number : 'No phone number';
+                      final name = resolvedName.isNotEmpty ? resolvedName : primaryPhone;
 
                       return ListTile(
                         leading: CircleAvatar(
@@ -405,7 +438,7 @@ class _InAppContactPickerSheetState extends State<_InAppContactPickerSheet> {
                           ),
                         ),
                         title: Text(
-                          name.isNotEmpty ? name : primaryPhone,
+                          name,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: theme.colorScheme.onSurface,
@@ -469,7 +502,7 @@ class _InAppContactPickerSheetState extends State<_InAppContactPickerSheet> {
             ...phones.map((p) => ListTile(
                   leading: const Icon(Icons.phone),
                   title: Text(p.number),
-                  subtitle: Text(p.label.name.toUpperCase(), style: const TextStyle(fontSize: 11)),
+                  subtitle: Text(p.label.label.name.toUpperCase(), style: const TextStyle(fontSize: 11)),
                   onTap: () => Navigator.pop(ctx, p.number),
                 )),
           ],
@@ -477,7 +510,7 @@ class _InAppContactPickerSheetState extends State<_InAppContactPickerSheet> {
       ),
     );
 
-    if (selected != null && mounted) {
+    if (selected != null && context.mounted) {
       Navigator.pop(
         context,
         PickedContactResult(

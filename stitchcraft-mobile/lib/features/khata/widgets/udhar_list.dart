@@ -6,6 +6,7 @@ import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/widgets/record_payment_sheet.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -28,131 +29,68 @@ class UdharList extends StatelessWidget {
   ) async {
     final orderId = (order['id'] ?? order['_id'] ?? '').toString();
     final customerName = order['customer_name']?.toString() ?? 'Customer';
-    final amountController = TextEditingController(text: balance.toStringAsFixed(0));
-    String paymentMethod = 'cash';
 
-    await showModalBottomSheet(
+    final result = await showModalBottomSheet<PaymentResult>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Record Payment for $customerName',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Outstanding Balance: ${CurrencyUtils.formatINR(balance)}',
-                style: const TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Amount Received (₹)',
-                  prefixIcon: Icon(Icons.currency_rupee),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  ChoiceChip(
-                    label: const Text('Cash'),
-                    selected: paymentMethod == 'cash',
-                    onSelected: (val) => setModalState(() => paymentMethod = 'cash'),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('UPI / Online'),
-                    selected: paymentMethod == 'online',
-                    onSelected: (val) => setModalState(() => paymentMethod = 'online'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.trustGreen,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () async {
-                    final entered = double.tryParse(amountController.text.trim()) ?? 0.0;
-                    if (entered <= 0) return;
-                    Navigator.pop(ctx);
-
-                    try {
-                      // 1. Update local database
-                      final currentAdvance = (order['advance_amount'] as num?)?.toDouble() ?? 0.0;
-                      final newAdvance = currentAdvance + entered;
-                      await LocalDatabaseService().updateRecord('orders', orderId, {
-                        'advance_amount': newAdvance,
-                        'sync_status': 3,
-                        'updated_at': DateTime.now().millisecondsSinceEpoch,
-                      });
-
-                      // 2. Push to server if online
-                      final token = await AuthService().getToken();
-                      if (token != null) {
-                        await http.post(
-                          Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer $token',
-                          },
-                          body: json.encode({
-                            'amount': entered,
-                            'paymentType': paymentMethod,
-                          }),
-                        );
-                      }
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Payment of ${CurrencyUtils.formatINR(entered)} recorded!'),
-                            backgroundColor: AppTheme.trustGreen,
-                          ),
-                        );
-                      }
-                      onRefresh?.call();
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Saved locally: $e'),
-                            backgroundColor: AppTheme.warmAmber,
-                          ),
-                        );
-                      }
-                      onRefresh?.call();
-                    }
-                  },
-                  child: const Text('Confirm Payment', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (ctx) => RecordPaymentSheet(
+        customerName: customerName,
+        balance: balance,
       ),
     );
-    amountController.dispose();
+
+    if (result == null || result.amount <= 0) return;
+
+    try {
+      // 1. Update local database
+      final currentAdvance = (order['advance_amount'] as num?)?.toDouble() ?? 0.0;
+      final newAdvance = currentAdvance + result.amount;
+      await LocalDatabaseService().updateRecord('orders', orderId, {
+        'advance_amount': newAdvance,
+        'sync_status': 3,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      // 2. Push to server if online
+      final token = await AuthService().getToken();
+      if (token != null) {
+        await http.post(
+          Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: json.encode({
+            'amount': result.amount,
+            'paymentType': result.method,
+          }),
+        );
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment of ${CurrencyUtils.formatINR(result.amount)} recorded!'),
+            backgroundColor: AppTheme.trustGreen,
+          ),
+        );
+        onRefresh?.call();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved locally: $e'),
+            backgroundColor: AppTheme.warmAmber,
+          ),
+        );
+        onRefresh?.call();
+      }
+    }
   }
 
   @override

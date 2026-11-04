@@ -2,32 +2,30 @@ import 'dart:convert';
 
 enum UserRole {
   owner,
-  manager,
-  staff,
-  karigar;
+  admin;
 
-  // Backward compatibility alias for legacy references
-  static const UserRole admin = UserRole.owner;
+  // Backward compatibility alias for legacy references (every mobile user is an owner/tailor)
+  static const UserRole manager = UserRole.owner;
+  static const UserRole staff = UserRole.owner;
+  static const UserRole karigar = UserRole.owner;
 
-  bool get isAdmin => this == UserRole.owner || this == UserRole.manager;
+  bool get isAdmin => this == UserRole.admin;
   bool get isOwner => this == UserRole.owner;
-  bool get isManager => this == UserRole.manager;
-  bool get isStaff => this == UserRole.staff;
-  bool get isKarigar => this == UserRole.karigar;
+  bool get isManager => this == UserRole.owner;
+  bool get isStaff => this == UserRole.owner;
+  bool get isKarigar => this == UserRole.owner;
 
-  bool get canManageShop => this == UserRole.owner || this == UserRole.manager;
+  bool get canManageShop => true;
   bool get canDeleteShop => this == UserRole.owner;
-  bool get canManageStaff => this == UserRole.owner || this == UserRole.manager;
-  bool get canDeleteOrders => this == UserRole.owner || this == UserRole.manager;
-  bool get canViewFinancials => this == UserRole.owner || this == UserRole.manager;
+  bool get canManageStaff => true;
+  bool get canDeleteOrders => true;
+  bool get canViewFinancials => true;
 
   static UserRole fromString(String? roleStr) {
-    if (roleStr == null) return UserRole.staff;
+    if (roleStr == null) return UserRole.owner;
     final clean = roleStr.toLowerCase().trim();
-    if (clean == 'owner' || clean == 'admin') return UserRole.owner;
-    if (clean == 'manager') return UserRole.manager;
-    if (clean == 'karigar') return UserRole.karigar;
-    return UserRole.staff;
+    if (clean == 'admin') return UserRole.admin;
+    return UserRole.owner;
   }
 }
 

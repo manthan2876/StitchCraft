@@ -121,19 +121,11 @@ class _DrawerMenuState extends State<DrawerMenu> {
                 ),
                 
                 ListTile(
-                  leading: const Icon(Icons.engineering_outlined),
-                  title: Text(context.loc.karigars),
+                  leading: const Icon(Icons.handshake_outlined),
+                  title: const Text('Workshop & Partner Jobs'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/karigars');
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.settings_suggest_outlined),
-                  title: Text(context.loc.machines),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, '/machines');
+                    Navigator.pushNamed(context, '/my_jobs');
                   },
                 ),
                 ListTile(

@@ -126,19 +126,19 @@ void main() {
   group('UserRole & Permission Gate Unit Tests', () {
     test('Role parsing from string handles variations and aliases', () {
       expect(UserRole.fromString('owner'), UserRole.owner);
-      expect(UserRole.fromString('admin'), UserRole.owner);
+      expect(UserRole.fromString('admin'), UserRole.admin);
       expect(UserRole.fromString('Owner'), UserRole.owner);
-      expect(UserRole.fromString('manager'), UserRole.manager);
-      expect(UserRole.fromString('karigar'), UserRole.karigar);
-      expect(UserRole.fromString('staff'), UserRole.staff);
-      expect(UserRole.fromString('unknown_role'), UserRole.staff);
-      expect(UserRole.fromString(null), UserRole.staff);
+      expect(UserRole.fromString('manager'), UserRole.owner);
+      expect(UserRole.fromString('karigar'), UserRole.owner);
+      expect(UserRole.fromString('staff'), UserRole.owner);
+      expect(UserRole.fromString('unknown_role'), UserRole.owner);
+      expect(UserRole.fromString(null), UserRole.owner);
     });
 
     test('Owner has full shop, staff, deletion, and financial capabilities', () {
       const role = UserRole.owner;
       expect(role.isOwner, true);
-      expect(role.isAdmin, true);
+      expect(role.isAdmin, false);
       expect(role.canManageShop, true);
       expect(role.canDeleteShop, true);
       expect(role.canManageStaff, true);
@@ -146,30 +146,20 @@ void main() {
       expect(role.canViewFinancials, true);
     });
 
-    test('Manager has operational powers but cannot delete shop', () {
-      const role = UserRole.manager;
-      expect(role.isManager, true);
-      expect(role.isOwner, false);
+    test('Admin role has administrative and management access', () {
+      const role = UserRole.admin;
       expect(role.isAdmin, true);
+      expect(role.isOwner, false);
       expect(role.canManageShop, true);
-      expect(role.canDeleteShop, false); // Crucial security gate
       expect(role.canManageStaff, true);
       expect(role.canDeleteOrders, true);
       expect(role.canViewFinancials, true);
     });
 
-    test('Staff and Karigar have restricted task-only access', () {
-      const staffRole = UserRole.staff;
-      expect(staffRole.isStaff, true);
-      expect(staffRole.canManageShop, false);
-      expect(staffRole.canDeleteShop, false);
-      expect(staffRole.canViewFinancials, false);
-
-      const karigarRole = UserRole.karigar;
-      expect(karigarRole.isKarigar, true);
-      expect(karigarRole.canManageShop, false);
-      expect(karigarRole.canDeleteShop, false);
-      expect(karigarRole.canViewFinancials, false);
+    test('Legacy roles map cleanly to owner on mobile', () {
+      expect(UserRole.manager, UserRole.owner);
+      expect(UserRole.staff, UserRole.owner);
+      expect(UserRole.karigar, UserRole.owner);
     });
   });
 

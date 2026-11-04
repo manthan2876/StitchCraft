@@ -27,7 +27,6 @@ export const NewOrder = () => {
   const {
     rawCustomers,
     karigars,
-    machines,
     inventoryItems,
     needsAster,
     setNeedsAster,
@@ -39,8 +38,6 @@ export const NewOrder = () => {
     setAsterSellingPrice,
     assignedKarigar,
     setAssignedKarigar,
-    assignedMachine,
-    setAssignedMachine,
     measurementType,
     setMeasurementType,
     maapPhoto,
@@ -298,18 +295,6 @@ export const NewOrder = () => {
                   <option value="">-- {tf('unassigned', 'Unassigned')} --</option>
                   {karigars.filter(k => k.status === 'Active').map(k => (
                     <option key={k._id} value={k._id}>{k.name} ({k.specialization})</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Assign Machine */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-text-muted">{tf('assignMachine', 'Assign Machine')}</label>
-                <select value={assignedMachine} onChange={(e) => setAssignedMachine(e.target.value)}
-                  className="w-full px-4 py-3 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple transition-all text-sm font-semibold">
-                  <option value="">-- {tf('unassigned', 'Unassigned')} --</option>
-                  {machines.filter(m => m.status === 'Working').map(m => (
-                    <option key={m._id} value={m._id}>{m.name} ({m.type})</option>
                   ))}
                 </select>
               </div>

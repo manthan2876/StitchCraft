@@ -40,8 +40,8 @@ export const validateDocument = (collection, doc) => {
           errors.email = 'Valid email address is required';
         }
       }
-      if (doc.role && !['owner', 'manager', 'karigar', 'staff'].includes(doc.role)) {
-        errors.role = 'Role must be owner, manager, karigar, or staff';
+      if (doc.role && !['owner', 'admin'].includes(doc.role)) {
+        errors.role = 'Role must be owner or admin';
       }
       break;
     }

@@ -75,7 +75,7 @@ class LocalDatabaseService {
       return await openDatabase(
         path,
         password: secureKey,
-        version: 5, // Incremented for new tables
+        version: 7, // Incremented for delegation columns
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: (db) async {
@@ -99,7 +99,7 @@ class LocalDatabaseService {
         return await openDatabase(
           path,
           password: secureKey,
-          version: 5,
+          version: 7,
           onCreate: _onCreate,
           onUpgrade: _onUpgrade,
           onConfigure: (db) async {
@@ -132,6 +132,32 @@ class LocalDatabaseService {
       );
       if (!hasColumn) {
         await db.execute('ALTER TABLE orders ADD COLUMN fabric_photo_url TEXT');
+      }
+    }
+    if (oldVersion < 6) {
+      final columns = await db.rawQuery('PRAGMA table_info(expenses)');
+      final hasColumn = columns.any(
+        (column) => column['name'] == 'type',
+      );
+      if (!hasColumn) {
+        await db.execute("ALTER TABLE expenses ADD COLUMN type TEXT DEFAULT 'expense'");
+      }
+    }
+    if (oldVersion < 7) {
+      try {
+        final orderCols = await db.rawQuery('PRAGMA table_info(orders)');
+        final colNames = orderCols.map((c) => c['name']?.toString()).toSet();
+        if (!colNames.contains('delegated_to_shop_id')) {
+          await db.execute('ALTER TABLE orders ADD COLUMN delegated_to_shop_id TEXT');
+          await db.execute('ALTER TABLE orders ADD COLUMN delegated_to_shop_name TEXT');
+          await db.execute('ALTER TABLE orders ADD COLUMN delegated_to_phone TEXT');
+          await db.execute("ALTER TABLE orders ADD COLUMN delegation_status TEXT DEFAULT 'none'");
+          await db.execute('ALTER TABLE orders ADD COLUMN origin_shop_name TEXT');
+          await db.execute('ALTER TABLE orders ADD COLUMN origin_phone TEXT');
+          await db.execute('ALTER TABLE orders ADD COLUMN delegated_notes TEXT');
+        }
+      } catch (colErr) {
+        developer.log('Delegation column migration note: $colErr');
       }
     }
     for (int version = oldVersion + 1; version <= newVersion; version++) {
@@ -315,6 +341,7 @@ class LocalDatabaseService {
   Future<void> insertCustomer(Map<String, dynamic> customer) =>
       insertRecord('customers', customer);
   Future<List<Map<String, dynamic>>> getCustomers() => getRecords('customers');
+  Future<List<Map<String, dynamic>>> getAllCustomers() => getCustomers();
   Future<Map<String, dynamic>?> getCustomer(String id) =>
       getRecordById('customers', id);
 
@@ -399,12 +426,17 @@ class LocalDatabaseService {
 
   Future<void> deleteOrder(String id) => deleteRecordPermanently('orders', id);
 
-  // ============== EXPENSE CRUD ==============
+  // ============== EXPENSE & INCOME CRUD ==============
   Future<void> insertExpense(Map<String, dynamic> expense) =>
       insertRecord('expenses', expense);
   Future<List<Map<String, dynamic>>> getAllExpenses() =>
       getRecords('expenses', orderBy: 'date DESC');
   Future<void> deleteExpense(String id) => softDeleteRecord('expenses', id);
+  Future<void> insertIncome(Map<String, dynamic> income) {
+    income['type'] = 'income';
+    return insertRecord('expenses', income);
+  }
+  Future<void> deleteIncome(String id) => softDeleteRecord('expenses', id);
 
   // ============== REPAIR JOBS CRUD ==============
   Future<void> insertRepairJob(Map<String, dynamic> job) =>
@@ -429,6 +461,10 @@ class LocalDatabaseService {
       getRecords('gallery_items', orderBy: 'updated_at DESC');
   Future<void> deleteGalleryItem(String id) =>
       softDeleteRecord('gallery_items', id);
+
+  // ============== INVENTORY CRUD ==============
+  Future<List<Map<String, dynamic>>> getAllInventory() =>
+      getRecords('inventory');
 
   // ============== SYNC HELPERS ==============
   Future<List<Map<String, dynamic>>> getUnsyncedRecords(String table) async {

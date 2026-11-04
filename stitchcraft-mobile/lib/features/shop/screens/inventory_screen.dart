@@ -18,6 +18,7 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   final _authService = AuthService();
+  final _localDb = LocalDatabaseService();
   List<dynamic> _items = [];
   bool _isLoading = false;
 
@@ -217,7 +218,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   DropdownButtonFormField<String>(
                     dropdownColor: theme.cardTheme.color ?? theme.colorScheme.surface,
                     decoration: const InputDecoration(labelText: 'Category'),
-                    value: selectedCategory,
+                    initialValue: selectedCategory,
                     items: _categories.map((cat) {
                       return DropdownMenuItem(
                         value: cat,

@@ -16,7 +16,6 @@ export const useNewOrder = (_tf) => {
 
   const [rawCustomers, setRawCustomers] = useState([]);
   const [karigars, setKarigars] = useState([]);
-  const [machines, setMachines] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
 
   // Aster state
@@ -25,9 +24,8 @@ export const useNewOrder = (_tf) => {
   const [asterInventoryItem, setAsterInventoryItem] = useState('');
   const [asterSellingPrice, setAsterSellingPrice] = useState('');
 
-  // Karigar & Machine
+  // Karigar
   const [assignedKarigar, setAssignedKarigar] = useState('');
-  const [assignedMachine, setAssignedMachine] = useState('');
 
   // Measurement type — default Maap
   const [measurementType, setMeasurementType] = useState('Maap');
@@ -59,10 +57,6 @@ export const useNewOrder = (_tf) => {
     api.get('/karigars').then(setKarigars).catch(err => {
       console.warn('Karigars not available:', err.message);
       setKarigars([]);
-    });
-    api.get('/machines').then(setMachines).catch(err => {
-      console.warn('Machines not available:', err.message);
-      setMachines([]);
     });
     api.get('/inventory').then(setInventoryItems).catch(err => {
       console.warn('Inventory not available:', err.message);
@@ -251,7 +245,6 @@ export const useNewOrder = (_tf) => {
         asterInventoryItem: needsAster ? (asterInventoryItem || undefined) : undefined,
         asterSellingPrice: needsAster ? (parseFloat(asterSellingPrice) || 0) : 0,
         assignedKarigar: assignedKarigar || undefined,
-        assignedMachine: assignedMachine || undefined,
       };
 
       await api.post('/orders', orderData);
@@ -268,7 +261,6 @@ export const useNewOrder = (_tf) => {
   return {
     rawCustomers,
     karigars,
-    machines,
     inventoryItems,
     needsAster,
     setNeedsAster,
@@ -280,8 +272,6 @@ export const useNewOrder = (_tf) => {
     setAsterSellingPrice,
     assignedKarigar,
     setAssignedKarigar,
-    assignedMachine,
-    setAssignedMachine,
     measurementType,
     setMeasurementType,
     maapPhoto,

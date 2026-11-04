@@ -7,7 +7,6 @@ import {
   MdPayments, MdLocalShipping
 } from 'react-icons/md';
 import { FaWhatsapp } from 'react-icons/fa';
-import { GiSewingMachine } from 'react-icons/gi';
 import { useLanguage } from '../context/LanguageContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { useOrderDetails } from '../features/orders/hooks/useOrderDetails';
@@ -289,32 +288,6 @@ export const OrderDetails = () => {
                   >
                     {order.assignedKarigar.name || order.assignedKarigar} →
                   </Link>
-                ) : (
-                  <span style={{ whiteSpace: 'nowrap' }} className="px-2.5 py-1 text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-md">
-                    {tf('unassigned', 'Unassigned')}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Assigned Machine */}
-            <div className="p-4 bg-bg-secondary border border-border-subtle rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-color-accent-purple/10 flex items-center justify-center text-color-accent-purple">
-                  <GiSewingMachine className="w-5.5 h-5.5 text-color-accent-purple" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-text-main">{tf('assignedMachine', 'Assigned Machine')}</h4>
-                  <p className="text-[10px] text-text-muted font-medium mt-0.5">
-                    {order.assignedMachine ? order.assignedMachine.type : tf('sewingMachinery', 'Sewing Machinery')}
-                  </p>
-                </div>
-              </div>
-              <div className="self-start sm:self-auto">
-                {order.assignedMachine ? (
-                  <span style={{ whiteSpace: 'nowrap' }} className="px-3 py-1 bg-color-accent-purple/15 text-color-accent-purple border border-color-accent-purple/25 text-xs font-black rounded-xl">
-                    {order.assignedMachine.name || order.assignedMachine}
-                  </span>
                 ) : (
                   <span style={{ whiteSpace: 'nowrap' }} className="px-2.5 py-1 text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-md">
                     {tf('unassigned', 'Unassigned')}

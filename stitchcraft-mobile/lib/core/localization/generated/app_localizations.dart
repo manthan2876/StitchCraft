@@ -923,60 +923,279 @@ abstract class AppLocalizations {
   String get no_customers_action;
 
   /// No description provided for @sync_status_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Status & Offline Data'**
   String get sync_status_title;
 
   /// No description provided for @deliver_unpaid_warning.
+  ///
+  /// In en, this message translates to:
+  /// **'Deliver with unpaid balance?'**
   String get deliver_unpaid_warning;
 
   /// No description provided for @deliver_unpaid_message.
+  ///
+  /// In en, this message translates to:
+  /// **'This order has an outstanding balance. Are you sure you want to mark it as Delivered?'**
   String get deliver_unpaid_message;
 
   /// No description provided for @danger_zone.
+  ///
+  /// In en, this message translates to:
+  /// **'Danger Zone'**
   String get danger_zone;
 
   /// No description provided for @delete_shop.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Shop'**
   String get delete_shop;
 
+  /// No description provided for @home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
   String get home;
+
+  /// No description provided for @more.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
   String get more;
+
+  /// No description provided for @saved_on_phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved on this phone'**
   String get saved_on_phone;
+
+  /// No description provided for @today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
   String get today;
+
+  /// No description provided for @due_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Due Today'**
   String get due_today;
+
+  /// No description provided for @late_orders.
+  ///
+  /// In en, this message translates to:
+  /// **'Late Orders'**
   String get late_orders;
+
+  /// No description provided for @collect_money.
+  ///
+  /// In en, this message translates to:
+  /// **'Collect Money'**
   String get collect_money;
+
+  /// No description provided for @start_new_order.
+  ///
+  /// In en, this message translates to:
+  /// **'Start New Order'**
   String get start_new_order;
+
+  /// No description provided for @next_up.
+  ///
+  /// In en, this message translates to:
+  /// **'Next Up'**
   String get next_up;
+
+  /// No description provided for @search_orders.
+  ///
+  /// In en, this message translates to:
+  /// **'Search customer or order'**
   String get search_orders;
+
+  /// No description provided for @late.
+  ///
+  /// In en, this message translates to:
+  /// **'Late'**
   String get late;
+
+  /// No description provided for @ready.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
   String get ready;
+
+  /// No description provided for @unpaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpaid'**
   String get unpaid;
+
+  /// No description provided for @all_stages.
+  ///
+  /// In en, this message translates to:
+  /// **'All Stages'**
   String get all_stages;
+
+  /// No description provided for @create_first_order.
+  ///
+  /// In en, this message translates to:
+  /// **'Create First Order'**
   String get create_first_order;
+
+  /// No description provided for @find_customer.
+  ///
+  /// In en, this message translates to:
+  /// **'Find Customer'**
   String get find_customer;
+
+  /// No description provided for @walk_in_customer.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk-in Customer'**
   String get walk_in_customer;
+
+  /// No description provided for @reuse_measurements.
+  ///
+  /// In en, this message translates to:
+  /// **'Reuse Measurements'**
   String get reuse_measurements;
+
+  /// No description provided for @add_garment.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Garment'**
   String get add_garment;
+
+  /// No description provided for @save_draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Draft'**
   String get save_draft;
+
+  /// No description provided for @resume_draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume Draft'**
   String get resume_draft;
+
+  /// No description provided for @advance_received.
+  ///
+  /// In en, this message translates to:
+  /// **'Advance Received'**
   String get advance_received;
+
+  /// No description provided for @view_receipt.
+  ///
+  /// In en, this message translates to:
+  /// **'View Receipt'**
   String get view_receipt;
+
+  /// No description provided for @mark_delivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark Delivered'**
   String get mark_delivered;
+
+  /// No description provided for @record_payment.
+  ///
+  /// In en, this message translates to:
+  /// **'Record Payment'**
   String get record_payment;
+
+  /// No description provided for @outstanding_balance.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstanding Balance'**
   String get outstanding_balance;
+
+  /// No description provided for @call_customer.
+  ///
+  /// In en, this message translates to:
+  /// **'Call Customer'**
   String get call_customer;
+
+  /// No description provided for @search_customers.
+  ///
+  /// In en, this message translates to:
+  /// **'Search name or phone'**
   String get search_customers;
+
+  /// No description provided for @new_order_for_customer.
+  ///
+  /// In en, this message translates to:
+  /// **'New Order'**
   String get new_order_for_customer;
+
+  /// No description provided for @customer_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Summary'**
   String get customer_summary;
+
+  /// No description provided for @new_order_with_customer.
+  ///
+  /// In en, this message translates to:
+  /// **'New Order with Customer'**
   String get new_order_with_customer;
+
+  /// No description provided for @reuse_last_measurements.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Last Measurements'**
   String get reuse_last_measurements;
+
+  /// No description provided for @no_measurements.
+  ///
+  /// In en, this message translates to:
+  /// **'No measurements saved'**
   String get no_measurements;
+
+  /// No description provided for @deliver_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Deliver Today'**
   String get deliver_today;
+
+  /// No description provided for @ready_for_pickup.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready for Pickup'**
   String get ready_for_pickup;
+
+  /// No description provided for @deliver_order.
+  ///
+  /// In en, this message translates to:
+  /// **'Deliver Order'**
   String get deliver_order;
+
+  /// No description provided for @balance_due_before_delivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance Due Before Delivery'**
   String get balance_due_before_delivery;
+
+  /// No description provided for @my_jobs.
+  ///
+  /// In en, this message translates to:
+  /// **'My Jobs'**
   String get my_jobs;
+
+  /// No description provided for @assigned_to_me.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned to Me'**
   String get assigned_to_me;
+
+  /// No description provided for @mark_ready.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark Ready'**
   String get mark_ready;
+
+  /// No description provided for @no_assigned_jobs.
+  ///
+  /// In en, this message translates to:
+  /// **'No jobs assigned currently'**
   String get no_assigned_jobs;
 }
 

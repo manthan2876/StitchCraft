@@ -157,8 +157,7 @@ class _KarigarDetailsScreenState extends State<KarigarDetailsScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 dropdownColor: AppTheme.darkCard,
-                // ignore: deprecated_member_use
-                value: status,
+                initialValue: status,
                 decoration: const InputDecoration(labelText: 'Status'),
                 items: const [
                   DropdownMenuItem(value: 'Active', child: Text('Active', style: TextStyle(color: Colors.white))),

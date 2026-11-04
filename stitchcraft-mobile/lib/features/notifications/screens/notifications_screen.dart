@@ -53,8 +53,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         for (final n in list) {
           final String id = n['_id'] ?? '';
           final String message = n['message'] ?? '';
+          final String type = (n['type'] ?? '').toString();
           final bool isRead = n['read'] ?? false;
-          if (!isRead && !alertedIds.contains(id)) {
+          final isPushType = type == 'low_stock' || type == 'order_due_reminder';
+          if (!isRead && !alertedIds.contains(id) && isPushType) {
             await NotificationService().showInstantNotification("StitchCraft Alert", message, id: id.hashCode);
             newAlertedIds.add(id);
             updated = true;

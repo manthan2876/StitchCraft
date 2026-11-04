@@ -2,6 +2,7 @@ import Inventory from '../models/Inventory.js';
 import LedgerEntry from '../models/LedgerEntry.js';
 import Order from '../models/Order.js';
 import { escapeRegex } from '../middleware/securityMiddleware.js';
+import { dispatchNotification } from '../services/notificationService.js';
 
 // @desc    Create a new inventory item
 // @route   POST /api/inventory
@@ -125,6 +126,17 @@ export const updateInventoryItem = async (req, res) => {
     }
 
     const updatedItem = await item.save();
+
+    const threshold = updatedItem.minQuantity !== undefined ? updatedItem.minQuantity : 5;
+    if (updatedItem.quantity <= threshold) {
+      await dispatchNotification({
+        shopId: req.user.shopId,
+        title: '⚠️ Low Stock Alert',
+        message: `${updatedItem.itemName} is running low! Remaining: ${updatedItem.quantity} ${updatedItem.unit || 'units'} (Minimum: ${threshold} ${updatedItem.unit || 'units'}).`,
+        type: 'low_stock',
+        sendPush: true,
+      });
+    }
 
     if (pAmount > 0) {
       await LedgerEntry.create({

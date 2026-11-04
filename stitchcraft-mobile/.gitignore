@@ -83,3 +83,5 @@ lib/firebase_options_*.dart
 *.p12
 *.pem
 *.developerprofile
+# Widget Preview related
+.widget_preview/

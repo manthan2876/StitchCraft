@@ -72,7 +72,7 @@ class AuthService {
         await prefs.remove('token'); // Clear from plaintext storage
         await prefs.setString('userId', newUser.id);
         await prefs.setString('userName', newUser.name);
-        await prefs.setString('userRole', data['role'] ?? 'staff');
+        await prefs.setString('userRole', data['role'] ?? 'owner');
         if (data['shopId'] != null) {
           await prefs.setString('shopId', data['shopId']);
         }
@@ -121,7 +121,7 @@ class AuthService {
         final String userId = data['_id'] ?? data['id'] ?? '';
         final String userName = data['name'] ?? '';
         final String userEmail = data['email'] ?? email;
-        final String role = data['role'] ?? 'staff';
+        final String role = data['role'] ?? 'owner';
         final String? shopId = data['shopId'] is Map ? data['shopId']['_id'] : data['shopId'];
 
         // Save local user copy
@@ -194,6 +194,23 @@ class AuthService {
     } catch (e) {
       developer.log('Password Reset Error: $e', name: 'AuthService');
       rethrow;
+    }
+  }
+
+  // Get Current User ID
+  Future<String?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('userId');
+  }
+
+  // Get Current User Model
+  Future<User?> getCurrentUser() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) return null;
+      return await _dbService.getUser(userId);
+    } catch (_) {
+      return null;
     }
   }
 

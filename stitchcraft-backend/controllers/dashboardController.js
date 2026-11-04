@@ -131,36 +131,8 @@ export const getDashboardStats = async (req, res) => {
     // Sort by value created/completed orders
     karigarPerformance.sort((a, b) => b.completedValue - a.completedValue || b.completedCount - a.completedCount);
 
-    // 10. Machine performance metrics
-    const machines = await Machine.find({ shopId });
+    // 10. Machine performance metrics (deprecated)
     const machinePerformance = [];
-
-    for (let m of machines) {
-      const mOrders = await Order.find({ assignedMachine: m._id, shopId });
-      let activeCount = 0;
-      let completedCount = 0;
-
-      for (let o of mOrders) {
-        if (['Ready', 'Delivered'].includes(o.status)) {
-          completedCount++;
-        } else {
-          activeCount++;
-        }
-      }
-
-      machinePerformance.push({
-        _id: m._id,
-        name: m.name,
-        type: m.type,
-        status: m.status,
-        activeCount,
-        completedCount,
-        totalCount: mOrders.length
-      });
-    }
-
-    // Sort machines by usage (totalCount)
-    machinePerformance.sort((a, b) => b.totalCount - a.totalCount);
 
     res.json({
       todayDelivery: todayDeliveryCount,

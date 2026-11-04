@@ -6,8 +6,8 @@ import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/utils/phone_utils.dart';
-import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/widgets/state_views.dart';
+import 'package:stitchcraft/features/orders/widgets/add_measurements_bottom_sheet.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
@@ -225,6 +225,51 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
+  bool get _hasAnyMeasurements {
+    final m = _customerData?['measurements'];
+    if (m == null || m is! Map) return false;
+    final shirt = m['shirt'];
+    final pant = m['pant'];
+    final bool hasShirt = shirt is Map &&
+        shirt.values.any((v) => (v is num && v > 0) || (v is String && v.isNotEmpty && v != '0' && v != '0.0'));
+    final bool hasPant = pant is Map &&
+        pant.values.any((v) => (v is num && v > 0) || (v is String && v.isNotEmpty && v != '0' && v != '0.0'));
+    return hasShirt || hasPant;
+  }
+
+  bool _hasVal(dynamic val) {
+    if (val == null) return false;
+    if (val is num) return val > 0;
+    if (val is String) return val.trim().isNotEmpty && val != '0' && val != '0.0';
+    return false;
+  }
+
+  void _openMeasurementSheet({String initialType = 'shirt'}) {
+    if (_customerData == null) return;
+    final customerId = (_customerData!['_id'] ?? _customerData!['id'] ?? '').toString();
+    final customerName = (_customerData!['name'] ?? 'Customer').toString();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => AddMeasurementsBottomSheet(
+        customerId: customerId,
+        customerName: customerName,
+        initialGarmentType: initialType,
+        existingMeasurements: _customerData!['measurements'] as Map<String, dynamic>?,
+        onSaved: (updated) {
+          setState(() {
+            _customerData!['measurements'] = {
+              'shirt': updated['shirt'] ?? _customerData!['measurements']?['shirt'] ?? {},
+              'pant': updated['pant'] ?? _customerData!['measurements']?['pant'] ?? {},
+            };
+          });
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -313,8 +358,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                                       context: context,
                                       icon: Icons.phone,
                                       label: 'Call',
-                                      backgroundColor: theme.colorScheme.surfaceContainerHighest ??
-                                          const Color(0xFF1F2937),
+                                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
                                       foregroundColor: theme.colorScheme.onSurface,
                                       iconColor: AppTheme.brandPurple,
                                       onTap: () async {
@@ -352,7 +396,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                             ),
                             const SizedBox(height: 12),
                             PrimaryNextAction(
-                              label: 'New order with ${name.split(' ').first}',
+                              label: 'New order with ${(_customerData?['name']?.toString() ?? 'Customer').split(' ').first}',
                               icon: Icons.add_shopping_cart,
                               onPressed: () {
                                 Navigator.pushNamed(
@@ -370,14 +414,41 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                       ),
                       const SizedBox(height: 20),
 
-                      // Measurements tab block
-                      Text(
-                        'Stored Fitting Measurements',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                          fontSize: 16,
-                        ),
+                      // Measurements tab block with Add/Edit Action
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Stored Fitting Measurements',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 16,
+                            ),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.brandPurple,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            ),
+                            onPressed: () => _openMeasurementSheet(),
+                            icon: Icon(
+                              _hasAnyMeasurements
+                                  ? Icons.edit_outlined
+                                  : Icons.add_circle_outline,
+                              size: 17,
+                            ),
+                            label: Text(
+                              _hasAnyMeasurements
+                                  ? 'Edit (સુધારો)'
+                                  : '+ Add (માપ ઉમેરો)',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Container(
@@ -401,7 +472,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                               ],
                             ),
                             SizedBox(
-                              height: 220,
+                              height: 250,
                               child: TabBarView(
                                 controller: _tabController,
                                 children: [
@@ -573,11 +644,40 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   }
 
   Widget _buildShirtTab(Map<String, dynamic> shirt) {
-    if (shirt.isEmpty) {
-      return const Center(
-        child: Text(
-          'No shirt measurements saved',
-          style: TextStyle(color: AppTheme.darkGrey),
+    final hasShirtData = shirt.values.any((v) => _hasVal(v));
+    if (!hasShirtData) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.straighten, color: AppTheme.darkGrey, size: 30),
+              const SizedBox(height: 8),
+              const Text(
+                'No shirt measurements saved',
+                style: TextStyle(color: AppTheme.darkGrey),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.brandPurple,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _openMeasurementSheet(initialType: 'shirt'),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text(
+                  '+ Add Shirt Measurements',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -585,16 +685,16 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
       padding: const EdgeInsets.all(16),
       children: [
         Wrap(
-          spacing: 16,
+          spacing: 12,
           runSpacing: 10,
           children: [
-            _mItem('Neck', shirt['neck']),
-            _mItem('Chest', shirt['chest']),
-            _mItem('Waist', shirt['waist']),
-            _mItem('Hips', shirt['hips']),
-            _mItem('Shoulder', shirt['shoulder']),
-            _mItem('Sleeves', shirt['sleeves']),
-            _mItem('Length', shirt['length']),
+            if (_hasVal(shirt['neck'])) _mItem('Neck', shirt['neck']),
+            if (_hasVal(shirt['chest'])) _mItem('Chest', shirt['chest']),
+            if (_hasVal(shirt['waist'])) _mItem('Waist', shirt['waist']),
+            if (_hasVal(shirt['hips'])) _mItem('Hips', shirt['hips']),
+            if (_hasVal(shirt['shoulder'])) _mItem('Shoulder', shirt['shoulder']),
+            if (_hasVal(shirt['sleeves'])) _mItem('Sleeves', shirt['sleeves']),
+            if (_hasVal(shirt['length'])) _mItem('Length', shirt['length']),
           ],
         ),
         if (shirt['notes'] != null && shirt['notes'].toString().isNotEmpty) ...[
@@ -608,16 +708,61 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
             ),
           ),
         ],
+        const SizedBox(height: 14),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.brandPurple,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            ),
+            onPressed: () => _openMeasurementSheet(initialType: 'shirt'),
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            label: const Text(
+              'Edit Shirt Measurements',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildPantTab(Map<String, dynamic> pant) {
-    if (pant.isEmpty) {
-      return const Center(
-        child: Text(
-          'No pant measurements saved',
-          style: TextStyle(color: AppTheme.darkGrey),
+    final hasPantData = pant.values.any((v) => _hasVal(v));
+    if (!hasPantData) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.straighten, color: AppTheme.darkGrey, size: 30),
+              const SizedBox(height: 8),
+              const Text(
+                'No pant measurements saved',
+                style: TextStyle(color: AppTheme.darkGrey),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.15),
+                  foregroundColor: AppTheme.brandPurple,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _openMeasurementSheet(initialType: 'pant'),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text(
+                  '+ Add Pant Measurements',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -625,16 +770,16 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
       padding: const EdgeInsets.all(16),
       children: [
         Wrap(
-          spacing: 16,
+          spacing: 12,
           runSpacing: 10,
           children: [
-            _mItem('Length', pant['length']),
-            _mItem('Waist', pant['waist']),
-            _mItem('Hips', pant['hips']),
-            _mItem('Inseam', pant['inseam']),
-            _mItem('Thigh', pant['thigh']),
-            _mItem('Rise', pant['rise']),
-            _mItem('Bottom', pant['bottom']),
+            if (_hasVal(pant['length'])) _mItem('Length', pant['length']),
+            if (_hasVal(pant['waist'])) _mItem('Waist', pant['waist']),
+            if (_hasVal(pant['hips'])) _mItem('Hips', pant['hips']),
+            if (_hasVal(pant['inseam'])) _mItem('Inseam', pant['inseam']),
+            if (_hasVal(pant['thigh'])) _mItem('Thigh', pant['thigh']),
+            if (_hasVal(pant['rise'])) _mItem('Rise', pant['rise']),
+            if (_hasVal(pant['bottom'])) _mItem('Bottom', pant['bottom']),
           ],
         ),
         if (pant['notes'] != null && pant['notes'].toString().isNotEmpty) ...[
@@ -648,12 +793,33 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
             ),
           ),
         ],
+        const SizedBox(height: 14),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.brandPurple,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            ),
+            onPressed: () => _openMeasurementSheet(initialType: 'pant'),
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            label: const Text(
+              'Edit Pant Measurements',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+        ),
       ],
     );
   }
 
   Widget _mItem(String label, dynamic val) {
-    final value = (val as num?)?.toDouble() ?? 0.0;
+    String formatted;
+    if (val is num) {
+      formatted = val % 1 == 0 ? val.toInt().toString() : val.toString();
+    } else {
+      formatted = val?.toString() ?? '0';
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -661,7 +827,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '$label: $value"',
+        '$label: $formatted"',
         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
     );

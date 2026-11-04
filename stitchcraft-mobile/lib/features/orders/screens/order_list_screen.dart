@@ -207,7 +207,10 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: CustomAppBar(title: widget.title),
+      appBar: CustomAppBar(
+        title: widget.title,
+        automaticallyImplyLeading: !widget.isTab,
+      ),
       body: Column(
         children: [
           // Sticky Search bar and Tabs Filter
@@ -451,27 +454,5 @@ class _OrderListScreenState extends State<OrderListScreen> {
         ],
       ),
     );
-  }
-
-  Color _getStatusColor(String status) {
-    final s = status.toLowerCase();
-    if (s.contains('incoming')) {
-      return AppTheme.safetyOrange;
-    } else if (s.contains('measuring')) {
-      return AppTheme.brandPurple;
-    } else if (s.contains('cutting')) {
-      return AppTheme.safetyOrange;
-    } else if (s.contains('stitching')) {
-      return AppTheme.brandPurple;
-    } else if (s.contains('checking')) {
-      return AppTheme.marigold;
-    } else if (s.contains('ready')) {
-      return AppTheme.trustGreen;
-    } else if (s.contains('delivered')) {
-      return AppTheme.navyBlue;
-    } else if (s.contains('cancelled')) {
-      return AppTheme.alertRed;
-    }
-    return AppTheme.darkGrey;
   }
 }

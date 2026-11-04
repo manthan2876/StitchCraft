@@ -83,6 +83,13 @@ const List<String> createTableStatements = [
     astar_required INTEGER DEFAULT 0,
     astar_source TEXT,
     astar_cost REAL DEFAULT 0.0,
+    delegated_to_shop_id TEXT,
+    delegated_to_shop_name TEXT,
+    delegated_to_phone TEXT,
+    delegation_status TEXT DEFAULT "none",
+    origin_shop_name TEXT,
+    origin_phone TEXT,
+    delegated_notes TEXT,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
@@ -96,6 +103,7 @@ const List<String> createTableStatements = [
     amount REAL NOT NULL,
     description TEXT,
     date INTEGER NOT NULL,
+    type TEXT DEFAULT 'expense',
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL
   )
@@ -265,5 +273,8 @@ const Map<int, List<String>> upgradeTableStatements = {
     'ALTER TABLE measurements ADD COLUMN measurement_mode TEXT DEFAULT "body"',
     'ALTER TABLE measurements ADD COLUMN garment_type TEXT',
     'ALTER TABLE measurements ADD COLUMN stretch_factor INTEGER DEFAULT 0',
+  ],
+  6: [
+    "ALTER TABLE expenses ADD COLUMN type TEXT DEFAULT 'expense'",
   ],
 };

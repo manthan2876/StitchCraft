@@ -121,7 +121,7 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
           'phone': _phoneController.text.trim(),
           'address': _addressController.text.trim(),
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         if (!mounted) return;
@@ -132,12 +132,23 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
           ),
         );
       } else {
-        throw Exception(json.decode(response.body)['message'] ?? 'Failed to update shop');
+        final err = json.decode(response.body)['message'] ?? 'Failed to update shop';
+        throw Exception(err);
       }
     } catch (e) {
       if (!mounted) return;
+      final errorStr = e.toString();
+      String message = 'Failed to update shop details.';
+      if (errorStr.contains('SocketException') ||
+          errorStr.contains('Connection reset') ||
+          errorStr.contains('ClientException') ||
+          errorStr.contains('TimeoutException')) {
+        message = 'Server connection error. The server may be waking up from sleep. Please try again in a few moments.';
+      } else if (errorStr.contains('Exception:')) {
+        message = errorStr.split('Exception:').last.trim();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.alertRed),
+        SnackBar(content: Text(message), backgroundColor: AppTheme.alertRed),
       );
     } finally {
       if (mounted) {
@@ -162,7 +173,7 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Shop?'),
         content: Text(
-          'Warning: This action will permanently remove "${_nameController.text}" and unlink its inventory, karigars, and orders.\n\nThis action cannot be undone.',
+          'Warning: This action will permanently remove "${_nameController.text}" and unlink its inventory, karigars, and orders.\n\nNote: You cannot delete your only shop profile.\n\nThis action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -192,7 +203,7 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         final prefs = await SharedPreferences.getInstance();
@@ -200,12 +211,23 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
         if (!mounted) return;
         Navigator.of(context).pushNamedAndRemoveUntil('/shop_setup', (route) => false);
       } else {
-        throw Exception(json.decode(response.body)['message'] ?? 'Failed to delete shop');
+        final err = json.decode(response.body)['message'] ?? 'Failed to delete shop';
+        throw Exception(err);
       }
     } catch (e) {
       if (!mounted) return;
+      final errorStr = e.toString();
+      String message = 'Failed to delete shop. Please try again.';
+      if (errorStr.contains('SocketException') ||
+          errorStr.contains('Connection reset') ||
+          errorStr.contains('ClientException') ||
+          errorStr.contains('TimeoutException')) {
+        message = 'Server connection error. The server may be waking up from sleep. Please wait a few seconds and try again.';
+      } else if (errorStr.contains('Exception:')) {
+        message = errorStr.split('Exception:').last.trim();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting shop: $e'), backgroundColor: AppTheme.alertRed),
+        SnackBar(content: Text(message), backgroundColor: AppTheme.alertRed),
       );
     } finally {
       if (mounted) {

@@ -86,7 +86,7 @@ class _VoiceTextFieldState extends State<VoiceTextField> {
       if (available) {
         if (mounted) setState(() => _isListening = true);
         await _speech.listen(
-          localeId: speechLocale,
+          listenOptions: stt.SpeechListenOptions(localeId: speechLocale),
           onResult: (result) {
             if (mounted) {
               setState(() {

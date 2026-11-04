@@ -14,6 +14,8 @@ import {
   createOrderService,
   updateOrderService,
   deleteOrderService,
+  delegateOrderService,
+  revokeDelegationService,
 } from '../services/orderService.js';
 
 // @desc    Create a new order
@@ -46,8 +48,15 @@ export const createOrder = async (req, res) => {
 // @access  Private
 export const getOrders = async (req, res) => {
   try {
-    const { status, urgency } = req.query;
-    const filter = { shopId: req.user.shopId, isDeleted: { $ne: true } };
+    const { status, urgency, type } = req.query;
+    let filter = { shopId: req.user.shopId, isDeleted: { $ne: true } };
+
+    // Support fetching jobs delegated from other tailor shops to this shop
+    if (type === 'partner_jobs' || type === 'external_jobs') {
+      filter = { delegatedToShopId: req.user.shopId, isDeleted: { $ne: true } };
+    } else if (type === 'my_delegated') {
+      filter = { shopId: req.user.shopId, delegationStatus: 'assigned', isDeleted: { $ne: true } };
+    }
 
     if (status) filter.status = status;
 
@@ -134,9 +143,9 @@ export const getOrderByIdPublic = async (req, res) => {
   try {
     const token = req.params.token || req.params.id;
     // Find by shareToken, or fallback to _id or orderId
-    let order = await Order.findOne({ shareToken: token }).populate('customer');
+    let order = await Order.findOne({ shareToken: token }).populate('customer').populate('asterInventoryItem');
     if (!order) {
-      order = await Order.findOne({ $or: [{ _id: token }, { orderId: token }] }).populate('customer');
+      order = await Order.findOne({ $or: [{ _id: token }, { orderId: token }] }).populate('customer').populate('asterInventoryItem');
     }
 
     if (!order) {
@@ -201,6 +210,11 @@ export const getOrderByIdPublic = async (req, res) => {
       needsAster: Boolean(order.needsAster),
       asterQuantity: order.needsAster ? (order.asterQuantity || 0) : 0,
       asterSellingPrice: order.needsAster ? (order.asterSellingPrice || 0) : 0,
+      asterItemName: order.asterInventoryItem?.itemName || order.asterInventoryItem?.name || 'Lining Material',
+      asterInventoryItem: order.asterInventoryItem ? {
+        itemName: order.asterInventoryItem.itemName || order.asterInventoryItem.name || 'Lining Material',
+        unit: order.asterInventoryItem.unit || 'm',
+      } : null,
       measurementType: order.measurementType,
       shareToken: order.shareToken,
       shareTokenExpiresAt: order.shareTokenExpiresAt,
@@ -372,6 +386,53 @@ export const addNoteToOrder = async (req, res) => {
     res.status(201).json({ notes: order.notes });
   } catch (error) {
     console.error('Add note error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delegate/outsource an order to another tailor shop
+// @route   POST /api/orders/:id/delegate
+// @access  Private
+export const delegateOrder = async (req, res) => {
+  try {
+    const { targetShopId, targetShopName, targetPhone, notes } = req.body;
+    if (!targetShopId) {
+      return res.status(400).json({ message: 'Target partner tailor/shop ID is required' });
+    }
+    if (String(targetShopId) === String(req.user.shopId)) {
+      return res.status(400).json({ message: 'Cannot delegate an order to your own shop' });
+    }
+
+    const updated = await delegateOrderService(req.params.id, req.user.shopId, {
+      targetShopId,
+      targetShopName,
+      targetPhone,
+      notes,
+    });
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Order not found in your shop' });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Delegate order error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Revoke delegation and recall order to main tailor
+// @route   POST /api/orders/:id/revoke-delegation
+// @access  Private
+export const revokeDelegation = async (req, res) => {
+  try {
+    const updated = await revokeDelegationService(req.params.id, req.user.shopId);
+    if (!updated) {
+      return res.status(404).json({ message: 'Order not found in your shop' });
+    }
+    res.json(updated);
+  } catch (error) {
+    console.error('Revoke delegation error:', error);
     res.status(500).json({ message: error.message });
   }
 };

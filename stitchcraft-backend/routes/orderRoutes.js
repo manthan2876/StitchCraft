@@ -10,6 +10,8 @@ import {
   recordOrderPayment,
   deleteOrder,
   addNoteToOrder,
+  delegateOrder,
+  revokeDelegation,
 } from '../controllers/orderController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateObjectIdParam } from '../middleware/securityMiddleware.js';
@@ -36,5 +38,7 @@ router.route('/:id')
 router.post('/:id/payments', validatePaymentRequest, recordOrderPayment);
 router.post('/:id/notes', addNoteToOrder);
 router.post('/:id/share-token', generateShareToken);
+router.post('/:id/delegate', delegateOrder);
+router.post('/:id/revoke-delegation', revokeDelegation);
 
 export default router;

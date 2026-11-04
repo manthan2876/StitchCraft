@@ -5,6 +5,7 @@ import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
@@ -12,6 +13,22 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/services/pdf_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+
+class _InventoryChargeItem {
+  final String itemName;
+  final double quantity;
+  final String unit;
+  final double rate;
+  final double totalCharge;
+
+  _InventoryChargeItem({
+    required this.itemName,
+    required this.quantity,
+    required this.unit,
+    required this.rate,
+    required this.totalCharge,
+  });
+}
 
 class InvoiceDetailsScreen extends StatefulWidget {
   const InvoiceDetailsScreen({super.key});
@@ -53,25 +70,132 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        setState(() {
-          _order = json.decode(response.body);
-        });
-      } else {
-        throw Exception('Failed to load invoice details');
+        if (mounted) {
+          setState(() {
+            _order = json.decode(response.body);
+          });
+        }
+        return;
       }
     } catch (e) {
-      developer.log("Error loading invoice: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading invoice: $e'), backgroundColor: AppTheme.alertRed),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
+      developer.log("Remote invoice fetch note: $e; attempting local offline resolution");
     }
+
+    // Local SQLite fallback
+    try {
+      final localDb = LocalDatabaseService();
+      final localOrder = await localDb.getRecordById('orders', orderId);
+      if (localOrder != null) {
+        final liningItems = await localDb.getLiningItemsByOrder(orderId);
+        final map = Map<String, dynamic>.from(localOrder);
+        map['customerName'] = map['customer_name'];
+        map['garmentType'] = map['item_types'] ?? 'Custom Order';
+        map['price'] = (map['total_amount'] as num?)?.toDouble() ?? 0.0;
+        map['payment'] = {
+          'paidAmount': (map['advance_amount'] as num?)?.toDouble() ?? 0.0,
+          'balanceAmount': (((map['total_amount'] as num?)?.toDouble() ?? 0.0) -
+                  ((map['advance_amount'] as num?)?.toDouble() ?? 0.0))
+              .clamp(0.0, double.infinity),
+        };
+
+        if (liningItems.isNotEmpty) {
+          final firstLining = liningItems.first;
+          map['needsAster'] = true;
+          map['asterQuantity'] = (firstLining['quantity'] as num?)?.toDouble() ?? 1.0;
+          map['asterSellingPrice'] = (firstLining['unit_price'] as num?)?.toDouble() ?? 0.0;
+          map['asterItemName'] = firstLining['material_type'] ?? 'Lining Stock';
+        } else if (map['astar_required'] == 1 || (map['astar_cost'] as num? ?? 0) > 0) {
+          map['needsAster'] = true;
+          map['asterQuantity'] = 1.0;
+          map['asterSellingPrice'] = (map['astar_cost'] as num?)?.toDouble() ?? 0.0;
+          map['asterItemName'] = (map['astar_source'] != null && map['astar_source'] != 'Customer')
+              ? map['astar_source']
+              : 'Lining Material';
+        }
+
+        if (mounted) {
+          setState(() {
+            _order = map;
+          });
+        }
+      }
+    } catch (e) {
+      developer.log("Error resolving local invoice: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  List<_InventoryChargeItem> _getInventoryCharges(Map<String, dynamic> order) {
+    final List<_InventoryChargeItem> items = [];
+
+    final bool needsAster = order['needsAster'] == true || order['astar_required'] == 1;
+    final double asterQty = (order['asterQuantity'] as num?)?.toDouble() ?? 0.0;
+    final double asterPrice = (order['asterSellingPrice'] as num?)?.toDouble() ?? 0.0;
+    final double astarCost = (order['astar_cost'] as num?)?.toDouble() ??
+        (order['material_cost'] as num?)?.toDouble() ??
+        0.0;
+
+    String itemName = 'Lining / Aster Material';
+    if (order['asterInventoryItem'] is Map) {
+      itemName = order['asterInventoryItem']['itemName'] ??
+          order['asterInventoryItem']['name'] ??
+          itemName;
+    } else if (order['asterItemName'] is String && (order['asterItemName'] as String).isNotEmpty) {
+      itemName = order['asterItemName'] as String;
+    } else if (order['astar_source'] is String &&
+        (order['astar_source'] as String).isNotEmpty &&
+        order['astar_source'] != 'Customer') {
+      itemName = order['astar_source'] as String;
+    }
+
+    String unit = 'm';
+    if (order['asterInventoryItem'] is Map && order['asterInventoryItem']['unit'] != null) {
+      unit = order['asterInventoryItem']['unit'].toString();
+    }
+
+    if (needsAster) {
+      final double total = asterQty > 0 && asterPrice > 0
+          ? (asterQty * asterPrice)
+          : (astarCost > 0 ? astarCost : 0.0);
+
+      if (total > 0 || asterQty > 0) {
+        items.add(_InventoryChargeItem(
+          itemName: itemName,
+          quantity: asterQty > 0 ? asterQty : 1.0,
+          unit: unit,
+          rate: asterPrice > 0 ? asterPrice : (total > 0 ? total : 0.0),
+          totalCharge: total,
+        ));
+      }
+    }
+
+    // Check sub-items in multi-item orders
+    if (order['items'] is List) {
+      for (final it in (order['items'] as List)) {
+        if (it is Map && (it['needsAster'] == true || it['astar_required'] == 1)) {
+          final q = (it['asterQuantity'] as num?)?.toDouble() ?? 0.0;
+          final p = (it['asterSellingPrice'] as num?)?.toDouble() ?? 0.0;
+          final name = (it['asterItemName'] ?? it['liningName'] ?? 'Lining (${it['name'] ?? it['apparelType'] ?? 'Item'})').toString();
+          if (q > 0 || p > 0) {
+            items.add(_InventoryChargeItem(
+              itemName: name,
+              quantity: q > 0 ? q : 1.0,
+              unit: 'm',
+              rate: p,
+              totalCharge: q * p,
+            ));
+          }
+        }
+      }
+    }
+
+    return items;
   }
 
   Future<void> _shareInvoiceWhatsApp() async {
@@ -81,11 +205,24 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final String customerPhone = _order!['customerPhone'] ?? _order!['customer']?['phone'] ?? '';
     final String orderId = _order!['_id'] ?? _order!['id'] ?? '';
     final String invoiceNumber = 'INV-${orderId.substring(0, orderId.length > 5 ? 5 : orderId.length).toUpperCase()}';
-    
-    final double total = (_order!['price'] as num?)?.toDouble() ?? 0.0;
-    final double paid = (_order!['payment']?['paidAmount'] as num?)?.toDouble() ?? 0.0;
-    final double balance = (_order!['payment']?['balanceAmount'] as num?)?.toDouble() ?? total;
-    
+
+    final inventoryCharges = _getInventoryCharges(_order!);
+    final double totalInventory = inventoryCharges.fold(0.0, (sum, i) => sum + i.totalCharge);
+
+    final double rawPrice = (_order!['price'] as num?)?.toDouble() ??
+        (_order!['total_amount'] as num?)?.toDouble() ??
+        0.0;
+
+    final double stitchingPrice = (_order!['needsAster'] == true && _order!['asterQuantity'] != null && _order!['asterSellingPrice'] != null)
+        ? rawPrice
+        : (rawPrice > totalInventory && totalInventory > 0 ? rawPrice - totalInventory : rawPrice);
+
+    final double billTotal = stitchingPrice + totalInventory;
+    final double paid = (_order!['payment']?['paidAmount'] as num?)?.toDouble() ??
+        (_order!['advance_amount'] as num?)?.toDouble() ??
+        0.0;
+    final double balance = (billTotal - paid).clamp(0.0, double.infinity);
+
     final String guestUrl = '${AppEnv.webInvoiceUrl}/invoice/share/$orderId';
 
     if (customerPhone.isEmpty) {
@@ -95,17 +232,23 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       return;
     }
 
+    final String materialBreakdown = inventoryCharges.isNotEmpty
+        ? "• Inventory Material Added: ${inventoryCharges.map((c) => "${c.itemName} (+₹${c.totalCharge.toStringAsFixed(0)})").join(', ')}\n"
+        : "";
+
     final String message = "Hello $customerName, here is the invoice $invoiceNumber for your tailoring order at $_shopName.\n\n"
-        "Total Amount: ₹${total.toStringAsFixed(2)}\n"
+        "• Stitching Service: ₹${stitchingPrice.toStringAsFixed(2)}\n"
+        "$materialBreakdown"
+        "Total Bill Amount: ₹${billTotal.toStringAsFixed(2)}\n"
         "Paid: ₹${paid.toStringAsFixed(2)}\n"
-        "Balance: ₹${balance.toStringAsFixed(2)}\n\n"
-        "View bill: $guestUrl\n\n"
+        "Balance Due: ₹${balance.toStringAsFixed(2)}\n\n"
+        "View bill online: $guestUrl\n\n"
         "Thank you for choosing $_shopName!";
 
     final cleanPhone = customerPhone.replaceAll(RegExp(r'\D'), '');
     final targetPhone = cleanPhone.startsWith('91') || cleanPhone.length != 10 ? cleanPhone : '91$cleanPhone';
     final String url = "https://wa.me/$targetPhone?text=${Uri.encodeComponent(message)}";
-    
+
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
@@ -129,10 +272,24 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final String customerPhone = _order!['customerPhone'] ?? _order!['customer']?['phone'] ?? '';
     final String orderId = _order!['_id'] ?? _order!['id'] ?? '';
     final String invoiceNumber = 'INV-${orderId.substring(0, orderId.length > 5 ? 5 : orderId.length).toUpperCase()}';
-    
-    final double total = (_order!['price'] as num?)?.toDouble() ?? 0.0;
-    final double balance = (_order!['payment']?['balanceAmount'] as num?)?.toDouble() ?? total;
-    
+
+    final inventoryCharges = _getInventoryCharges(_order!);
+    final double totalInventory = inventoryCharges.fold(0.0, (sum, i) => sum + i.totalCharge);
+
+    final double rawPrice = (_order!['price'] as num?)?.toDouble() ??
+        (_order!['total_amount'] as num?)?.toDouble() ??
+        0.0;
+
+    final double stitchingPrice = (_order!['needsAster'] == true && _order!['asterQuantity'] != null && _order!['asterSellingPrice'] != null)
+        ? rawPrice
+        : (rawPrice > totalInventory && totalInventory > 0 ? rawPrice - totalInventory : rawPrice);
+
+    final double billTotal = stitchingPrice + totalInventory;
+    final double paid = (_order!['payment']?['paidAmount'] as num?)?.toDouble() ??
+        (_order!['advance_amount'] as num?)?.toDouble() ??
+        0.0;
+    final double balance = (billTotal - paid).clamp(0.0, double.infinity);
+
     final String guestUrl = '${AppEnv.webInvoiceUrl}/invoice/share/$orderId';
 
     if (customerPhone.isEmpty) {
@@ -149,7 +306,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final cleanPhone = customerPhone.replaceAll(RegExp(r'\D'), '');
     final targetPhone = cleanPhone.startsWith('91') || cleanPhone.length != 10 ? cleanPhone : '91$cleanPhone';
     final String url = "https://wa.me/$targetPhone?text=${Uri.encodeComponent(message)}";
-    
+
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
@@ -183,6 +340,32 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final String title = _order != null
         ? 'Invoice #${orderId.substring(0, orderId.length > 5 ? 5 : orderId.length).toUpperCase()}'
         : 'Loading Invoice...';
+
+    final inventoryCharges = _order != null ? _getInventoryCharges(_order!) : <_InventoryChargeItem>[];
+    final double totalInventoryCharges = inventoryCharges.fold(0.0, (sum, i) => sum + i.totalCharge);
+
+    final double rawPrice = _order != null
+        ? ((_order!['price'] as num?)?.toDouble() ??
+            (_order!['total_amount'] as num?)?.toDouble() ??
+            0.0)
+        : 0.0;
+
+    final double stitchingBasePrice = (_order != null && _order!['needsAster'] == true && _order!['asterQuantity'] != null && _order!['asterSellingPrice'] != null)
+        ? rawPrice
+        : (rawPrice > totalInventoryCharges && totalInventoryCharges > 0
+            ? rawPrice - totalInventoryCharges
+            : rawPrice);
+
+    final double effectiveBillTotal = stitchingBasePrice + totalInventoryCharges;
+
+    final double paid = _order != null
+        ? ((_order!['payment']?['paidAmount'] as num?)?.toDouble() ??
+            (_order!['advance_amount'] as num?)?.toDouble() ??
+            0.0)
+        : 0.0;
+
+    final double balance = (effectiveBillTotal - paid).clamp(0.0, double.infinity);
+    final bool isPaid = balance <= 0.01;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -219,18 +402,14 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: ((_order!['payment']?['balanceAmount'] ?? 1.0) == 0.0
-                                            ? AppTheme.trustGreen
-                                            : AppTheme.safetyOrange)
+                                    color: (isPaid ? AppTheme.trustGreen : AppTheme.safetyOrange)
                                         .withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    (_order!['payment']?['balanceAmount'] ?? 1.0) == 0.0 ? 'PAID' : 'DUE',
+                                    isPaid ? 'PAID' : 'DUE',
                                     style: TextStyle(
-                                      color: (_order!['payment']?['balanceAmount'] ?? 1.0) == 0.0
-                                          ? AppTheme.trustGreen
-                                          : AppTheme.safetyOrange,
+                                      color: isPaid ? AppTheme.trustGreen : AppTheme.safetyOrange,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -240,35 +419,196 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                             ),
                             const Divider(color: Colors.white10, height: 24),
                             _infoRow('Client Name', _order!['customerName'] ?? 'Walk-in Customer'),
-                            _infoRow('Garment Category', _order!['garmentType'] ?? 'Custom Order'),
-                            _infoRow('Fabric Description', _order!['fabric'] ?? 'N/A'),
+                            _infoRow('Garment Category', _order!['garmentType'] ?? _order!['apparelType'] ?? 'Custom Order'),
+                            _infoRow('Fabric Description', _order!['fabric'] ?? 'Customer Provided'),
                             _infoRow(
                               'Billing Date',
                               _order!['createdAt'] != null
                                   ? DateFormat('dd MMM yyyy').format(DateTime.parse(_order!['createdAt']))
-                                  : 'N/A',
+                                  : DateFormat('dd MMM yyyy').format(DateTime.now()),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 20),
 
-                      // Cost totals NeoCard
-                      Text(context.loc.total_charges, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
+                      // Bill Items & Inventory Breakdown
+                      Text(
+                        'Invoice Items & Inventory Charges',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       NeoCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _infoRow(context.loc.total_amount, CurrencyUtils.formatINR(_order!['price'] as num?)),
-                            _infoRow(context.loc.paid_amount, CurrencyUtils.formatINR(_order!['payment']?['paidAmount'] as num?)),
+                            // 1. Stitching Service Item
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.brandPurple.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.content_cut, size: 18, color: AppTheme.brandPurple),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${_order!['garmentType'] ?? _order!['apparelType'] ?? 'Custom'} Stitching',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Custom Tailoring Package • ${_order!['fabric'] ?? 'Customer Provided'}',
+                                        style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  CurrencyUtils.formatINR(stitchingBasePrice),
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            // 2. Inventory Material Additions (if any)
+                            if (inventoryCharges.isNotEmpty) ...[
+                              const Divider(height: 20),
+                              Text(
+                                'INVENTORY STOCK ADDED TO TOTAL:',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.primary,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ...inventoryCharges.map((inv) => Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.brandPurple.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: AppTheme.brandPurple.withValues(alpha: 0.25),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.brandPurple.withValues(alpha: 0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.inventory_2, size: 16, color: AppTheme.brandPurple),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  inv.itemName,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.trustGreen.withValues(alpha: 0.15),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: const Text(
+                                                  'From Shop Stock',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppTheme.trustGreen,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            'Quantity: ${inv.quantity} ${inv.unit} @ ${CurrencyUtils.formatINR(inv.rate, showDecimals: false)}/${inv.unit}',
+                                            style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      '+${CurrencyUtils.formatINR(inv.totalCharge)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.trustGreen,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Cost totals NeoCard
+                      Text(
+                        context.loc.total_charges,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      NeoCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _infoRow('Stitching Charge', CurrencyUtils.formatINR(stitchingBasePrice)),
+                            if (totalInventoryCharges > 0)
+                              _infoRow(
+                                'Inventory Material Added',
+                                '+${CurrencyUtils.formatINR(totalInventoryCharges)}',
+                              ),
+                            const Divider(height: 16),
+                            _infoRow(context.loc.total_amount, CurrencyUtils.formatINR(effectiveBillTotal)),
+                            _infoRow(context.loc.paid_amount, CurrencyUtils.formatINR(paid)),
                             const Divider(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(context.loc.balance_amount_due, style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
                                 Text(
-                                  CurrencyUtils.formatINR((_order!['payment']?['balanceAmount'] as num?) ?? (_order!['price'] as num?)),
+                                  CurrencyUtils.formatINR(balance),
                                   style: const TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold, fontSize: 18),
                                 ),
                               ],
@@ -281,7 +621,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                       // Direct UPI Payment Card
                       _buildUpiPaymentCard(
                         theme,
-                        ((_order!['payment']?['balanceAmount'] ?? (_order!['price'] ?? 0)) as num).toDouble(),
+                        balance,
                       ),
                       const SizedBox(height: 16),
 
@@ -298,11 +638,45 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _shareInvoiceWhatsApp,
-                              icon: const Icon(Icons.share, color: Colors.white),
-                              label: Text(context.loc.share_bill, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              icon: const Icon(Icons.share, size: 18),
+                              label: const Text('Share Invoice'),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white24),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onPressed: _sendReminderWhatsApp,
+                              icon: const Icon(Icons.notifications_active_outlined, size: 18),
+                              label: const Text('Send Reminder'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // PDF Actions
+                      Text('PDF Actions', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white24),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onPressed: _downloadInvoicePdf,
+                              icon: const Icon(Icons.download, size: 18),
+                              label: const Text('Download PDF'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
@@ -310,41 +684,9 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
-                              onPressed: _sendReminderWhatsApp,
-                              icon: const Icon(Icons.notifications_active, color: Colors.white),
-                              label: Text(context.loc.send_reminder, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Text('PDF Document Actions', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.colorScheme.surfaceContainerHighest ?? AppTheme.darkCard,
-                                foregroundColor: theme.colorScheme.onSurface,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                              ),
-                              onPressed: _downloadInvoicePdf,
-                              icon: Icon(Icons.download, color: theme.colorScheme.onSurface),
-                              label: Text(context.loc.download_pdf, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.colorScheme.surfaceContainerHighest ?? AppTheme.darkCard,
-                                foregroundColor: theme.colorScheme.onSurface,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                              ),
                               onPressed: _sendInvoicePdf,
-                              icon: Icon(Icons.picture_as_pdf, color: theme.colorScheme.onSurface),
-                              label: Text(context.loc.send_pdf, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              icon: const Icon(Icons.picture_as_pdf, size: 18),
+                              label: const Text('Share PDF'),
                             ),
                           ),
                         ],
@@ -355,8 +697,17 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     );
   }
 
-  Widget _buildUpiPaymentCard(ThemeData theme, double balance) {
-    if (balance <= 0) return const SizedBox.shrink();
+  Widget _buildUpiPaymentCard(ThemeData theme, double balanceDue) {
+    if (balanceDue <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final shopUpi = _order?['shop']?['upiId'] ?? 'merchant@upi';
+    final customerName = _order?['customerName'] ?? 'Customer';
+    final orderId = _order?['_id'] ?? _order?['id'] ?? '';
+    final formattedBalance = balanceDue.toStringAsFixed(2);
+    final upiUrl = 'upi://pay?pa=$shopUpi&pn=${Uri.encodeComponent(_shopName)}&am=$formattedBalance&cu=INR&tn=${Uri.encodeComponent('Tailoring Bill #$orderId')}';
+
     return NeoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,56 +720,48 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                   color: AppTheme.trustGreen.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.qr_code_2, color: AppTheme.trustGreen, size: 24),
+                child: const Icon(Icons.qr_code, color: AppTheme.trustGreen, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Direct UPI Scan & Pay', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    const Text('Counter QR code payment', style: TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
+                    Text(
+                      'Collect Balance: ${CurrencyUtils.formatINR(balanceDue)}',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Direct UPI Payment for $customerName',
+                      style: const TextStyle(color: AppTheme.darkGrey, fontSize: 13),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: theme.scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.trustGreen.withValues(alpha: 0.25)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Balance Due', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-                    Text(
-                      '₹${balance.toStringAsFixed(2)}',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.trustGreen),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.trustGreen.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.payment, size: 16, color: AppTheme.trustGreen),
-                      SizedBox(width: 4),
-                      Text('UPI READY', style: TextStyle(color: AppTheme.trustGreen, fontSize: 11, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.trustGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () async {
+                final uri = Uri.parse(upiUrl);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                } else {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No supported UPI app found on device')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.payment, size: 18),
+              label: const Text('Open UPI App to Pay', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],

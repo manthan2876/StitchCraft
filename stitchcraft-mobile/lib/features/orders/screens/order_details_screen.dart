@@ -7,6 +7,9 @@ import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/widgets/state_views.dart';
+import 'package:stitchcraft/core/widgets/record_payment_sheet.dart';
+import 'package:stitchcraft/core/services/notification_service.dart';
+import 'package:stitchcraft/features/orders/widgets/outsource_order_sheet.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
@@ -26,39 +29,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   final _noteController = TextEditingController();
   String? _resolvedMaapUrl;
   String? _resolvedFabricUrl;
-  List<dynamic> _karigars = [];
-  List<dynamic> _machines = [];
 
   @override
   void dispose() {
     _noteController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadStaffAndMachines() async {
-    try {
-      final token = await _authService.getToken();
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final staffResponse = await http.get(Uri.parse('${AuthService.baseUrl}/karigars'), headers: headers);
-      if (staffResponse.statusCode == 200) {
-        setState(() {
-          _karigars = json.decode(staffResponse.body) as List;
-        });
-      }
-
-      final machResponse = await http.get(Uri.parse('${AuthService.baseUrl}/machines'), headers: headers);
-      if (machResponse.statusCode == 200) {
-        setState(() {
-          _machines = json.decode(machResponse.body) as List;
-        });
-      }
-    } catch (e) {
-      developer.log("Error loading staff/machines: $e");
-    }
   }
 
   Future<void> _resolveUrls() async {
@@ -122,7 +97,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     super.didChangeDependencies();
     if (_order == null) {
       final orderId = ModalRoute.of(context)!.settings.arguments as String;
-      _loadStaffAndMachines();
       _loadOrderDetails(orderId);
     }
   }
@@ -222,6 +196,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       }
     }
 
+    if (!mounted) return;
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -247,8 +222,17 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           developer.log('Local status update sync note: $localDbErr');
         }
 
+        if (newStatus == 'Delivered' || newStatus == 'Cancelled') {
+          NotificationService().cancelOrderDueReminders(orderId.toString());
+        }
+
+        final isJobFromOtherShop = _isPartnerJobFromOtherShop;
+        final notificationMsg = (isJobFromOtherShop && (newStatus == 'Ready' || newStatus == 'Delivered'))
+            ? 'Status updated to $newStatus! Main tailor notified via push notification.'
+            : 'Status updated to $newStatus';
+
         messenger.showSnackBar(
-          SnackBar(content: Text('Status updated to $newStatus'), backgroundColor: AppTheme.trustGreen),
+          SnackBar(content: Text(notificationMsg), backgroundColor: AppTheme.trustGreen),
         );
         _loadOrderDetails(orderId);
       } else {
@@ -299,145 +283,74 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Future<void> _recordPayment() async {
     if (_order == null) return;
-    final orderId = _order!['_id'] ?? _order!['id'];
-    final amountController = TextEditingController();
-    String method = 'Cash';
+    final orderId = (_order!['_id'] ?? _order!['id'] ?? '').toString();
+    final customerName = _order!['customer_name'] ?? _order!['customer']?['name'] ?? 'Customer';
+    final total = (_order!['total_amount'] as num?)?.toDouble() ?? (_order!['price'] as num?)?.toDouble() ?? 0.0;
+    final advance = (_order!['advance_amount'] as num?)?.toDouble() ?? 0.0;
+    final balance = (total - advance).clamp(0.0, double.infinity);
 
-    final messenger = ScaffoldMessenger.of(context);
-    final success = await showDialog<bool>(
+    final result = await showModalBottomSheet<PaymentResult>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final modalTheme = Theme.of(context);
-            return AlertDialog(
-              backgroundColor: modalTheme.cardTheme.color ?? AppTheme.darkCard,
-              title: Text('Record Payment', style: TextStyle(color: modalTheme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: amountController,
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(color: modalTheme.colorScheme.onSurface),
-                    decoration: const InputDecoration(
-                      labelText: 'Amount (₹)',
-                      labelStyle: TextStyle(color: AppTheme.darkGrey),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    dropdownColor: modalTheme.cardTheme.color ?? AppTheme.darkCard,
-                    // ignore: deprecated_member_use
-                    value: method,
-                    decoration: const InputDecoration(
-                      labelText: 'Payment Method',
-                      labelStyle: TextStyle(color: AppTheme.darkGrey),
-                    ),
-                    items: [
-                      DropdownMenuItem(value: 'Cash', child: Text('Cash', style: TextStyle(color: modalTheme.colorScheme.onSurface))),
-                      DropdownMenuItem(value: 'UPI/Online', child: Text('UPI/Online', style: TextStyle(color: modalTheme.colorScheme.onSurface))),
-                      DropdownMenuItem(value: 'Card', child: Text('Card', style: TextStyle(color: modalTheme.colorScheme.onSurface))),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => method = val);
-                      }
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel', style: TextStyle(color: AppTheme.darkGrey)),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Record', style: TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      useRootNavigator: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => RecordPaymentSheet(
+        customerName: customerName.toString(),
+        balance: balance,
+      ),
     );
 
-    if (success != true) {
-      amountController.dispose();
-      return;
-    }
+    if (result == null || result.amount <= 0) return;
 
-    final amount = double.tryParse(amountController.text) ?? 0.0;
-    amountController.dispose();
-    if (amount <= 0) return;
-
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final token = await _authService.getToken();
-      final response = await http.post(
-        Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({
-          'amount': amount,
-          'paymentType': method,
-        }),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        try {
-          final localOrder = await _localDb.getRecordById('orders', orderId);
-          if (localOrder != null) {
-            final prevAdvance = (localOrder['advance_amount'] as num?)?.toDouble() ?? 0.0;
-            await _localDb.updateRecord('orders', orderId, {
-              'advance_amount': prevAdvance + amount,
-              'payment_method': method,
-              'updated_at': DateTime.now().millisecondsSinceEpoch,
-            });
-          }
-        } catch (localErr) {
-          developer.log('Local payment sync note: $localErr');
-        }
-
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Payment recorded successfully'), backgroundColor: AppTheme.trustGreen),
+      if (token != null) {
+        http.post(
+          Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: json.encode({
+            'amount': result.amount,
+            'paymentType': result.method,
+          }),
         );
-        _loadOrderDetails(orderId);
-      } else {
-        throw Exception(json.decode(response.body)['message'] ?? 'Failed to record payment');
       }
-    } catch (e) {
-      // If offline or network issue, record locally in SQLite
-      bool savedLocally = false;
+
       try {
         final localOrder = await _localDb.getRecordById('orders', orderId);
         if (localOrder != null) {
           final prevAdvance = (localOrder['advance_amount'] as num?)?.toDouble() ?? 0.0;
           await _localDb.updateRecord('orders', orderId, {
-            'advance_amount': prevAdvance + amount,
-            'payment_method': method,
-            'sync_status': 1,
+            'advance_amount': prevAdvance + result.amount,
+            'payment_method': result.method,
+            'sync_status': 3,
             'updated_at': DateTime.now().millisecondsSinceEpoch,
           });
-          savedLocally = true;
         }
-      } catch (_) {}
+      } catch (localErr) {
+        developer.log('Local payment sync note: $localErr');
+      }
 
-      if (savedLocally) {
+      if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Payment recorded locally (offline)'), backgroundColor: AppTheme.trustGreen),
+          SnackBar(
+            content: Text('Payment of ${CurrencyUtils.formatINR(result.amount)} recorded!'),
+            backgroundColor: AppTheme.trustGreen,
+          ),
         );
         _loadOrderDetails(orderId);
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         messenger.showSnackBar(
           SnackBar(content: Text('Error recording payment: $e'), backgroundColor: AppTheme.alertRed),
         );
-      }
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
   }
@@ -447,25 +360,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
     final priceController = TextEditingController(text: _order!['price']?.toString() ?? '0');
     DateTime dueDate = _order!['deliveryDate'] != null ? DateTime.parse(_order!['deliveryDate']) : DateTime.now();
-
-    // Find initially selected staff and machine
-    Map<String, dynamic>? selectedKarigar;
-    if (_order!['assignedKarigar'] != null) {
-      final karigarId = _order!['assignedKarigar']['_id'] ?? _order!['assignedKarigar']['id'];
-      selectedKarigar = _karigars.firstWhere(
-        (k) => (k['_id'] ?? k['id']) == karigarId,
-        orElse: () => null,
-      );
-    }
-
-    Map<String, dynamic>? selectedMachine;
-    if (_order!['assignedMachine'] != null) {
-      final machineId = _order!['assignedMachine']['_id'] ?? _order!['assignedMachine']['id'];
-      selectedMachine = _machines.firstWhere(
-        (m) => (m['_id'] ?? m['id']) == machineId,
-        orElse: () => null,
-      );
-    }
 
     final success = await showModalBottomSheet<bool>(
       context: context,
@@ -512,48 +406,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       }
                     },
                   ),
-                  const SizedBox(height: 12),
-
-                  // Assigned Karigar
-                  DropdownButtonFormField<Map<String, dynamic>>(
-                    dropdownColor: AppTheme.darkCard,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Assign Karigar (Staff)'),
-                    // ignore: deprecated_member_use
-                    value: selectedKarigar,
-                    items: _karigars.map((k) {
-                      return DropdownMenuItem(
-                        value: k as Map<String, dynamic>,
-                        child: Text(k['name'] ?? 'Staff', style: const TextStyle(color: Colors.white)),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      setModalState(() {
-                        selectedKarigar = val;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Assigned Machine
-                  DropdownButtonFormField<Map<String, dynamic>>(
-                    dropdownColor: AppTheme.darkCard,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Assign Sewing Machine'),
-                    // ignore: deprecated_member_use
-                    value: selectedMachine,
-                    items: _machines.map((m) {
-                      return DropdownMenuItem(
-                        value: m as Map<String, dynamic>,
-                        child: Text(m['name'] ?? 'Machine', style: const TextStyle(color: Colors.white)),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      setModalState(() {
-                        selectedMachine = val;
-                      });
-                    },
-                  ),
                   const SizedBox(height: 24),
 
                   ElevatedButton(
@@ -592,8 +444,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         body: json.encode({
           'price': price,
           'deliveryDate': dueDate.toIso8601String(),
-          'assignedKarigar': selectedKarigar != null ? (selectedKarigar!['_id'] ?? selectedKarigar!['id']) : null,
-          'assignedMachine': selectedMachine != null ? (selectedMachine!['_id'] ?? selectedMachine!['id']) : null,
         }),
       );
 
@@ -823,10 +673,23 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                   ? DateFormat('dd MMM yyyy').format(DateTime.parse(_order!['deliveryDate']))
                                   : 'N/A',
                             ),
-                            _infoRow('Assigned Staff', _order!['assignedKarigar']?['name'] ?? 'Not Assigned'),
+                            if (_isOutsourcedToPartner)
+                              _infoRow(
+                                'Outsourced To',
+                                '${_order!['delegatedToShopName'] ?? _order!['delegated_to_shop_name'] ?? 'Partner'} (${(_order!['delegationStatus'] ?? _order!['delegation_status'] ?? 'assigned').toString().toUpperCase()})',
+                              ),
+                            if (_isPartnerJobFromOtherShop)
+                              _infoRow(
+                                'Job from Shop',
+                                '${_order!['originShopName'] ?? _order!['origin_shop_name'] ?? 'External Shop'}',
+                              ),
                           ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+
+                      // Outsource / Partner Tailor Action & Status Card
+                      _buildOutsourcingSection(theme),
                       const SizedBox(height: 16),
 
                       // Interactive Production Stage Stepper
@@ -1180,6 +1043,271 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     );
   }
 
+  bool get _isOutsourcedToPartner {
+    final name = _order?['delegatedToShopName'] ?? _order?['delegated_to_shop_name'];
+    final status = _order?['delegationStatus'] ?? _order?['delegation_status'];
+    return name != null && name.toString().trim().isNotEmpty && status != 'revoked';
+  }
+
+  bool get _isPartnerJobFromOtherShop {
+    final origin = _order?['originShopName'] ?? _order?['origin_shop_name'];
+    return origin != null && origin.toString().trim().isNotEmpty;
+  }
+
+  void _openOutsourceSheet() {
+    if (_order == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => OutsourceOrderSheet(
+        order: _order!,
+        onUpdated: (updatedOrder) {
+          setState(() {
+            _order = {
+              ..._order!,
+              ...updatedOrder,
+            };
+          });
+          final id = _order!['_id'] ?? _order!['id'];
+          if (id != null) {
+            _loadOrderDetails(id.toString());
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildOutsourcingSection(ThemeData theme) {
+    if (_isPartnerJobFromOtherShop) {
+      final originShop = _order!['originShopName'] ?? _order!['origin_shop_name'] ?? 'Another Tailor';
+      final originPhone = _order!['originPhone'] ?? _order!['origin_phone'] ?? '';
+      final notes = _order!['delegatedNotes'] ?? _order!['delegated_notes'] ?? '';
+
+      return NeoCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandPurple.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.storefront_outlined, color: AppTheme.brandPurple, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Job from Another Shop',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        originShop.toString(),
+                        style: const TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                if (originPhone.toString().isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.phone, color: AppTheme.trustGreen, size: 20),
+                    tooltip: 'Call Originating Tailor',
+                    onPressed: () async {
+                      final uri = Uri.parse('tel:$originPhone');
+                      if (await canLaunchUrl(uri)) await launchUrl(uri);
+                    },
+                  ),
+              ],
+            ),
+            if (notes.toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Instructions: $notes',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.darkGrey),
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, size: 14, color: AppTheme.trustGreen),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Marking this order Ready will automatically notify $originShop via push notification.',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.trustGreen),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isOutsourcedToPartner) {
+      final partnerName = _order!['delegatedToShopName'] ?? _order!['delegated_to_shop_name'] ?? 'Partner Tailor';
+      final partnerPhone = _order!['delegatedToPhone'] ?? _order!['delegated_to_phone'] ?? '';
+      final delStatus = (_order!['delegationStatus'] ?? _order!['delegation_status'] ?? 'assigned').toString().toUpperCase();
+      final notes = _order!['delegatedNotes'] ?? _order!['delegated_notes'] ?? '';
+
+      return NeoCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandPurple.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.handshake_outlined, color: AppTheme.brandPurple, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Outsourced to Partner Tailor',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        partnerName.toString(),
+                        style: const TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: (delStatus == 'COMPLETED' ? AppTheme.trustGreen : AppTheme.brandPurple).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    delStatus,
+                    style: TextStyle(
+                      color: delStatus == 'COMPLETED' ? AppTheme.trustGreen : AppTheme.brandPurple,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (notes.toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Instructions: $notes',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.darkGrey),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (partnerPhone.toString().isNotEmpty)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.phone, size: 16),
+                      label: const Text('Call Partner', style: TextStyle(fontSize: 12)),
+                      onPressed: () async {
+                        final uri = Uri.parse('tel:$partnerPhone');
+                        if (await canLaunchUrl(uri)) await launchUrl(uri);
+                      },
+                    ),
+                  ),
+                if (partnerPhone.toString().isNotEmpty) const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.brandPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.settings, size: 16),
+                    label: const Text('Manage / Recall', style: TextStyle(fontSize: 12)),
+                    onPressed: _openOutsourceSheet,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Default: Not outsourced yet
+    return NeoCard(
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.brandPurple.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.handshake_outlined, color: AppTheme.brandPurple, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Outsource Order',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                Text(
+                  'Assign this order as a job to another tailor',
+                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brandPurple,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: _openOutsourceSheet,
+            child: const Text('Outsource', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickActionBar(ThemeData theme) {
     final customerPhone = (_order!['customerPhone'] ?? _order!['customer']?['phone'] ?? '').toString();
     final hasPhone = customerPhone.isNotEmpty;
@@ -1199,16 +1327,21 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.surfaceContainerHighest ?? AppTheme.darkCard,
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
                       foregroundColor: theme.colorScheme.onSurface,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                     ),
                     onPressed: () async {
                       final uri = Uri.parse('tel:$customerPhone');
                       if (await canLaunchUrl(uri)) await launchUrl(uri);
                     },
-                    icon: const Icon(Icons.phone, size: 18, color: AppTheme.brandPurple),
-                    label: const Text('Call', style: TextStyle(fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.phone, size: 16, color: AppTheme.brandPurple),
+                    label: const Text(
+                      'Call',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1218,11 +1351,20 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF25D366),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                   ),
                   onPressed: _sendWhatsAppStatusUpdate,
-                  icon: const Icon(Icons.chat, size: 18, color: Colors.white),
-                  label: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.chat, size: 16, color: Colors.white),
+                  label: const Text(
+                    'WhatsApp',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                      letterSpacing: -0.2,
+                    ),
+                    maxLines: 1,
+                    softWrap: false,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1231,11 +1373,16 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.brandPurple,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                   ),
                   onPressed: _openInvoiceShare,
-                  icon: const Icon(Icons.receipt_long, size: 18, color: Colors.white),
-                  label: const Text('Invoice', style: TextStyle(fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.receipt_long, size: 16, color: Colors.white),
+                  label: const Text(
+                    'Invoice',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    maxLines: 1,
+                    softWrap: false,
+                  ),
                 ),
               ),
             ],
@@ -1439,6 +1586,15 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     data['assignedMachine'] = null;
     data['asterInventoryItem'] = null;
     data['notes'] = [];
+
+    // Outsourcing / Delegation fields
+    data['delegatedToShopId'] = m['delegated_to_shop_id'];
+    data['delegatedToShopName'] = m['delegated_to_shop_name'];
+    data['delegatedToPhone'] = m['delegated_to_phone'];
+    data['delegationStatus'] = m['delegation_status'];
+    data['delegatedNotes'] = m['delegated_notes'];
+    data['originShopName'] = m['origin_shop_name'];
+    data['originPhone'] = m['origin_phone'];
     
     // Try to parse style attributes
     if (m['style_attributes_json'] != null) {

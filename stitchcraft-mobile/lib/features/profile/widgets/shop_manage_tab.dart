@@ -17,12 +17,6 @@ class ShopManageTab extends StatelessWidget {
         'route': '/karigars',
       },
       {
-        'title': 'Sewing Machines',
-        'subtitle': 'Manage registry & repair status',
-        'icon': Icons.settings_suggest_outlined,
-        'route': '/machines',
-      },
-      {
         'title': 'Inventory & Stock',
         'subtitle': 'Track lining, threads & inventory',
         'icon': Icons.inventory_2_outlined,

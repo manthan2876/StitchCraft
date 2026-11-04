@@ -74,11 +74,20 @@ class _MainNavigationContainerState extends State<MainNavigationContainer> {
     }
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      extendBody: true,
-      body: IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: _buildBottomNavigationBar(theme),
+    return PopScope(
+      canPop: _selectedIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        extendBody: true,
+        body: IndexedStack(index: _selectedIndex, children: _screens),
+        bottomNavigationBar: _buildBottomNavigationBar(theme),
+      ),
     );
   }
 

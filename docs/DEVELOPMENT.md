@@ -79,7 +79,7 @@ npm run dev     # Starts Vite dev server at http://localhost:5173
 cd ../stitchcraft-mobile
 
 # Configure environment
-cp .env.example .env
+cp env/env.example.json env/dev.json
 
 # Configure Firebase placeholder (for builds & tests without live FCM credentials)
 cp lib/firebase_options.dart.example lib/firebase_options.dart
@@ -88,17 +88,18 @@ cp lib/firebase_options.dart.example lib/firebase_options.dart
 flutter pub get
 ```
 
-Ensure `stitchcraft-mobile/.env` contains:
-```env
-BACKEND_API_URL=http://10.0.2.2:5000/api  # Android emulator localhost (or local network IP)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key
-DB_ENCRYPTION_KEY=your_secure_local_database_key_here
+Ensure `stitchcraft-mobile/env/dev.json` contains:
+```json
+{
+  "BACKEND_API_URL": "http://10.0.2.2:5000/api",
+  "SUPABASE_URL": "https://your-project.supabase.co",
+  "SUPABASE_ANON_KEY": "your-supabase-anon-key"
+}
 ```
 
 Run on a connected simulator or device:
 ```bash
-flutter run
+flutter run --dart-define-from-file=env/dev.json
 ```
 
 ---

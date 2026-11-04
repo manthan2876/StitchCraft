@@ -35,11 +35,11 @@ export const StaffManagement = () => {
     name: '',
     email: '',
     phone: '',
-    role: 'staff',
+    role: 'admin',
   });
 
   const isOwner = user?.role === 'owner';
-  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'manager';
+  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'manager';
 
   const fetchStaff = async () => {
     setLoading(true);
@@ -125,22 +125,16 @@ export const StaffManagement = () => {
             <MdAdminPanelSettings className="w-3.5 h-3.5" /> {t('roleOwner')}
           </span>
         );
-      case 'manager':
+      case 'admin':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-color-accent-purple/15 text-color-accent-purple border border-color-accent-purple/20">
-            <MdWork className="w-3.5 h-3.5" /> {t('roleManager')}
-          </span>
-        );
-      case 'karigar':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">
-            <MdEngineering className="w-3.5 h-3.5" /> {t('roleKarigar')}
+            <MdAdminPanelSettings className="w-3.5 h-3.5" /> Admin
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-sky-500/15 text-sky-600 border border-sky-500/20">
-            <MdBadge className="w-3.5 h-3.5" /> {t('roleStaff')}
+            <MdBadge className="w-3.5 h-3.5" /> {role}
           </span>
         );
     }
@@ -149,9 +143,7 @@ export const StaffManagement = () => {
   const getRoleFilterLabel = (r) => {
     if (r === 'ALL') return t('all');
     if (r === 'owner') return t('roleOwner');
-    if (r === 'manager') return t('roleManager');
-    if (r === 'karigar') return t('roleKarigar');
-    if (r === 'staff') return t('roleStaff');
+    if (r === 'admin') return 'Admin';
     return r;
   };
 
@@ -172,7 +164,7 @@ export const StaffManagement = () => {
         {isManagerOrOwner && (
           <button
             onClick={() => {
-              setNewStaff({ name: '', email: '', phone: '', role: 'staff' });
+              setNewStaff({ name: '', email: '', phone: '', role: 'admin' });
               setModalError('');
               setIsAddModalOpen(true);
             }}
@@ -198,7 +190,7 @@ export const StaffManagement = () => {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
-          {['ALL', 'owner', 'manager', 'karigar', 'staff'].map((role) => (
+          {['ALL', 'owner', 'admin'].map((role) => (
             <button
               key={role}
               onClick={() => setRoleFilter(role)}
@@ -273,9 +265,8 @@ export const StaffManagement = () => {
                             onChange={(e) => handleRoleChange(member._id, e.target.value)}
                             className="bg-bg-input border border-border-subtle rounded-lg px-2.5 py-1 text-xs font-bold text-text-main outline-none focus:border-color-accent-purple cursor-pointer"
                           >
-                            <option value="manager">{t('roleManager')}</option>
-                            <option value="karigar">{t('roleKarigar')}</option>
-                            <option value="staff">{t('roleStaff')}</option>
+                            <option value="admin">Admin</option>
+                            <option value="owner">{t('roleOwner')}</option>
                           </select>
                         ) : (
                           getRoleBadge(member.role)
@@ -395,9 +386,8 @@ export const StaffManagement = () => {
                   onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
                   className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-bold cursor-pointer"
                 >
-                  {isOwner && <option value="manager">{t('roleManagerDesc')}</option>}
-                  <option value="karigar">{t('roleKarigarDesc')}</option>
-                  <option value="staff">{t('roleStaffDesc')}</option>
+                  <option value="admin">Admin (Dashboard Administrator)</option>
+                  {isOwner && <option value="owner">{t('roleOwner')}</option>}
                 </select>
               </div>
 

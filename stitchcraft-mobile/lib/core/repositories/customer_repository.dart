@@ -100,7 +100,7 @@ class CustomerRepository {
         'phone': cleanPhone,
         if (email != null && email.isNotEmpty) 'email': email.trim(),
         if (address != null && address.isNotEmpty) 'address': address.trim(),
-        if (measurements != null) 'measurements': measurements,
+        'measurements': ?measurements,
         'idempotencyKey': idempotencyKey,
       }),
     ).timeout(const Duration(seconds: 10));

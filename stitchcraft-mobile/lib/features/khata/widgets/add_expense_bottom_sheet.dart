@@ -76,7 +76,7 @@ class _AddExpenseBottomSheetState extends State<AddExpenseBottomSheet> {
 
                 if (cat.isNotEmpty && amt > 0) {
                   final newExpense = {
-                    'id': const Uuid().v4(),
+                    'id': Uuid().v4(),
                     'category': cat,
                     'amount': amt,
                     'description': desc,

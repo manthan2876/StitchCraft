@@ -8,6 +8,8 @@ import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+import 'package:stitchcraft/core/widgets/record_payment_sheet.dart';
+import 'package:stitchcraft/core/services/notification_service.dart';
 import 'package:http/http.dart' as http;
 
 class DeliveriesScreen extends StatefulWidget {
@@ -29,11 +31,13 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDeliveries();
+    _loadDeliveries(showLoading: true);
   }
 
-  Future<void> _loadDeliveries() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadDeliveries({bool showLoading = false}) async {
+    if (showLoading) {
+      setState(() => _isLoading = true);
+    }
     try {
       final orders = await _localDb.getAllOrders();
       // Orders that are Ready for pickup / delivery
@@ -142,6 +146,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         'sync_status': 3,
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       });
+      NotificationService().cancelOrderDueReminders(orderId);
 
       // 2. Put to backend if online
       final token = await _authService.getToken();
@@ -181,110 +186,55 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
   Future<void> _recordPayment(Map<String, dynamic> order, double balance) async {
     final orderId = (order['id'] ?? order['_id'] ?? '').toString();
     final customerName = order['customer_name']?.toString() ?? 'Customer';
-    final ctrl = TextEditingController(text: balance.toStringAsFixed(0));
-    String paymentMethod = 'cash';
 
-    await showModalBottomSheet(
+    final result = await showModalBottomSheet<PaymentResult>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Collect Payment: $customerName',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Balance Due: ${CurrencyUtils.formatINR(balance)}',
-                style: const TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: ctrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Amount (₹)',
-                  prefixIcon: Icon(Icons.currency_rupee),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  ChoiceChip(
-                    label: const Text('Cash'),
-                    selected: paymentMethod == 'cash',
-                    onSelected: (val) => setModalState(() => paymentMethod = 'cash'),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('UPI / Online'),
-                    selected: paymentMethod == 'online',
-                    onSelected: (val) => setModalState(() => paymentMethod = 'online'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.trustGreen,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () async {
-                    final amt = double.tryParse(ctrl.text.trim()) ?? 0.0;
-                    if (amt <= 0) return;
-                    Navigator.pop(ctx);
-
-                    final currAdv = (order['advance_amount'] as num?)?.toDouble() ?? 0.0;
-                    await _localDb.updateRecord('orders', orderId, {
-                      'advance_amount': currAdv + amt,
-                      'sync_status': 3,
-                      'updated_at': DateTime.now().millisecondsSinceEpoch,
-                    });
-
-                    final token = await _authService.getToken();
-                    if (token != null) {
-                      http.post(
-                        Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': 'Bearer $token',
-                        },
-                        body: json.encode({'amount': amt, 'paymentType': paymentMethod}),
-                      );
-                    }
-                    _loadDeliveries();
-                  },
-                  child: const Text('Save Payment', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (ctx) => RecordPaymentSheet(
+        customerName: customerName,
+        balance: balance,
       ),
     );
-    ctrl.dispose();
+
+    if (result == null || result.amount <= 0) return;
+
+    final currAdv = (order['advance_amount'] as num?)?.toDouble() ?? 0.0;
+    await _localDb.updateRecord('orders', orderId, {
+      'advance_amount': currAdv + result.amount,
+      'sync_status': 3,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    });
+
+    final token = await _authService.getToken();
+    if (token != null) {
+      http.post(
+        Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({'amount': result.amount, 'paymentType': result.method}),
+      );
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment of ${CurrencyUtils.formatINR(result.amount)} recorded!'),
+          backgroundColor: AppTheme.trustGreen,
+        ),
+      );
+      _loadDeliveries(showLoading: false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -327,6 +277,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                           itemBuilder: (context, index) {
                             final order = _filteredOrders[index];
                             final id = (order['id'] ?? order['_id'] ?? '').toString();
+                            final displayId = id.length > 8 ? id.substring(0, 8) : id;
                             final customer = (order['customer_name'] ?? 'Customer').toString();
                             final garment = (order['garment_type'] ?? 'Garment').toString();
                             final total = (order['total_amount'] as num?)?.toDouble() ??
@@ -361,12 +312,16 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                                   ),
                                   const SizedBox(height: 6),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        'Order #$id ${dueStr.isNotEmpty ? '• $dueStr' : ''}',
-                                        style: const TextStyle(color: AppTheme.darkGrey, fontSize: 13),
+                                      Expanded(
+                                        child: Text(
+                                          'Order #$displayId ${dueStr.isNotEmpty ? '• $dueStr' : ''}',
+                                          style: const TextStyle(color: AppTheme.darkGrey, fontSize: 13),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
+                                      const SizedBox(width: 8),
                                       Text(
                                         balance > 0
                                             ? 'Balance: ${CurrencyUtils.formatINR(balance)}'

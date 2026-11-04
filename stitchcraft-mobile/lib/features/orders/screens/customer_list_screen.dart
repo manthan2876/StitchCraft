@@ -285,7 +285,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 
                         setSheetState(() => isSubmitting = true);
                         try {
-                          String customerId = const Uuid().v4();
+                          String customerId = Uuid().v4();
                           final token = await AuthService().getToken();
 
                           if (token != null) {
@@ -402,6 +402,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(context.loc.customers),
+        automaticallyImplyLeading: !widget.isTab,
         actions: [
           IconButton(
             tooltip: context.loc.add_customer,

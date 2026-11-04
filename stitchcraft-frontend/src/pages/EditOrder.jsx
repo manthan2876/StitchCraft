@@ -26,11 +26,10 @@ export const EditOrder = () => {
         orderId: '', customerName: '', apparelType: '', status: 'Incoming',
         deliveryDate: '', price: '', fabric: '', needsAster: false,
         asterQuantity: '', asterInventoryItem: '', asterSellingPrice: '',
-        assignedKarigar: '', assignedMachine: ''
+        assignedKarigar: ''
     });
 
     const [karigars, setKarigars] = useState([]);
-    const [machines, setMachines] = useState([]);
     const [inventoryItems, setInventoryItems] = useState([]);
 
     // Helper with fallbacks for translations
@@ -43,10 +42,6 @@ export const EditOrder = () => {
         api.get('/karigars').then(setKarigars).catch(err => {
             console.warn('Karigars not available yet:', err.message);
             setKarigars([]);
-        });
-        api.get('/machines').then(setMachines).catch(err => {
-            console.warn('Machines not available yet:', err.message);
-            setMachines([]);
         });
         api.get('/inventory').then(setInventoryItems).catch(err => {
             console.warn('Inventory not available yet:', err.message);
@@ -72,8 +67,7 @@ export const EditOrder = () => {
                     asterQuantity: data.asterQuantity || '',
                     asterInventoryItem: data.asterInventoryItem ? (data.asterInventoryItem._id || data.asterInventoryItem) : '',
                     asterSellingPrice: data.asterSellingPrice || '',
-                    assignedKarigar: data.assignedKarigar ? (data.assignedKarigar._id || data.assignedKarigar) : '',
-                    assignedMachine: data.assignedMachine ? (data.assignedMachine._id || data.assignedMachine) : ''
+                    assignedKarigar: data.assignedKarigar ? (data.assignedKarigar._id || data.assignedKarigar) : ''
                 });
             } catch (err) {
                 console.error(err);
@@ -121,8 +115,7 @@ export const EditOrder = () => {
                  asterQuantity: formData.needsAster ? (parseFloat(formData.asterQuantity) || 0) : 0,
                  asterInventoryItem: formData.needsAster ? (formData.asterInventoryItem || null) : null,
                  asterSellingPrice: formData.needsAster ? (parseFloat(formData.asterSellingPrice) || 0) : 0,
-                 assignedKarigar: formData.assignedKarigar || null,
-                 assignedMachine: formData.assignedMachine || null
+                 assignedKarigar: formData.assignedKarigar || null
              });
             navigate('/orders');
         } catch (err) {
@@ -293,21 +286,6 @@ export const EditOrder = () => {
                                 <option value="">-- {tf('unassigned', 'Unassigned')} --</option>
                                 {karigars.filter(k => k.status === 'Active' || k._id === formData.assignedKarigar).map(k => (
                                     <option key={k._id} value={k._id}>{k.name} ({k.specialization})</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Assign Machine select */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('assignMachine', 'Assign Machine')}</label>
-                            <select
-                                value={formData.assignedMachine}
-                                onChange={(e) => setFormData({ ...formData, assignedMachine: e.target.value })}
-                                className="w-full px-4 py-3 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple transition-all font-bold cursor-pointer text-sm"
-                            >
-                                <option value="">-- {tf('unassigned', 'Unassigned')} --</option>
-                                {machines.filter(m => m.status === 'Working' || m._id === formData.assignedMachine).map(m => (
-                                    <option key={m._id} value={m._id}>{m.name} ({m.type})</option>
                                 ))}
                             </select>
                         </div>

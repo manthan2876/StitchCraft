@@ -13,6 +13,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+import 'package:stitchcraft/core/services/notification_service.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
   const OrderConfirmationScreen({super.key});
@@ -30,12 +32,6 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   final _priceController = TextEditingController();
   final _advanceController = TextEditingController();
   DateTime _dueDate = DateTime.now().add(const Duration(days: 7));
-
-  List<dynamic> _karigars = [];
-  Map<String, dynamic>? _selectedKarigar;
-
-  List<dynamic> _machines = [];
-  Map<String, dynamic>? _selectedMachine;
 
   String _mapApparelType(String garmentType) {
     final lower = garmentType.toLowerCase();
@@ -108,42 +104,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_wizardData == null) {
-      _wizardData =
-          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-      _loadStaffAndMachines();
-    }
-  }
-
-  Future<void> _loadStaffAndMachines() async {
-    setState(() => _isLoading = true);
-    try {
-      final token = await _authService.getToken();
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final kResponse = await http.get(
-        Uri.parse('${AuthService.baseUrl}/karigars'),
-        headers: headers,
-      );
-      final mResponse = await http.get(
-        Uri.parse('${AuthService.baseUrl}/machines'),
-        headers: headers,
-      );
-
-      if (kResponse.statusCode == 200 && mResponse.statusCode == 200) {
-        setState(() {
-          _karigars = json.decode(kResponse.body) as List;
-          _machines = json.decode(mResponse.body) as List;
-        });
-      }
-    } catch (e) {
-      developer.log("Error loading confirmation lists: $e");
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    _wizardData ??=
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
   }
 
   Future<void> _selectDueDate(BuildContext context) async {
@@ -284,13 +246,15 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
       'payment_method': 'Cash',
       'labor_cost': price * 0.7,
       'material_cost': (_wizardData!['needsLining'] == true && _wizardData!['liningItem'] != null)
-          ? (_wizardData!['liningItem']['costPerUnit'] ?? 0.0)
+          ? (((_wizardData!['liningQtyUsed'] as num?)?.toDouble() ?? 1.0) * ((_wizardData!['liningItem']['costPerUnit'] ?? _wizardData!['liningItem']['unit_price'] ?? 0.0) as num).toDouble())
           : 0.0,
       'overhead_cost': 0.0,
       'astar_required': _wizardData!['needsLining'] == true ? 1 : 0,
-      'astar_source': _wizardData!['fabricSource'] ?? 'Customer',
+      'astar_source': (_wizardData!['needsLining'] == true && _wizardData!['liningItem'] != null)
+          ? (_wizardData!['liningItem']['itemName'] ?? _wizardData!['liningItem']['name'] ?? 'Lining')
+          : (_wizardData!['fabricSource'] ?? 'Customer'),
       'astar_cost': (_wizardData!['needsLining'] == true && _wizardData!['liningItem'] != null)
-          ? (_wizardData!['liningItem']['costPerUnit'] ?? 0.0)
+          ? (((_wizardData!['liningQtyUsed'] as num?)?.toDouble() ?? 1.0) * ((_wizardData!['liningItem']['costPerUnit'] ?? _wizardData!['liningItem']['unit_price'] ?? 0.0) as num).toDouble())
           : 0.0,
       'fabric_photo_url': _wizardData!['fabricPhotoPath'] ?? '',
       'sync_status': 1,
@@ -299,6 +263,47 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
     try {
       await LocalDatabaseService().insertRecord('orders', localOrderRecord);
+      if (_wizardData!['needsLining'] == true && _wizardData!['liningItem'] != null) {
+        final liningMap = _wizardData!['liningItem'] as Map<String, dynamic>;
+        final qty = ((_wizardData!['liningQtyUsed'] as num?)?.toDouble() ?? 1.0);
+        final unitPrice = ((liningMap['costPerUnit'] ?? liningMap['unit_price'] ?? 0.0) as num).toDouble();
+        await LocalDatabaseService().insertLiningItem({
+          'id': Uuid().v4(),
+          'order_id': localOrderId,
+          'material_type': liningMap['itemName'] ?? liningMap['name'] ?? 'Lining',
+          'source': 'shop_inventory',
+          'unit_price': unitPrice,
+          'quantity': qty,
+          'notes': 'Shop inventory stock applied to order',
+          'sync_status': 1,
+          'updated_at': nowMs,
+        });
+      }
+
+      // Schedule Order Due Date Reminders (1-day before + morning of delivery)
+      if (_wizardData!['deliveryDate'] != null || _wizardData!['dueDate'] != null) {
+        try {
+          final dueRaw = _wizardData!['deliveryDate'] ?? _wizardData!['dueDate'];
+          DateTime? due;
+          if (dueRaw is DateTime) {
+            due = dueRaw;
+          } else if (dueRaw is String) {
+            due = DateTime.tryParse(dueRaw);
+          } else if (dueRaw is int) {
+            due = DateTime.fromMillisecondsSinceEpoch(dueRaw);
+          }
+          if (due != null) {
+            await NotificationService().scheduleOrderDueReminders(
+              orderId: localOrderId,
+              customerName: customerName,
+              garmentType: _wizardData!['apparelType'] ?? 'Garment',
+              dueDate: due,
+            );
+          }
+        } catch (notifErr) {
+          developer.log('Order reminder schedule error: $notifErr');
+        }
+      }
     } catch (e) {
       developer.log("Local order insert note: $e");
     }
@@ -395,10 +400,6 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                   _wizardData!['liningItem'] != null)
               ? (_wizardData!['liningItem']['costPerUnit'] ?? 0)
               : 0,
-          if (_selectedKarigar != null)
-            'assignedKarigar': _selectedKarigar!['_id'],
-          if (_selectedMachine != null)
-            'assignedMachine': _selectedMachine!['_id'],
           'idempotencyKey': orderIdempotencyKey,
         };
 
@@ -469,9 +470,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('New order · 5 of 5 · Review & Confirm')),
-      body: _isLoading && _karigars.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -562,62 +561,6 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Staff & Machine Assignment Card
-                  Text(
-                    'Workshop Assignment (Optional)',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  NeoCard(
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<Map<String, dynamic>>(
-                          dropdownColor: theme.cardTheme.color ?? theme.colorScheme.surface,
-                          decoration: const InputDecoration(
-                            labelText: 'Assign Karigar (Staff)',
-                          ),
-                          // ignore: deprecated_member_use
-                          value: _selectedKarigar,
-                          items: _karigars.map((k) {
-                            final name = k['name'] ?? 'Staff';
-                            final specialty = k['specialty'] ?? 'All';
-                            return DropdownMenuItem(
-                              value: k as Map<String, dynamic>,
-                              child: Text(
-                                '$name ($specialty)',
-                                style: TextStyle(color: theme.colorScheme.onSurface),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) =>
-                              setState(() => _selectedKarigar = val),
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<Map<String, dynamic>>(
-                          dropdownColor: theme.cardTheme.color ?? theme.colorScheme.surface,
-                          decoration: const InputDecoration(
-                            labelText: 'Assign Sewing Machine',
-                          ),
-                          // ignore: deprecated_member_use
-                          value: _selectedMachine,
-                          items: _machines.map((m) {
-                            final name = m['name'] ?? 'Machine';
-                            return DropdownMenuItem(
-                              value: m as Map<String, dynamic>,
-                              child: Text(
-                                name,
-                                style: TextStyle(color: theme.colorScheme.onSurface),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) =>
-                              setState(() => _selectedMachine = val),
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 32),
 
                   PrimaryButton(

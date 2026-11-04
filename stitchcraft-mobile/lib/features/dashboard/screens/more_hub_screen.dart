@@ -11,12 +11,10 @@ class MoreHubScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final sections = [
       (
-        'Workshop',
+        'Workshop & Outsourcing',
         [
-          ('My Jobs', Icons.assignment_outlined, '/my_jobs'),
+          ('Workshop & Partner Jobs', Icons.handshake_outlined, '/my_jobs'),
           ('Inventory', Icons.inventory_2_outlined, '/inventory'),
-          ('Karigars', Icons.engineering_outlined, '/karigars'),
-          ('Machines', Icons.precision_manufacturing_outlined, '/machines'),
           ('Repairs', Icons.build_outlined, '/repairs'),
         ],
       ),
@@ -44,7 +42,10 @@ class MoreHubScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      appBar: CustomAppBar(title: context.loc.settings_and_hub),
+      appBar: CustomAppBar(
+        title: context.loc.settings_and_hub,
+        automaticallyImplyLeading: false,
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [

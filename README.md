@@ -100,7 +100,7 @@ npm run build
 # 3. Mobile verification (analyze + tests)
 cd ../stitchcraft-mobile
 cp lib/firebase_options.dart.example lib/firebase_options.dart
-cp .env.example .env
+cp env/env.example.json env/dev.json
 flutter analyze
 flutter test
 ```

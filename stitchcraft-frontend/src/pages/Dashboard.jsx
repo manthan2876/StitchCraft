@@ -2,7 +2,7 @@
 import StatCard from '../components/specific/StatCard';
 import RecentOrders from '../components/specific/RecentOrders';
 import Card from '../components/common/Card';
-import { GiSewingMachine, GiSewingNeedle } from 'react-icons/gi';
+import { GiScissors, GiSewingNeedle } from 'react-icons/gi';
 import {
   MdTimer, MdWarning, MdPeople, MdNotificationsActive,
   MdPersonAdd, MdStraighten, MdAdd
@@ -68,7 +68,7 @@ export const Dashboard = () => {
             value={loading ? '—' : stats.incomingOrders}
             subtitle={t('incomingOrdersSub')}
             variant="purple"
-            icon={<GiSewingMachine className="w-6 h-6 text-white-forced" />}
+            icon={<GiScissors className="w-6 h-6 text-white-forced" />}
             onClick={() => navigate('/orders?status=Incoming')}
           />
           <StatCard

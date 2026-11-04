@@ -40,7 +40,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _lateCount = 0;
   double _moneyToCollect = 0.0;
   Map<String, dynamic>? _nextUpOrder;
-  int _periodOrderCount = 0;
   bool _isLoading = true;
   bool _isOffline = false;
   String? _loadError;
@@ -85,119 +84,101 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final now = DateTime.now();
 
-      // 1. Extract income entries: ONLY when payment was collected (cash/online advance or full payment)
+      // 1. Separate expenses table into manual incomes and actual expenses
       final List<_CashFlowItem> incomeItems = [];
-      for (final o in orders) {
-        final orderDate = _extractDate(
-          o['order_date'] ?? o['createdAt'] ?? o['date'],
-        );
-        if (orderDate == null) continue;
+      final List<_CashFlowItem> expenseItems = [];
 
-        final total = (o['total_amount'] as num?)?.toDouble() ??
-            (o['price'] as num?)?.toDouble() ??
-            0.0;
-        final advance = (o['advance_amount'] as num?)?.toDouble() ?? 0.0;
-        final status = (o['status']?.toString() ?? '').toLowerCase();
+      for (final e in expenses) {
+        final amt = (e['amount'] as num?)?.toDouble() ?? 0.0;
+        final expDate = _extractDate(e['date'] ?? e['createdAt'] ?? e['updated_at']);
+        if (amt <= 0 || expDate == null) continue;
 
-        final double collectedAmount = advance;
+        final type = (e['type'] ?? 'expense').toString().toLowerCase();
+        final cat = (e['category'] ?? '').toString().toLowerCase();
+        final isIncome = type == 'income' || cat.startsWith('income');
 
-        if (collectedAmount > 0) {
-          // Attributed to the payment collection billing date
-          incomeItems.add(_CashFlowItem(
-            amount: collectedAmount,
-            date: orderDate,
-          ));
+        if (isIncome) {
+          incomeItems.add(_CashFlowItem(amount: amt, date: expDate));
+        } else {
+          expenseItems.add(_CashFlowItem(amount: amt, date: expDate));
         }
       }
 
-      // 2. Extract expense entries
-      final List<_CashFlowItem> expenseItems = [];
-      for (final e in expenses) {
-        final amt = (e['amount'] as num?)?.toDouble() ?? 0.0;
-        final expDate = _extractDate(e['date'] ?? e['createdAt']);
-        if (amt > 0 && expDate != null) {
-          expenseItems.add(_CashFlowItem(amount: amt, date: expDate));
+      // 2. Extract income from orders: when payment was collected (cash/online advance or full payment)
+      for (final o in orders) {
+        final status = (o['status'] ?? '').toString().toLowerCase();
+        if (status == 'cancelled') continue;
+
+        final advance = (o['advance_amount'] as num?)?.toDouble() ?? 0.0;
+        final collectedAmount = advance;
+        if (collectedAmount <= 0) continue;
+
+        final orderDate = _extractDate(
+          o['order_date'] ?? o['createdAt'] ?? o['date'],
+        );
+        final updateDate = _extractDate(o['updated_at']);
+
+        // Determine payment collection billing date:
+        // If an older order was updated today (e.g. payment collected today), attribute to updateDate.
+        DateTime paymentDate = orderDate ?? updateDate ?? now;
+        if (updateDate != null && orderDate != null) {
+          if (!_isSameDay(orderDate, updateDate) || _isSameDay(updateDate, now)) {
+            paymentDate = updateDate;
+          }
+        } else if (updateDate != null) {
+          paymentDate = updateDate;
         }
+
+        incomeItems.add(_CashFlowItem(
+          amount: collectedAmount,
+          date: paymentDate,
+        ));
       }
 
       // 3. Bucket both income and expenses based on _timeFilter
       List<double> incomeGraph = [];
       List<double> expenseGraph = [];
       List<String> labels = [];
-      int periodOrders = 0;
 
       final todayMidnight = DateTime(now.year, now.month, now.day);
 
       if (_timeFilter == 'Today') {
-        final cutoff = now.subtract(const Duration(hours: 24));
-        periodOrders = orders.where((o) {
-          final d = _extractDate(o['order_date'] ?? o['createdAt'] ?? o['date']);
-          if (d == null) return false;
-          return d.isAfter(cutoff);
-        }).length;
-
         incomeGraph = List.filled(6, 0.0);
         expenseGraph = List.filled(6, 0.0);
 
         for (final item in incomeItems) {
-          if (item.date.isAfter(cutoff)) {
-            final hourDiff = now.difference(item.date).inHours;
-            if (hourDiff >= 0 && hourDiff < 24) {
-              final slotIndex = 5 - (hourDiff ~/ 4);
-              if (slotIndex >= 0 && slotIndex < 6) {
-                incomeGraph[slotIndex] += item.amount;
-              }
-            }
+          if (_isSameDay(item.date, now)) {
+            final slotIndex = (item.date.hour ~/ 4).clamp(0, 5);
+            incomeGraph[slotIndex] += item.amount;
           }
         }
 
         for (final item in expenseItems) {
-          if (item.date.isAfter(cutoff)) {
-            final hourDiff = now.difference(item.date).inHours;
-            if (hourDiff >= 0 && hourDiff < 24) {
-              final slotIndex = 5 - (hourDiff ~/ 4);
-              if (slotIndex >= 0 && slotIndex < 6) {
-                expenseGraph[slotIndex] += item.amount;
-              }
-            }
+          if (_isSameDay(item.date, now)) {
+            final slotIndex = (item.date.hour ~/ 4).clamp(0, 5);
+            expenseGraph[slotIndex] += item.amount;
           }
         }
 
         labels = ['12am', '4am', '8am', '12pm', '4pm', '8pm'];
       } else if (_timeFilter == 'Weekly') {
         // Last 7 calendar days ending today
-        final startOfPeriod = todayMidnight.subtract(const Duration(days: 6));
-        final endOfPeriod = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
-
-        periodOrders = orders.where((o) {
-          final d = _extractDate(o['order_date'] ?? o['createdAt'] ?? o['date']);
-          if (d == null) return false;
-          return d.isAfter(startOfPeriod.subtract(const Duration(milliseconds: 1))) &&
-              d.isBefore(endOfPeriod);
-        }).length;
-
         incomeGraph = List.filled(7, 0.0);
         expenseGraph = List.filled(7, 0.0);
 
         for (final item in incomeItems) {
-          final itemMidnight = DateTime(item.date.year, item.date.month, item.date.day);
-          final dayDiff = todayMidnight.difference(itemMidnight).inDays;
+          final dayDiff = _calendarDaysBetween(item.date, now);
           if (dayDiff >= 0 && dayDiff < 7) {
             final slotIndex = 6 - dayDiff;
-            if (slotIndex >= 0 && slotIndex < 7) {
-              incomeGraph[slotIndex] += item.amount;
-            }
+            incomeGraph[slotIndex] += item.amount;
           }
         }
 
         for (final item in expenseItems) {
-          final itemMidnight = DateTime(item.date.year, item.date.month, item.date.day);
-          final dayDiff = todayMidnight.difference(itemMidnight).inDays;
+          final dayDiff = _calendarDaysBetween(item.date, now);
           if (dayDiff >= 0 && dayDiff < 7) {
             final slotIndex = 6 - dayDiff;
-            if (slotIndex >= 0 && slotIndex < 7) {
-              expenseGraph[slotIndex] += item.amount;
-            }
+            expenseGraph[slotIndex] += item.amount;
           }
         }
 
@@ -208,38 +189,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       } else {
         // Monthly (last 28 calendar days in 4 weekly slots)
-        final startOfPeriod = todayMidnight.subtract(const Duration(days: 27));
-        final endOfPeriod = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
-
-        periodOrders = orders.where((o) {
-          final d = _extractDate(o['order_date'] ?? o['createdAt'] ?? o['date']);
-          if (d == null) return false;
-          return d.isAfter(startOfPeriod.subtract(const Duration(milliseconds: 1))) &&
-              d.isBefore(endOfPeriod);
-        }).length;
-
         incomeGraph = List.filled(4, 0.0);
         expenseGraph = List.filled(4, 0.0);
 
         for (final item in incomeItems) {
-          final itemMidnight = DateTime(item.date.year, item.date.month, item.date.day);
-          final dayDiff = todayMidnight.difference(itemMidnight).inDays;
+          final dayDiff = _calendarDaysBetween(item.date, now);
           if (dayDiff >= 0 && dayDiff < 28) {
             final slotIndex = 3 - (dayDiff ~/ 7);
-            if (slotIndex >= 0 && slotIndex < 4) {
-              incomeGraph[slotIndex] += item.amount;
-            }
+            incomeGraph[slotIndex] += item.amount;
           }
         }
 
         for (final item in expenseItems) {
-          final itemMidnight = DateTime(item.date.year, item.date.month, item.date.day);
-          final dayDiff = todayMidnight.difference(itemMidnight).inDays;
+          final dayDiff = _calendarDaysBetween(item.date, now);
           if (dayDiff >= 0 && dayDiff < 28) {
             final slotIndex = 3 - (dayDiff ~/ 7);
-            if (slotIndex >= 0 && slotIndex < 4) {
-              expenseGraph[slotIndex] += item.amount;
-            }
+            expenseGraph[slotIndex] += item.amount;
           }
         }
 
@@ -326,7 +291,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _lateCount = effectiveLate;
           _moneyToCollect = effectiveMoneyToCollect;
           _nextUpOrder = nextUp;
-          _periodOrderCount = periodOrders;
           _incomePoints = incomeGraph;
           _expensePoints = expenseGraph;
           _totalIncome = totalIncome;
@@ -351,15 +315,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   DateTime? _extractDate(dynamic val) {
     if (val == null) return null;
-    if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
-    if (val is DateTime) return val;
-    final str = val.toString().trim();
-    if (str.isEmpty) return null;
-    final intVal = int.tryParse(str);
-    if (intVal != null && str.length >= 10) {
-      return DateTime.fromMillisecondsSinceEpoch(intVal);
+    DateTime? dt;
+    if (val is int) {
+      dt = DateTime.fromMillisecondsSinceEpoch(val);
+    } else if (val is DateTime) {
+      dt = val;
+    } else {
+      final str = val.toString().trim();
+      if (str.isEmpty) return null;
+      final intVal = int.tryParse(str);
+      if (intVal != null && str.length >= 10) {
+        dt = DateTime.fromMillisecondsSinceEpoch(intVal);
+      } else {
+        dt = DateTime.tryParse(str);
+      }
     }
-    return DateTime.tryParse(str);
+    return dt?.toLocal();
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  int _calendarDaysBetween(DateTime from, DateTime to) {
+    final d1 = DateTime.utc(from.year, from.month, from.day);
+    final d2 = DateTime.utc(to.year, to.month, to.day);
+    return d2.difference(d1).inDays;
   }
 
   DateTime? _orderDate(Object? value) => _extractDate(value);
@@ -421,7 +402,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: const CustomAppBar(title: 'StitchCraft Dashboard'),
+      appBar: const CustomAppBar(
+        title: 'StitchCraft Dashboard',
+        automaticallyImplyLeading: false,
+      ),
       body: RefreshIndicator(
         onRefresh: _fetchDashboardData,
         child: _isLoading && isGraphEmpty
@@ -641,9 +625,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                'Order #${_nextUpOrder!['id'] ?? ''} • Due: ${_nextUpOrder!['due_date'] != null ? _nextUpOrder!['due_date'].toString().split('T').first : 'Today'}',
-                                style: const TextStyle(color: AppTheme.darkGrey, fontSize: 13),
+                              Builder(
+                                builder: (context) {
+                                  final orderId = (_nextUpOrder!['id'] ?? '').toString();
+                                  final displayId = orderId.length > 8 ? orderId.substring(0, 8) : orderId;
+                                  final dueDate = _nextUpOrder!['due_date'] != null
+                                      ? _nextUpOrder!['due_date'].toString().split('T').first
+                                      : 'Today';
+                                  return Text(
+                                    'Order #$displayId • Due: $dueDate',
+                                    style: const TextStyle(color: AppTheme.darkGrey, fontSize: 13),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                },
                               ),
                               const SizedBox(height: 12),
                               Row(

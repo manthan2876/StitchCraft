@@ -137,3 +137,43 @@ export const deleteShop = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Search registered partner tailors / shops for outsourcing
+// @route   GET /api/shops/partners
+// @access  Private
+export const getPartnerTailors = async (req, res) => {
+  try {
+    const { query } = req.query;
+    const currentShopId = req.user.shopId;
+
+    const allShops = await Shop.find({
+      isActive: true,
+      _id: { $ne: currentShopId },
+    });
+
+    let filtered = allShops;
+    if (query && query.trim()) {
+      const q = query.trim().toLowerCase();
+      filtered = allShops.filter(s => {
+        const name = (s.shopName || '').toLowerCase();
+        const phone = (s.phone || '').toLowerCase();
+        const address = (s.address || '').toLowerCase();
+        return name.includes(q) || phone.includes(q) || address.includes(q);
+      });
+    }
+
+    const results = filtered.map(s => ({
+      _id: s._id,
+      id: s._id,
+      shopName: s.shopName,
+      phone: s.phone,
+      address: s.address,
+      ownerId: s.ownerId,
+    }));
+
+    res.json(results);
+  } catch (error) {
+    console.error('Get partner tailors error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

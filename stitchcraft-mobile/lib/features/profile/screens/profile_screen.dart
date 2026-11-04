@@ -356,6 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       return;
     }
 
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -373,6 +374,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
     if (confirmed != true) return;
 
+    if (!mounted) return;
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
     try {

@@ -20,6 +20,8 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  String? _currentToken;
+
   FirebaseMessaging? get _firebaseMessaging {
     if (isMobile) {
       return FirebaseMessaging.instance;
@@ -57,7 +59,7 @@ class NotificationService {
     );
 
     await _localNotificationsPlugin.initialize(
-      initializationSettings,
+      settings: initializationSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
@@ -104,17 +106,12 @@ class NotificationService {
 
     // 7. Get and Register Device Token with Backend
     try {
-      final token = await _firebaseMessaging?.getToken();
-      if (token != null) {
-        developer.log("FCM Device Token: $token");
-        await registerDeviceTokenWithBackend(token);
-      }
-
-      // Listen for token rotation/refresh
-      _firebaseMessaging?.onTokenRefresh.listen((newToken) {
-        developer.log("FCM Token refreshed: $newToken");
-        registerDeviceTokenWithBackend(newToken);
+      _firebaseMessaging?.onRegistered.listen((token) {
+        developer.log("FCM Token registered: $token");
+        _currentToken = token;
+        registerDeviceTokenWithBackend(token);
       });
+      await _firebaseMessaging?.register();
     } catch (e) {
       developer.log("Error getting/registering FCM Token: $e");
     }
@@ -138,7 +135,17 @@ class NotificationService {
   /// Register FCM device token with backend REST service
   Future<void> registerDeviceTokenWithBackend([String? directToken]) async {
     try {
-      final token = directToken ?? await _firebaseMessaging?.getToken();
+      String? token = directToken ?? _currentToken;
+      if (token == null || token.isEmpty) {
+        try {
+          final registrationFuture = _firebaseMessaging?.onRegistered.first.timeout(
+            const Duration(seconds: 5),
+          );
+          await _firebaseMessaging?.register();
+          token = await registrationFuture;
+          _currentToken = token;
+        } catch (_) {}
+      }
       if (token == null || token.isEmpty) return;
 
       final authToken = await AuthService().getToken();
@@ -188,10 +195,10 @@ class NotificationService {
     final payloadString = payloadData != null ? json.encode(payloadData) : null;
 
     await _localNotificationsPlugin.show(
-      id,
-      title,
-      body,
-      platformChannelSpecifics,
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: platformChannelSpecifics,
       payload: payloadString,
     );
   }
@@ -215,11 +222,11 @@ class NotificationService {
     final payloadString = payloadData != null ? json.encode(payloadData) : null;
 
     await _localNotificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduledTime,
-      const NotificationDetails(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduledTime,
+      notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           'scheduled_channel',
           'Scheduled Notifications',
@@ -232,18 +239,76 @@ class NotificationService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
       payload: payloadString,
     );
   }
 
-  // Handle Foreground FCM Messages
+  /// Schedule Order Due Date Reminders (Both 1 day before AND on the morning of delivery)
+  Future<void> scheduleOrderDueReminders({
+    required String orderId,
+    required String customerName,
+    required String garmentType,
+    required DateTime dueDate,
+  }) async {
+    if (!isMobile) return;
+
+    final now = DateTime.now();
+
+    // 1. Reminder: 1 Day Before Due Date (scheduled for 9:00 AM)
+    final oneDayBefore = DateTime(dueDate.year, dueDate.month, dueDate.day - 1, 9, 0);
+    if (oneDayBefore.isAfter(now)) {
+      final seconds = oneDayBefore.difference(now).inSeconds;
+      final notifId = (orderId.hashCode ^ 0x01).abs();
+      await scheduleNotification(
+        notifId,
+        '⏰ Order Due Tomorrow',
+        'Order for $customerName ($garmentType) is due tomorrow!',
+        seconds,
+        payloadData: {'orderId': orderId, 'type': 'order_due_reminder'},
+      );
+      developer.log("Scheduled 1-day before reminder for order $orderId in ${seconds}s", name: 'NotificationService');
+    }
+
+    // 2. Reminder: Morning of Due Date (scheduled for 9:00 AM)
+    final morningOfDue = DateTime(dueDate.year, dueDate.month, dueDate.day, 9, 0);
+    if (morningOfDue.isAfter(now)) {
+      final seconds = morningOfDue.difference(now).inSeconds;
+      final notifId = (orderId.hashCode ^ 0x02).abs();
+      await scheduleNotification(
+        notifId,
+        '🚨 Order Due Today!',
+        'Order for $customerName ($garmentType) is scheduled for delivery today.',
+        seconds,
+        payloadData: {'orderId': orderId, 'type': 'order_due_reminder'},
+      );
+      developer.log("Scheduled day-of reminder for order $orderId in ${seconds}s", name: 'NotificationService');
+    }
+  }
+
+  /// Cancel reminders when an order is completed, delivered, or cancelled
+  Future<void> cancelOrderDueReminders(String orderId) async {
+    if (!isMobile) return;
+    await cancelNotification((orderId.hashCode ^ 0x01).abs());
+    await cancelNotification((orderId.hashCode ^ 0x02).abs());
+  }
+
+  /// Cancel a single local notification by id
+  Future<void> cancelNotification(int id) async {
+    if (!isMobile) return;
+    try {
+      await _localNotificationsPlugin.cancel(id: id);
+    } catch (_) {}
+  }
+
+  // Handle Foreground FCM Messages - only show instant banners for allowed device push types
   void _handleForegroundMessage(RemoteMessage message) {
-    if (message.notification != null) {
+    final type = (message.data['type'] ?? '').toString();
+    final isAllowedPush = type == 'low_stock' || type == 'order_due_reminder';
+
+    if (isAllowedPush && message.notification != null) {
       showInstantNotification(
-        message.notification!.title ?? "Push Alert",
-        message.notification!.body ?? "You have a new message",
+        message.notification!.title ?? "StitchCraft Alert",
+        message.notification!.body ?? "Alert",
         payloadData: message.data,
       );
     }

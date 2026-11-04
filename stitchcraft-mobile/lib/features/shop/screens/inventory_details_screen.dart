@@ -196,7 +196,7 @@ class _InventoryDetailsScreenState extends State<InventoryDetailsScreen> {
                   DropdownButtonFormField<String>(
                     dropdownColor: theme.cardTheme.color ?? theme.colorScheme.surface,
                     decoration: const InputDecoration(labelText: 'Category'),
-                    value: selectedCategory,
+                    initialValue: selectedCategory,
                     items: _categories.map((cat) {
                       return DropdownMenuItem(
                         value: cat,

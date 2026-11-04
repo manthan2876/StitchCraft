@@ -39,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
       NotificationService().registerDeviceTokenWithBackend();
 
       final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
       final shopId = prefs.getString('shopId');
       if (shopId == null || shopId.isEmpty) {
         Navigator.pushReplacementNamed(context, '/shop_setup');

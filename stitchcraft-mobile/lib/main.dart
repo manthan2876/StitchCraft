@@ -34,7 +34,6 @@ import 'package:stitchcraft/features/repairs/screens/repair_dashboard.dart';
 import 'package:stitchcraft/features/khata/screens/khata_screen.dart';
 import 'package:stitchcraft/features/shop/screens/inventory_screen.dart';
 import 'package:stitchcraft/features/shop/screens/karigars_screen.dart';
-import 'package:stitchcraft/features/shop/screens/machines_screen.dart';
 import 'package:stitchcraft/features/profile/screens/profile_screen.dart';
 import 'package:stitchcraft/features/shop/screens/shop_hub_screen.dart';
 import 'package:stitchcraft/features/notifications/screens/notifications_screen.dart';
@@ -42,7 +41,6 @@ import 'package:stitchcraft/features/orders/screens/customer_list_screen.dart';
 import 'package:stitchcraft/features/orders/screens/invoice_screen.dart';
 import 'package:stitchcraft/features/orders/screens/order_details_screen.dart';
 import 'package:stitchcraft/features/orders/screens/customer_details_screen.dart';
-import 'package:stitchcraft/features/shop/screens/machine_details_screen.dart';
 import 'package:stitchcraft/features/shop/screens/inventory_details_screen.dart';
 import 'package:stitchcraft/features/orders/screens/invoice_details_screen.dart';
 import 'package:stitchcraft/features/shop/screens/karigar_details_screen.dart';
@@ -166,14 +164,12 @@ class StitchCraftApp extends StatelessWidget {
                 '/khata': (context) => const KhataScreen(initialTabIndex: 0),
                 '/inventory': (context) => const InventoryScreen(),
                 '/karigars': (context) => const KarigarsScreen(),
-                '/machines': (context) => const MachinesScreen(),
                 '/profile': (context) => const ProfileScreen(),
                 '/shop_hub': (context) => const ShopHubScreen(),
                 '/notifications': (context) => const NotificationsScreen(),
                 '/customers': (context) => const CustomerListScreen(),
                 '/order_details': (context) => const OrderDetailsScreen(),
                 '/customer_details': (context) => const CustomerDetailsScreen(),
-                '/machine_details': (context) => const MachineDetailsScreen(),
                 '/inventory_details': (context) =>
                     const InventoryDetailsScreen(),
                 '/invoice_details': (context) => const InvoiceDetailsScreen(),
