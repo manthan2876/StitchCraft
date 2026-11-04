@@ -177,6 +177,34 @@ class LocalDatabaseService {
     await db!.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  Future<void> updateRecord(
+    String table,
+    String id,
+    Map<String, dynamic> data, {
+    String idColumn = 'id',
+  }) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final list = _webDb[table]!;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i][idColumn] == id) {
+          final updated = Map<String, dynamic>.from(list[i]);
+          updated.addAll(data);
+          list[i] = updated;
+          break;
+        }
+      }
+      return;
+    }
+    final db = await database;
+    await db!.update(
+      table,
+      data,
+      where: '$idColumn = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<Map<String, dynamic>?> getRecordById(
     String table,
     String id, {
@@ -327,8 +355,48 @@ class LocalDatabaseService {
   // ============== ORDER CRUD ==============
   Future<void> insertOrder(Map<String, dynamic> order) =>
       insertRecord('orders', order);
-  Future<List<Map<String, dynamic>>> getAllOrders() =>
-      getRecords('orders', orderBy: 'order_date DESC');
+
+  Future<List<Map<String, dynamic>>> getAllOrders() async {
+    if (kIsWeb) {
+      await _initWebDb();
+      final orders = List<Map<String, dynamic>>.from(
+        _webDb['orders']!.where((r) => r['sync_status'] != 2),
+      );
+      for (int i = 0; i < orders.length; i++) {
+        final custId = orders[i]['customer_id'];
+        final cust = _webDb['customers']?.firstWhere(
+          (c) => c['id'] == custId,
+          orElse: () => <String, dynamic>{},
+        );
+        if (cust != null && cust['phone'] != null) {
+          final enriched = Map<String, dynamic>.from(orders[i]);
+          enriched['phone'] = cust['phone'];
+          orders[i] = enriched;
+        }
+      }
+      return orders;
+    }
+    final db = await database;
+    try {
+      final results = await db!.rawQuery('''
+        SELECT orders.*, customers.phone AS customer_phone 
+        FROM orders 
+        LEFT JOIN customers ON orders.customer_id = customers.id 
+        WHERE orders.sync_status != 2 
+        ORDER BY orders.order_date DESC
+      ''');
+      return results.map((row) {
+        final map = Map<String, dynamic>.from(row);
+        if (map['phone'] == null || (map['phone'] as String).isEmpty) {
+          map['phone'] = map['customer_phone'] ?? '';
+        }
+        return map;
+      }).toList();
+    } catch (_) {
+      return getRecords('orders', orderBy: 'order_date DESC');
+    }
+  }
+
   Future<void> deleteOrder(String id) => deleteRecordPermanently('orders', id);
 
   // ============== EXPENSE CRUD ==============

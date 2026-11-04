@@ -20,9 +20,8 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   State<CustomAppBar> createState() => _CustomAppBarState();
 
   @override
-  Size get preferredSize => Size.fromHeight(
-        kToolbarHeight + (bottom?.preferredSize.height ?? 0.0),
-      );
+  Size get preferredSize =>
+      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0.0));
 }
 
 class _CustomAppBarState extends State<CustomAppBar> {
@@ -45,7 +44,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
     // 2. Fetch User Profile
     final profile = await _profileService.fetchProfile();
     final prefs = await SharedPreferences.getInstance();
-    
+
     if (mounted) {
       setState(() {
         _pendingSyncCount = status['pendingCount'] ?? 0;
@@ -81,8 +80,16 @@ class _CustomAppBarState extends State<CustomAppBar> {
       }
     } catch (e) {
       if (mounted) {
+        final errorText = e
+            .toString()
+            .replaceFirst('Bad state: ', '')
+            .replaceFirst('StateError: ', '')
+            .replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sync Failed: $e'), backgroundColor: AppTheme.alertRed),
+          SnackBar(
+            content: Text('Sync Failed: $errorText'),
+            backgroundColor: AppTheme.alertRed,
+          ),
         );
       }
     } finally {
@@ -106,7 +113,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
       actions: [
         IconButton(
           icon: const Icon(Icons.notifications_none_rounded),
+          tooltip: 'Notifications',
           onPressed: () {
+            final currentRoute = ModalRoute.of(context)?.settings.name;
+            if (currentRoute == '/notifications') return;
             Navigator.pushNamed(context, '/notifications');
           },
         ),
@@ -115,35 +125,54 @@ class _CustomAppBarState extends State<CustomAppBar> {
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
                 )
               : Badge(
                   label: Text('$_pendingSyncCount'),
                   isLabelVisible: _pendingSyncCount > 0,
                   child: const Icon(Icons.sync),
                 ),
+          tooltip: _pendingSyncCount > 0
+              ? '$_pendingSyncCount changes waiting to sync'
+              : 'Sync data',
           onPressed: _isSyncing ? null : _triggerSync,
         ),
         GestureDetector(
           onTap: () async {
+            final currentRoute = ModalRoute.of(context)?.settings.name;
+            if (currentRoute == '/profile') return;
             await Navigator.pushNamed(context, '/profile');
             _loadAppBarData();
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Center(
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: AppTheme.brandPurple,
-                backgroundImage: _avatarUrl != null && _avatarUrl!.isNotEmpty
-                    ? NetworkImage(_avatarUrl!)
-                    : null,
-                child: _avatarUrl == null || _avatarUrl!.isEmpty
-                    ? Text(
-                        _initials.substring(0, _initials.length > 2 ? 2 : _initials.length),
-                        style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
-                      )
-                    : null,
+              child: Semantics(
+                label: 'Open profile',
+                button: true,
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppTheme.brandPurple,
+                  backgroundImage: _avatarUrl != null && _avatarUrl!.isNotEmpty
+                      ? NetworkImage(_avatarUrl!)
+                      : null,
+                  child: _avatarUrl == null || _avatarUrl!.isEmpty
+                      ? Text(
+                          _initials.substring(
+                            0,
+                            _initials.length > 2 ? 2 : _initials.length,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
               ),
             ),
           ),

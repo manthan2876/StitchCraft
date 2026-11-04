@@ -4,10 +4,12 @@ import 'package:stitchcraft/core/widgets/neo_card.dart';
 
 class IncomeList extends StatelessWidget {
   final List<Map<String, dynamic>> orders;
+  final bool isTab;
 
   const IncomeList({
     super.key,
     required this.orders,
+    this.isTab = false,
   });
 
   @override
@@ -23,7 +25,7 @@ class IncomeList extends StatelessWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, isTab ? 96 : 24),
       itemCount: orders.length,
       itemBuilder: (context, index) {
         final order = orders[index];

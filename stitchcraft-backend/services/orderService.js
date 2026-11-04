@@ -11,6 +11,7 @@ import Transaction from '../models/Transaction.js';
 import { isValidIdentifier } from '../utils/identifiers.js';
 import { dispatchNotification } from './notificationService.js';
 
+// Deduct inventory when order reaches production workshop stages
 export const ASTAR_DEDUCT_STATUSES = ['Stitching', 'Checking', 'Ready', 'Delivered'];
 
 export const findOrderScoped = async (id, shopId) => {
@@ -127,6 +128,7 @@ export const handleAstarStockAdjustment = async (order, newStatus, shopId) => {
         invItem.quantity = Math.max(0, invItem.quantity - order.asterQuantity);
         await invItem.save();
         order.asterDeducted = true;
+        order.inventoryDeductedAt = new Date().toISOString();
         await dispatchNotification({
           shopId,
           orderId: order._id,
@@ -141,6 +143,7 @@ export const handleAstarStockAdjustment = async (order, newStatus, shopId) => {
         invItem.quantity = invItem.quantity + order.asterQuantity;
         await invItem.save();
         order.asterDeducted = false;
+        order.inventoryDeductedAt = null;
       }
     }
   }
@@ -156,6 +159,7 @@ export const handleAstarStockAdjustment = async (order, newStatus, shopId) => {
             invItem.quantity = Math.max(0, invItem.quantity - itemQty);
             await invItem.save();
             item.asterDeducted = true;
+            item.inventoryDeductedAt = new Date().toISOString();
           }
         } else if (!willDeduct && item.asterDeducted) {
           const invItem = await Inventory.findOne({ _id: item.asterInventoryItem, shopId });
@@ -163,6 +167,7 @@ export const handleAstarStockAdjustment = async (order, newStatus, shopId) => {
             invItem.quantity = invItem.quantity + itemQty;
             await invItem.save();
             item.asterDeducted = false;
+            item.inventoryDeductedAt = null;
           }
         }
       }
@@ -191,7 +196,21 @@ export const createOrderService = async (reqBody, shopId, userId) => {
     maapImageUrl,
     fabricImageUrl,
     items: rawItems,
+    idempotencyKey: rawIdempotencyKey,
   } = reqBody;
+
+  const idempotencyKey = rawIdempotencyKey || reqBody.clientMutationId || reqBody.localOrderId;
+  if (idempotencyKey) {
+    const existingOrder = await Order.findOne({ shopId, idempotencyKey });
+    if (existingOrder) {
+      const payment = await Payment.findOne({ orderId: existingOrder._id, shopId });
+      const delivery = await Delivery.findOne({ orderId: existingOrder._id, shopId });
+      const resObj = typeof existingOrder.toJSON === 'function' ? existingOrder.toJSON() : { ...existingOrder };
+      resObj.payment = payment;
+      resObj.delivery = delivery;
+      return resObj;
+    }
+  }
 
   const customerObj = await resolveCustomer(reqBody, shopId);
 
@@ -299,6 +318,7 @@ export const createOrderService = async (reqBody, shopId, userId) => {
     assignedMachine: assignedMachine || null,
     measurementsSnapshot,
     items,
+    idempotencyKey: idempotencyKey || null,
     shareToken: crypto.randomBytes(16).toString('hex'),
     shareTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
   });

@@ -384,4 +384,183 @@ class AppLocalizationsGu extends AppLocalizations {
 
   @override
   String get customer_added_successfully => 'ગ્રાહક સફળતાપૂર્વક ઉમેરાયો';
+
+  @override
+  String get onboarding_measurements_title => 'માપ સુરક્ષિત રાખો';
+
+  @override
+  String get onboarding_measurements_subtitle =>
+      'દુકાન ઑફલાઇન હોય ત્યારે પણ ગ્રાહકના માપ ડિજિટલ રીતે સાચવો.';
+
+  @override
+  String get onboarding_khata_title => 'ઉધાર પર નજર રાખો';
+
+  @override
+  String get onboarding_khata_subtitle =>
+      'કોણે પૈસા આપવાના છે તે જુઓ અને વોટ્સએપ રીમાઇન્ડર મોકલો.';
+
+  @override
+  String get onboarding_orders_title => 'દરેક ઓર્ડર સ્પષ્ટ રીતે ચલાવો';
+
+  @override
+  String get onboarding_orders_subtitle =>
+      'સિલાઈ, ડિલિવરી, ચુકવણી અને કારીગરનું કામ એક જ જગ્યાએ ટ્રેક કરો.';
+
+  @override
+  String get onboarding_skip => 'છોડો';
+
+  @override
+  String get onboarding_next => 'આગળ';
+
+  @override
+  String get onboarding_start => 'તમારી દુકાન બનાવો';
+
+  @override
+  String get dashboard_data_local =>
+      'દુકાનનો સાચવેલો ડેટા બતાવવામાં આવી રહ્યો છે. ઑનલાઇન હો ત્યારે તાજું કરવા ખેંચો.';
+
+  @override
+  String get dashboard_chart_summary => 'પસંદ કરેલા સમયગાળામાં બનાવેલા ઓર્ડર';
+
+  @override
+  String get no_customers_action => 'તમારો પહેલો ગ્રાહક ઉમેરો';
+
+  @override
+  String get sync_status_title => 'સિંક સ્થિતિ અને ઑફલાઇન ડેટા';
+
+  @override
+  String get deliver_unpaid_warning => 'બાકી રકમ સાથે ડિલિવરી કરવી?';
+
+  @override
+  String get deliver_unpaid_message =>
+      'આ ઓર્ડરમાં બાકી રકમ છે. શું તમે ખરેખર તેને ડિલિવર્ડ તરીકે ચિહ્નિત કરવા માંગો છો?';
+
+  @override
+  String get danger_zone => 'જોખમી ક્ષેત્ર';
+
+  @override
+  String get delete_shop => 'દુકાન કાઢી નાખો';
+
+  @override
+  String get home => 'હોમ';
+
+  @override
+  String get more => 'વધુ';
+
+  @override
+  String get saved_on_phone => 'ફોનમાં સાચવેલ';
+
+  @override
+  String get today => 'આજે';
+
+  @override
+  String get due_today => 'આજે બાકી';
+
+  @override
+  String get late_orders => 'વિલંબિત ઓર્ડર';
+
+  @override
+  String get collect_money => 'પૈસા વસૂલો';
+
+  @override
+  String get start_new_order => 'નવો ઓર્ડર શરૂ કરો';
+
+  @override
+  String get next_up => 'આગળનું કામ';
+
+  @override
+  String get search_orders => 'ગ્રાહક અથવા ઓર્ડર શોધો';
+
+  @override
+  String get late => 'મોડું';
+
+  @override
+  String get ready => 'તૈયાર';
+
+  @override
+  String get unpaid => 'બાકી';
+
+  @override
+  String get all_stages => 'બધા તબક્કા';
+
+  @override
+  String get create_first_order => 'પહેલો ઓર્ડર બનાવો';
+
+  @override
+  String get find_customer => 'ગ્રાહક શોધો';
+
+  @override
+  String get walk_in_customer => 'વૉક-ઇન ગ્રાહક';
+
+  @override
+  String get reuse_measurements => 'છેલ્લા માપનો ઉપયોગ કરો';
+
+  @override
+  String get add_garment => 'કપડું ઉમેરો';
+
+  @override
+  String get save_draft => 'ડ્રાફ્ટ સાચવો';
+
+  @override
+  String get resume_draft => 'ડ્રાફ્ટ ચાલુ રાખો';
+
+  @override
+  String get advance_received => 'એડવાન્સ મળેલ';
+
+  @override
+  String get view_receipt => 'રસીદ જુઓ';
+
+  @override
+  String get mark_delivered => 'ડિલિવર્ડ ચિહ્નિત કરો';
+
+  @override
+  String get record_payment => 'ચુકવણી નોંધો';
+
+  @override
+  String get outstanding_balance => 'બાકી રકમ';
+
+  @override
+  String get call_customer => 'ગ્રાહકને કૉલ કરો';
+
+  @override
+  String get search_customers => 'નામ અથવા ફોન શોધો';
+
+  @override
+  String get new_order_for_customer => 'નવો ઓર્ડર';
+
+  @override
+  String get customer_summary => 'ગ્રાહક સારાંશ';
+
+  @override
+  String get new_order_with_customer => 'આ ગ્રાહક સાથે નવો ઓર્ડર';
+
+  @override
+  String get reuse_last_measurements => 'છેલ્લા માપનો ઉપયોગ કરો';
+
+  @override
+  String get no_measurements => 'કોઈ માપ સાચવેલ નથી';
+
+  @override
+  String get deliver_today => 'આજે ડિલિવરી';
+
+  @override
+  String get ready_for_pickup => 'પીકઅપ માટે તૈયાર';
+
+  @override
+  String get deliver_order => 'ઓર્ડર ડિલિવર કરો';
+
+  @override
+  String get balance_due_before_delivery => 'ડિલિવરી પહેલાં બાકી રકમ';
+
+  @override
+  String get my_jobs => 'મારા કામ';
+
+  @override
+  String get assigned_to_me => 'મને સોંપાયેલ';
+
+  @override
+  String get mark_ready => 'તૈયાર ચિહ્નિત કરો';
+
+  @override
+  String get no_assigned_jobs => 'હાલમાં કોઈ કામ સોંપાયેલ નથી';
 }

@@ -3,6 +3,8 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/widgets/voice_text_field.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -33,7 +35,16 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: AppTheme.trustGreen,
         ),
       );
-      Navigator.pushReplacementNamed(context, '/home');
+      // Register FCM device token with backend now that user is authenticated
+      NotificationService().registerDeviceTokenWithBackend();
+
+      final prefs = await SharedPreferences.getInstance();
+      final shopId = prefs.getString('shopId');
+      if (shopId == null || shopId.isEmpty) {
+        Navigator.pushReplacementNamed(context, '/shop_setup');
+      } else {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -152,6 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+    resetEmailController.dispose();
   }
 
   @override

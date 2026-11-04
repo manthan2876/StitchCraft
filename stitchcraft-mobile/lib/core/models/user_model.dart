@@ -1,8 +1,34 @@
 import 'dart:convert';
 
 enum UserRole {
-  admin,
+  owner,
+  manager,
   staff,
+  karigar;
+
+  // Backward compatibility alias for legacy references
+  static const UserRole admin = UserRole.owner;
+
+  bool get isAdmin => this == UserRole.owner || this == UserRole.manager;
+  bool get isOwner => this == UserRole.owner;
+  bool get isManager => this == UserRole.manager;
+  bool get isStaff => this == UserRole.staff;
+  bool get isKarigar => this == UserRole.karigar;
+
+  bool get canManageShop => this == UserRole.owner || this == UserRole.manager;
+  bool get canDeleteShop => this == UserRole.owner;
+  bool get canManageStaff => this == UserRole.owner || this == UserRole.manager;
+  bool get canDeleteOrders => this == UserRole.owner || this == UserRole.manager;
+  bool get canViewFinancials => this == UserRole.owner || this == UserRole.manager;
+
+  static UserRole fromString(String? roleStr) {
+    if (roleStr == null) return UserRole.staff;
+    final clean = roleStr.toLowerCase().trim();
+    if (clean == 'owner' || clean == 'admin') return UserRole.owner;
+    if (clean == 'manager') return UserRole.manager;
+    if (clean == 'karigar') return UserRole.karigar;
+    return UserRole.staff;
+  }
 }
 
 class User {
@@ -61,10 +87,7 @@ class User {
       id: map['id'] ?? '',
       name: map['name'] ?? '',
       phone: map['phone'] ?? '',
-      role: UserRole.values.firstWhere(
-        (e) => e.toString().split('.').last == map['role'],
-        orElse: () => UserRole.staff,
-      ),
+      role: UserRole.fromString(map['role']?.toString()),
       shopId: map['shop_id'],
       syncStatus: map['sync_status']?.toInt() ?? 1,
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at']),

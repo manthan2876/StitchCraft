@@ -25,6 +25,7 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
   };
   List<Map<String, dynamic>> _failedRecords = [];
   DateTime? _lastSyncTime;
+  String? _syncError;
 
   @override
   void initState() {
@@ -39,8 +40,12 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
 
     setState(() {
       _totalPending = data['totalPending'] as int? ?? 0;
-      _pendingByTable = Map<String, int>.from(data['pendingByTable'] as Map? ?? {});
-      _failedRecords = List<Map<String, dynamic>>.from(data['failedRecords'] as List? ?? []);
+      _pendingByTable = Map<String, int>.from(
+        data['pendingByTable'] as Map? ?? {},
+      );
+      _failedRecords = List<Map<String, dynamic>>.from(
+        data['failedRecords'] as List? ?? [],
+      );
       _lastSyncTime = data['lastSyncTime'] as DateTime?;
       _isLoading = false;
     });
@@ -66,6 +71,7 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
       );
 
       if (mounted) {
+        setState(() => _syncError = null);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.loc.sync_success),
@@ -75,9 +81,13 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
       }
     } catch (e) {
       if (mounted) {
+        setState(
+          () => _syncError =
+              'Some changes could not be uploaded. Your local data is safe.',
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sync encountered issues: $e'),
+            content: const Text('Some changes could not be uploaded.'),
             backgroundColor: AppTheme.alertRed,
           ),
         );
@@ -115,7 +125,10 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.loc.sync_offline_status, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          context.loc.sync_offline_status,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
@@ -151,24 +164,34 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                     child: Column(
                       children: [
                         Icon(
-                          _totalPending == 0 ? Icons.cloud_done : Icons.cloud_upload,
+                          _totalPending == 0
+                              ? Icons.cloud_done
+                              : Icons.cloud_upload,
                           size: 48,
-                          color: _totalPending == 0 ? AppTheme.trustGreen : AppTheme.safetyOrange,
+                          color: _totalPending == 0
+                              ? AppTheme.trustGreen
+                              : AppTheme.safetyOrange,
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          _totalPending == 0
+                          _syncError != null
+                              ? _syncError!
+                              : _totalPending == 0
                               ? context.loc.all_changes_synced
                               : '$_totalPending ${context.loc.pending_local_changes}',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: _totalPending == 0 ? AppTheme.trustGreen : AppTheme.safetyOrange,
+                            color: _totalPending == 0
+                                ? AppTheme.trustGreen
+                                : AppTheme.safetyOrange,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           '${context.loc.last_sync}: ${_formatLastSync(context, _lastSyncTime)}',
-                          style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.darkGrey),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppTheme.darkGrey,
+                          ),
                         ),
                         if (_isSyncing) ...[
                           const SizedBox(height: 16),
@@ -176,7 +199,9 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                           const SizedBox(height: 8),
                           Text(
                             _syncProgressMessage,
-                            style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ],
                       ],
@@ -194,18 +219,28 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                         backgroundColor: AppTheme.brandPurple,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       icon: _isSyncing
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Icon(Icons.sync),
                       label: Text(
-                        _isSyncing ? context.loc.syncing : context.loc.sync_now_cloud,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        _isSyncing
+                            ? context.loc.syncing
+                            : context.loc.sync_now_cloud,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                   ),
@@ -215,7 +250,9 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                   // Pending Items Breakdown
                   Text(
                     context.loc.local_queue_breakdown,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -248,7 +285,11 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                     const SizedBox(height: 28),
                     Row(
                       children: [
-                        const Icon(Icons.error_outline, color: AppTheme.alertRed, size: 20),
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppTheme.alertRed,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           '${context.loc.failed_records} (${_failedRecords.length})',
@@ -265,14 +306,21 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                         margin: const EdgeInsets.only(bottom: 8),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: AppTheme.alertRed.withValues(alpha: 0.3)),
+                          side: BorderSide(
+                            color: AppTheme.alertRed.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: ListTile(
                           title: Text(
                             rec['title'] ?? 'Record',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
-                          subtitle: Text('Table: ${rec['table']} • ID: ${rec['id']}'),
+                          subtitle: Text(
+                            'Table: ${rec['table']} • ID: ${rec['id']}',
+                          ),
                           trailing: Text(
                             context.loc.failed,
                             style: const TextStyle(
@@ -335,4 +383,3 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
     );
   }
 }
-

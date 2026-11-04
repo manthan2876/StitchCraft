@@ -27,6 +27,20 @@ class AppTheme {
   static const Color lightGrey = Color(0xFF1D2939); // Subtle border
   static const Color darkGrey = Color(0xFF98A2B3); // Muted text
 
+  // --- Semantic Action & Status Tokens (DS-01) ---
+  static const Color primaryAction = brandPurple;
+  static const Color success = trustGreen;
+  static const Color warning = safetyOrange;
+  static const Color danger = alertRed;
+  static const Color pending = Color(0xFF0284C7); // Sky 600 for local pending/sync
+  static const Color disabledColor = Color(0xFF64748B);
+
+  // --- Dimensions & Sizing Scale (DS-02) ---
+  static const double minTouchTarget = 48.0;
+  static const double primaryButtonHeight = 56.0;
+  static const double standardPadding = 16.0;
+  static const double cardBorderRadius = 16.0;
+
   static TextStyle get buttonText => GoogleFonts.outfit(
     fontSize: 18,
     fontWeight: FontWeight.bold,

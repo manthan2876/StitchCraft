@@ -1,35 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
+import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class OnboardingCarouselScreen extends StatefulWidget {
   const OnboardingCarouselScreen({super.key});
 
   @override
-  State<OnboardingCarouselScreen> createState() => _OnboardingCarouselScreenState();
+  State<OnboardingCarouselScreen> createState() =>
+      _OnboardingCarouselScreenState();
 }
 
 class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-
-  final List<Map<String, String>> _onboardingData = [
-    {
-      'title': 'ડિજિટલ માપ (Digital Measurements)',
-      'subtitle': 'Save customer measurements digitally. No more lost notebooks!',
-      'icon': 'ruler',
-    },
-    {
-      'title': 'ઉધાર ટ્રેક (Track Credit)',
-      'subtitle': 'Know exactly who owes you money. Send WhatsApp reminders.',
-      'icon': 'notebook',
-    },
-    {
-      'title': 'સ્ટાઇલ કેટલોગ (Style Catalog)',
-      'subtitle': 'Show latest designs to customers and grow your business.',
-      'icon': 'shirt',
-    },
-  ];
+  static const _pageCount = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -46,9 +31,10 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
               child: Align(
                 alignment: Alignment.topRight,
                 child: TextButton(
-                  onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                  child: const Text(
-                    'SKIP (છોડો)',
+                  onPressed: () =>
+                      Navigator.pushReplacementNamed(context, '/login'),
+                  child: Text(
+                    context.loc.onboarding_skip,
                     style: TextStyle(
                       color: AppTheme.darkGrey,
                       fontWeight: FontWeight.bold,
@@ -57,7 +43,7 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
                 ),
               ),
             ),
-            
+
             // Carousel
             Expanded(
               child: PageView.builder(
@@ -67,39 +53,39 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
                     _currentPage = index;
                   });
                 },
-                itemCount: _onboardingData.length,
+                itemCount: _pageCount,
                 itemBuilder: (context, index) {
-                  return _buildPage(
-                    _onboardingData[index]['title']!,
-                    _onboardingData[index]['subtitle']!,
-                    index,
-                  );
+                  return _buildPage(index);
                 },
               ),
             ),
-            
+
             // Progressive Progress Bar (starts at 33% / 1 of 3)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: (_currentPage + 1) / _onboardingData.length,
+                  value: (_currentPage + 1) / _pageCount,
                   backgroundColor: AppTheme.lightGrey,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppTheme.brandPurple,
+                  ),
                   minHeight: 6,
                 ),
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Next Button
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: PrimaryButton(
-                text: _currentPage == _onboardingData.length - 1 ? 'START (શરૂ કરો)' : 'NEXT (આગળ)',
+                text: _currentPage == 2
+                    ? context.loc.onboarding_start
+                    : context.loc.onboarding_next,
                 onPressed: () {
-                  if (_currentPage < _onboardingData.length - 1) {
+                  if (_currentPage < _pageCount - 1) {
                     _pageController.nextPage(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
@@ -117,8 +103,28 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
     );
   }
 
-  Widget _buildPage(String title, String subtitle, int index) {
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildPage(int index) {
     final theme = Theme.of(context);
+    final copy = [
+      (
+        context.loc.onboarding_measurements_title,
+        context.loc.onboarding_measurements_subtitle,
+      ),
+      (
+        context.loc.onboarding_khata_title,
+        context.loc.onboarding_khata_subtitle,
+      ),
+      (
+        context.loc.onboarding_orders_title,
+        context.loc.onboarding_orders_subtitle,
+      ),
+    ][index];
     IconData iconData;
     switch (index) {
       case 0:
@@ -154,15 +160,11 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
                 ),
               ],
             ),
-            child: Icon(
-              iconData,
-              size: 80,
-              color: AppTheme.brandPurple,
-            ),
+            child: Icon(iconData, size: 80, color: AppTheme.brandPurple),
           ),
           const SizedBox(height: 40),
           Text(
-            title,
+            copy.$1,
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
@@ -171,7 +173,7 @@ class _OnboardingCarouselScreenState extends State<OnboardingCarouselScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            subtitle,
+            copy.$2,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppTheme.darkGrey,

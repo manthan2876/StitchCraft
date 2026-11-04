@@ -222,7 +222,7 @@ export const PublicInvoice = () => {
               <span className="text-[9px] font-extrabold uppercase tracking-widest text-text-muted/60">{tf('billedTo', 'Billed To')}</span>
               <div className="flex flex-col gap-1 text-sm font-semibold text-text-main">
                 <span className="font-extrabold text-base text-color-accent-purple">{order.customerName}</span>
-                <span>{tf('phone', 'Phone')}: {order.customer?.phone || 'No phone recorded'}</span>
+                <span>{tf('phone', 'Phone')}: {order.customer?.phone || order.customerPhone || 'No phone recorded'}</span>
                 {order.customer?.address && <span className="opacity-80 font-normal leading-relaxed">{order.customer.address}</span>}
               </div>
             </div>

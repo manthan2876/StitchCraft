@@ -21,7 +21,8 @@ export const createCustomer = async (req, res) => {
       return res.status(400).json({ message: 'Please provide customer name and phone number' });
     }
 
-    const result = await createCustomerService(req.body, req.user.shopId);
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotencyKey || req.body.clientMutationId;
+    const result = await createCustomerService({ ...req.body, idempotencyKey }, req.user.shopId);
     res.status(201).json(result);
   } catch (error) {
     console.error('Create customer error:', error);
@@ -48,7 +49,23 @@ export const getCustomers = async (req, res) => {
     }
 
     const customers = await Customer.find(filter).sort({ createdAt: -1 });
-    res.json(customers);
+
+    // Deduplicate customers by sanitized 10-digit phone number
+    const seenPhones = new Set();
+    const uniqueCustomers = [];
+    for (const c of customers) {
+      const clean = (c.phone || '').replace(/\D/g, '').slice(-10);
+      if (clean) {
+        if (!seenPhones.has(clean)) {
+          seenPhones.add(clean);
+          uniqueCustomers.push(c);
+        }
+      } else {
+        uniqueCustomers.push(c);
+      }
+    }
+
+    res.json(uniqueCustomers);
   } catch (error) {
     console.error('Get customers error:', error);
     res.status(500).json({ message: error.message });

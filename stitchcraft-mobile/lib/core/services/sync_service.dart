@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
@@ -10,16 +10,32 @@ import 'dart:developer' as developer;
 
 class SyncService {
   final _localDb = LocalDatabaseService();
+  final _authService = AuthService();
 
   static String get baseUrl => ApiConfig.baseUrl;
 
   Future<String?> _getToken() async {
-    return AuthService().getToken();
+    return _authService.getToken();
   }
 
   Future<String?> _getShopId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('shopId');
+    var shopId = prefs.getString('shopId');
+    if (shopId != null && shopId.isNotEmpty) {
+      return shopId;
+    }
+
+    // Attempt retrieval from cached user profile
+    final userId = prefs.getString('userId');
+    if (userId != null) {
+      final user = await _localDb.getRecordById('users', userId);
+      if (user != null && user['shop_id'] != null) {
+        shopId = user['shop_id'].toString();
+        await prefs.setString('shopId', shopId);
+        return shopId;
+      }
+    }
+    return null;
   }
 
   /// Get sync status including pending items count
@@ -58,16 +74,18 @@ class SyncService {
         pendingByTable[table] = unsynced.length;
         totalPending += unsynced.length;
         for (final rec in unsynced) {
-          if (rec['sync_status'] == 2) {
+          if (rec['sync_status'] == 2 || rec['sync_status'] == 4) {
+            final isValidationError = rec['sync_status'] == 4;
             failedRecords.add({
               'table': table,
               'id': rec['id']?.toString() ?? '',
-              'title':
-                  rec['customerName']?.toString() ??
-                  rec['name']?.toString() ??
-                  rec['category']?.toString() ??
-                  rec['id']?.toString() ??
-                  'Record',
+              'title': isValidationError
+                  ? 'Invalid Data: ${rec['name'] ?? rec['customer_name'] ?? rec['id']}'
+                  : (rec['customerName']?.toString() ??
+                      rec['name']?.toString() ??
+                      rec['category']?.toString() ??
+                      rec['id']?.toString() ??
+                      'Pending Delete'),
             });
           }
         }
@@ -110,28 +128,55 @@ class SyncService {
   }) async {
     developer.log('Starting full REST sync...', name: 'SyncService');
 
-    final token = await _getToken();
-    if (token == null || token.isEmpty) {
-      developer.log('Sync skipped: No auth token found.', name: 'SyncService');
-      return;
+    final initialToken = await _getToken();
+    if (initialToken == null || initialToken.isEmpty) {
+      throw StateError('Please sign in to sync your shop data.');
     }
+    String token = initialToken;
 
     final tables = ['customers', 'orders', 'expenses', 'inventory'];
+    final List<String> errors = [];
 
-    var failedTables = 0;
     for (int i = 0; i < tables.length; i++) {
       final table = tables[i];
       onProgress?.call(table, i + 1, tables.length);
       try {
         await syncTable(table, token);
       } catch (e) {
-        failedTables++;
+        // If 401 encountered, attempt a token refresh and retry this table once
+        if (e.toString().contains('401') || e.toString().contains('Session expired')) {
+          developer.log('Token expired during sync. Attempting session refresh...', name: 'SyncService');
+          final refreshed = await _authService.refreshToken();
+          if (refreshed != null && refreshed.isNotEmpty) {
+            token = refreshed;
+            try {
+              await syncTable(table, token);
+              continue; // Succeeded after refresh
+            } catch (retryError) {
+              errors.add('$table: $retryError');
+              developer.log('Retry failed for $table: $retryError', name: 'SyncService');
+              continue;
+            }
+          }
+        }
+
+        errors.add('$table: $e');
         developer.log('Failed to sync table $table: $e', name: 'SyncService');
       }
     }
 
-    if (failedTables > 0) {
-      throw StateError('$failedTables table(s) failed to sync');
+    if (errors.isNotEmpty) {
+      // Pick the most helpful human-readable error
+      if (errors.any((e) => e.contains('Session expired') || e.contains('401'))) {
+        throw StateError('Session expired. Please sign in again.');
+      }
+      if (errors.any((e) => e.contains('Could not reach server') || e.contains('SocketException') || e.contains('TimeoutException'))) {
+        throw StateError('Unable to connect to server. Check your internet connection.');
+      }
+      final first = errors.first
+          .replaceFirst('Bad state: ', '')
+          .replaceFirst('StateError: ', '');
+      throw StateError(first);
     }
 
     final prefs = await SharedPreferences.getInstance();
@@ -163,30 +208,47 @@ class SyncService {
         final endpoint = table == 'expenses' ? 'ledger/expenses' : table;
 
         if (syncStatus == 2) {
-          final deleteResponse = await http.delete(
-            Uri.parse('$baseUrl/$endpoint/$id'),
-            headers: {'Authorization': 'Bearer $token'},
-          );
-          if (deleteResponse.statusCode != 200 &&
-              deleteResponse.statusCode != 204 &&
-              deleteResponse.statusCode != 404) {
-            throw StateError(
-              'Failed to delete $table record $id: ${deleteResponse.statusCode}',
-            );
+          try {
+            final deleteResponse = await http.delete(
+              Uri.parse('$baseUrl/$endpoint/$id'),
+              headers: {'Authorization': 'Bearer $token'},
+            ).timeout(const Duration(seconds: 15));
+
+            if (deleteResponse.statusCode == 200 ||
+                deleteResponse.statusCode == 204 ||
+                deleteResponse.statusCode == 404) {
+              await _localDb.deleteRecordPermanently(table, id);
+            }
+          } catch (e) {
+            developer.log('Delete sync error for $id: $e', name: 'SyncService');
           }
-          await _localDb.deleteRecordPermanently(table, id);
           continue;
         }
 
-        if (syncStatus == 1) {
+        if (syncStatus == 1 || syncStatus == 3) {
           final payload = Map<String, dynamic>.from(record);
           payload.remove('sync_status');
           payload['shopId'] = shopId;
 
-          // Mapping customizations for Node Express backend
-          // Embed measurements snapshot into order if available
+          // Mapping customizations for Node Express backend schema validation
+          if (table == 'customers') {
+            final rawName = (record['name'] ?? '').toString().trim();
+            final rawPhone = (record['phone'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+            if (rawPhone.length < 10) {
+              developer.log('Skipping customer $id: invalid phone number ($rawPhone)', name: 'SyncService');
+              await _localDb.updateRecord(table, id, {
+                'sync_status': 4, // 4 = validation error
+                'updated_at': DateTime.now().millisecondsSinceEpoch,
+              });
+              continue;
+            }
+            payload['name'] = rawName.isNotEmpty ? rawName : 'Customer';
+            payload['phone'] = rawPhone;
+            payload['email'] = record['email'] ?? '';
+            payload['idempotencyKey'] = 'cust_$id';
+          }
+
           if (table == 'orders') {
-            // Read measurements for order
             final measurements = await _localDb.getRecords(
               'measurements',
               where: 'order_id = ?',
@@ -194,82 +256,158 @@ class SyncService {
             );
             if (measurements.isNotEmpty) {
               final firstMeasure = measurements.first;
-              final measurementsJson =
-                  firstMeasure['measurements_json'] as String?;
+              final measurementsJson = firstMeasure['measurements_json'] as String?;
               final Map<String, dynamic> parsedMeasurements =
                   measurementsJson != null ? json.decode(measurementsJson) : {};
 
-              final apparelType =
-                  record['apparelType'] ??
+              final apparelType = record['apparelType'] ??
                   record['item_types']?.toString().split(',').first ??
                   'Shirt';
               payload['measurementsSnapshot'] = {
                 apparelType.toString().toLowerCase().contains('pant')
-                        ? 'pant'
-                        : 'shirt':
-                    parsedMeasurements,
+                    ? 'pant'
+                    : 'shirt': parsedMeasurements,
               };
             }
-            // Format order keys for Mongoose validation rules
-            if (record['customer_name'] != null) {
-              payload['customerName'] = record['customer_name'];
+
+            payload['customerName'] = record['customer_name'] ?? 'Customer';
+            payload['customerId'] = record['customer_id'];
+            payload['apparelType'] = record['apparelType'] ??
+                record['item_types']?.toString().split(',').first ??
+                'Shirt';
+
+            final dueDateVal = record['due_date'];
+            if (dueDateVal is int) {
+              payload['deliveryDate'] = DateTime.fromMillisecondsSinceEpoch(dueDateVal).toUtc().toIso8601String();
+            } else if (dueDateVal != null) {
+              payload['deliveryDate'] = DateTime.tryParse(dueDateVal.toString())?.toUtc().toIso8601String() ??
+                  DateTime.now().add(const Duration(days: 7)).toUtc().toIso8601String();
+            } else {
+              payload['deliveryDate'] = DateTime.now().add(const Duration(days: 7)).toUtc().toIso8601String();
             }
-            if (record['apparelType'] != null || record['item_types'] != null) {
-              payload['apparelType'] =
-                  record['apparelType'] ??
-                  record['item_types']?.toString().split(',').first ??
-                  'Shirt';
-            }
-            if (record['due_date'] != null) {
-              payload['deliveryDate'] = DateTime.fromMillisecondsSinceEpoch(
-                record['due_date'],
-              ).toUtc().toIso8601String();
-            }
-            if (record['total_amount'] != null) {
-              payload['price'] = record['total_amount'];
-            }
-            if (record['description'] != null) {
-              payload['fabric'] = record['description'];
-            }
+
+            payload['price'] = (record['total_amount'] as num?)?.toDouble() ?? 0.0;
+            payload['advancePaid'] = (record['advance_amount'] as num?)?.toDouble() ?? 0.0;
+            payload['fabric'] = record['description'] ?? 'Customer Provided';
+            payload['fabricImageUrl'] = record['fabric_photo_url'] ?? '';
+            payload['status'] = record['status'] ?? 'Incoming';
+            payload['needsAster'] = record['astar_required'] == 1;
+            payload['asterSellingPrice'] = (record['astar_cost'] as num?)?.toDouble() ?? 0.0;
+            payload['idempotencyKey'] = 'order_$id';
           }
 
           if (table == 'inventory') {
-            payload['itemName'] = record['name'] ?? 'Inventory Item';
-            payload['itemType'] = record['category'] ?? 'accessories';
-            payload['quantity'] = record['quantity'] ?? 0;
-            payload['costPerUnit'] = record['unit_price'] ?? 0;
-            payload['minQuantity'] = record['low_stock_threshold'] ?? 10;
+            payload['itemName'] = record['name'] ?? 'Material Item';
+            final rawCat = (record['category'] ?? 'Fabric').toString();
+            String cat = 'Fabric';
+            if (rawCat.toLowerCase().contains('lining')) {
+              cat = 'Lining';
+            } else if (rawCat.toLowerCase().contains('thread')) {
+              cat = 'Thread';
+            } else if (rawCat.toLowerCase().contains('access') ||
+                rawCat.toLowerCase().contains('button') ||
+                rawCat.toLowerCase().contains('zip')) {
+              cat = 'Accessories';
+            } else if (rawCat.toLowerCase().contains('fabric')) {
+              cat = 'Fabric';
+            } else {
+              cat = 'Other';
+            }
+            payload['itemType'] = cat;
+            payload['quantity'] = (record['quantity'] as num?)?.toDouble() ?? 0.0;
+            payload['costPerUnit'] = (record['unit_price'] as num?)?.toDouble() ?? 0.0;
+            payload['minQuantity'] = (record['low_stock_threshold'] as num?)?.toDouble() ?? 5.0;
+            payload['unit'] = record['unit'] ?? 'meters';
+          }
+
+          if (table == 'expenses') {
+            payload['category'] = record['category'] ?? 'General';
+            payload['amount'] = (record['amount'] as num?)?.toDouble() ?? 0.0;
+            payload['description'] = record['description'] ?? '';
+            final dateVal = record['date'];
+            if (dateVal is int) {
+              payload['date'] = DateTime.fromMillisecondsSinceEpoch(dateVal).toUtc().toIso8601String();
+            } else if (dateVal != null) {
+              payload['date'] = DateTime.tryParse(dateVal.toString())?.toUtc().toIso8601String() ??
+                  DateTime.now().toUtc().toIso8601String();
+            } else {
+              payload['date'] = DateTime.now().toUtc().toIso8601String();
+            }
           }
 
           final headers = {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',
+            if (payload['idempotencyKey'] != null)
+              'Idempotency-Key': payload['idempotencyKey'].toString(),
           };
 
-          http.Response response;
+          try {
+            if (syncStatus == 3) {
+              // PUT update
+              final response = await http.put(
+                Uri.parse('$baseUrl/$endpoint/$id'),
+                headers: headers,
+                body: json.encode(payload),
+              ).timeout(const Duration(seconds: 15));
 
-          response = await http.post(
-            Uri.parse('$baseUrl/$endpoint'),
-            headers: headers,
-            body: json.encode(payload),
-          );
+              if (response.statusCode == 200) {
+                await _localDb.updateSyncStatus(table, id, 0);
+                developer.log('Successfully updated $id on server for $table', name: 'SyncService');
+              } else if (response.statusCode == 404) {
+                // If not found on server, fallback to POST create
+                final postResp = await http.post(
+                  Uri.parse('$baseUrl/$endpoint'),
+                  headers: headers,
+                  body: json.encode(payload),
+                ).timeout(const Duration(seconds: 15));
 
-          if (response.statusCode == 200 || response.statusCode == 201) {
-            final responseData = json.decode(response.body);
-            final serverId = responseData['_id'] ?? responseData['id'];
-            if (serverId != null && serverId != id) {
-              await _localDb.updateRecordId(table, id, serverId);
+                if (postResp.statusCode == 200 || postResp.statusCode == 201) {
+                  final respData = json.decode(postResp.body);
+                  final serverId = respData['_id'] ?? respData['id'];
+                  if (serverId != null && serverId != id) {
+                    await _localDb.updateRecordId(table, id, serverId);
+                  } else {
+                    await _localDb.updateSyncStatus(table, id, 0);
+                  }
+                }
+              } else if (response.statusCode == 401) {
+                throw StateError('Session expired. Please sign in again.');
+              }
             } else {
-              await _localDb.updateSyncStatus(table, id, 0);
+              // POST create (syncStatus == 1)
+              final response = await http.post(
+                Uri.parse('$baseUrl/$endpoint'),
+                headers: headers,
+                body: json.encode(payload),
+              ).timeout(const Duration(seconds: 15));
+
+              if (response.statusCode == 200 || response.statusCode == 201) {
+                final responseData = json.decode(response.body);
+                final serverId = responseData['_id'] ?? responseData['id'];
+                if (serverId != null && serverId != id) {
+                  await _localDb.updateRecordId(table, id, serverId);
+                } else {
+                  await _localDb.updateSyncStatus(table, id, 0);
+                }
+                developer.log(
+                  'Successfully pushed $id to server for $table',
+                  name: 'SyncService',
+                );
+              } else if (response.statusCode == 401) {
+                throw StateError('Session expired. Please sign in again.');
+              } else {
+                developer.log(
+                  'Failed to push $table record $id: ${response.statusCode} - ${response.body}',
+                  name: 'SyncService',
+                );
+              }
             }
-            developer.log(
-              'Successfully pushed $id to server for $table',
-              name: 'SyncService',
-            );
-          } else {
-            throw StateError(
-              'Failed to push $table record $id: ${response.statusCode}',
-            );
+          } on SocketException catch (_) {
+            throw StateError('Could not reach server. Please check your internet connection.');
+          } catch (e) {
+            if (e is StateError) rethrow;
+            developer.log('Push error for $table $id: $e', name: 'SyncService');
           }
         }
       }
@@ -281,98 +419,128 @@ class SyncService {
       getEndpoint = 'ledger/expenses';
     }
 
-    final response = await http.get(
-      Uri.parse('$baseUrl/$getEndpoint'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-    developer.log('Response Status: ${response.statusCode}');
-    developer.log('Response Body: ${response.body}');
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/$getEndpoint'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200) {
-      final decoded = json.decode(response.body);
-      if (decoded is! List) {
-        throw const FormatException('Sync response must be a JSON array');
+      developer.log('Pull $table status: ${response.statusCode}', name: 'SyncService');
+
+      if (response.statusCode == 401) {
+        throw StateError('Session expired. Please sign in again.');
       }
-      final remoteData = decoded;
-      developer.log(
-        'Pulled ${remoteData.length} records from server for $table',
-        name: 'SyncService',
-      );
 
-      for (final rawRecord in remoteData) {
-        if (rawRecord is! Map) {
-          throw const FormatException('Sync record must be a JSON object');
+      if (response.statusCode == 200) {
+        final dynamic decoded = json.decode(response.body);
+        final List<dynamic> remoteData;
+        if (decoded is List) {
+          remoteData = decoded;
+        } else if (decoded is Map && decoded['data'] is List) {
+          remoteData = decoded['data'] as List;
+        } else if (decoded is Map && decoded[table] is List) {
+          remoteData = decoded[table] as List;
+        } else {
+          remoteData = [];
         }
-        final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(
-          rawRecord,
+
+        developer.log(
+          'Pulled ${remoteData.length} records from server for $table',
+          name: 'SyncService',
         );
-        final String id = remoteRecord['_id'] ?? remoteRecord['id'] ?? '';
-        if (id.isEmpty) continue;
 
-        // Map backend schema parameters to local SQLite table schemas
-        final Map<String, dynamic> sqliteRecord = {'id': id, 'sync_status': 0};
+        for (final rawRecord in remoteData) {
+          if (rawRecord is! Map) continue;
+          final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(rawRecord);
+          final String id = (remoteRecord['_id'] ?? remoteRecord['id'] ?? '').toString();
+          if (id.isEmpty) continue;
 
-        if (table == 'customers') {
-          sqliteRecord['name'] = remoteRecord['name'] ?? 'Unknown';
-          sqliteRecord['phone'] = remoteRecord['phone'] ?? '';
-          sqliteRecord['email'] = remoteRecord['email'] ?? '';
-          sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
-        } else if (table == 'orders') {
-          sqliteRecord['customer_id'] = remoteRecord['customer'] is Map
-              ? remoteRecord['customer']['_id']
-              : remoteRecord['customer'] ?? '';
-          sqliteRecord['customer_name'] =
-              remoteRecord['customerName'] ?? 'Walk-in Customer';
-          sqliteRecord['order_date'] = remoteRecord['date'] != null
-              ? DateTime.parse(
-                  remoteRecord['date'].toString(),
-                ).millisecondsSinceEpoch
-              : DateTime.now().millisecondsSinceEpoch;
-          sqliteRecord['due_date'] = remoteRecord['deliveryDate'] != null
-              ? DateTime.parse(
-                  remoteRecord['deliveryDate'].toString(),
-                ).millisecondsSinceEpoch
-              : DateTime.now().millisecondsSinceEpoch;
-          sqliteRecord['status'] = remoteRecord['status'] ?? 'Incoming';
-          sqliteRecord['total_amount'] =
-              (remoteRecord['price'] as num?)?.toDouble() ?? 0.0;
-          sqliteRecord['description'] = remoteRecord['fabric'] ?? '';
-          sqliteRecord['fabric_photo_url'] =
-              remoteRecord['fabricImageUrl'] ?? '';
-          sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
-        } else if (table == 'expenses') {
-          sqliteRecord['category'] = remoteRecord['category'] ?? 'General';
-          sqliteRecord['amount'] =
-              (remoteRecord['amount'] as num?)?.toDouble() ?? 0.0;
-          sqliteRecord['description'] = remoteRecord['description'] ?? '';
-          sqliteRecord['date'] = remoteRecord['date'] != null
-              ? DateTime.parse(
-                  remoteRecord['date'].toString(),
-                ).millisecondsSinceEpoch
-              : DateTime.now().millisecondsSinceEpoch;
-          sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
-        } else if (table == 'inventory') {
-          sqliteRecord['name'] = remoteRecord['itemName'] ?? 'Inventory Item';
-          sqliteRecord['category'] = remoteRecord['itemType'] ?? 'accessories';
-          sqliteRecord['quantity'] =
-              (remoteRecord['quantity'] as num?)?.toDouble() ?? 0.0;
-          sqliteRecord['unit_price'] =
-              (remoteRecord['costPerUnit'] as num?)?.toDouble() ?? 0.0;
-          sqliteRecord['low_stock_threshold'] =
-              (remoteRecord['minQuantity'] as num?)?.toDouble() ?? 10.0;
-          sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+          final Map<String, dynamic> sqliteRecord = {'id': id, 'sync_status': 0};
+
+          if (table == 'customers') {
+            sqliteRecord['name'] = remoteRecord['name'] ?? 'Customer';
+            sqliteRecord['phone'] = remoteRecord['phone'] ?? '';
+            sqliteRecord['email'] = remoteRecord['email'] ?? '';
+            sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+          } else if (table == 'orders') {
+            sqliteRecord['customer_id'] = remoteRecord['customer'] is Map
+                ? (remoteRecord['customer']['_id'] ?? '')
+                : (remoteRecord['customer'] ?? '');
+            sqliteRecord['customer_name'] =
+                remoteRecord['customerName'] ?? 'Walk-in Customer';
+
+            final dynamic rawDate = remoteRecord['date'] ??
+                remoteRecord['createdAt'] ??
+                remoteRecord['order_date'] ??
+                (remoteRecord['payment'] is Map ? remoteRecord['payment']['createdAt'] : null);
+            int orderDateMs = DateTime.now().millisecondsSinceEpoch;
+            if (rawDate is int) {
+              orderDateMs = rawDate;
+            } else if (rawDate != null) {
+              final parsed = DateTime.tryParse(rawDate.toString());
+              if (parsed != null) orderDateMs = parsed.millisecondsSinceEpoch;
+            }
+            sqliteRecord['order_date'] = orderDateMs;
+
+            final rawDue = remoteRecord['deliveryDate'];
+            sqliteRecord['due_date'] = rawDue != null
+                ? (DateTime.tryParse(rawDue.toString())?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch)
+                : DateTime.now().millisecondsSinceEpoch;
+
+            sqliteRecord['status'] = remoteRecord['status'] ?? 'Incoming';
+            sqliteRecord['total_amount'] = (remoteRecord['price'] as num?)?.toDouble() ?? 0.0;
+            final double paid = (remoteRecord['payment'] is Map
+                    ? (remoteRecord['payment']['paidAmount'] as num?)?.toDouble()
+                    : null) ??
+                (remoteRecord['advancePaid'] as num?)?.toDouble() ??
+                (remoteRecord['advance_amount'] as num?)?.toDouble() ??
+                0.0;
+            sqliteRecord['advance_amount'] = paid;
+            sqliteRecord['payment_method'] = (remoteRecord['payment'] is Map
+                    ? remoteRecord['payment']['paymentType']
+                    : null) ??
+                remoteRecord['paymentMethod'] ??
+                'Cash';
+            sqliteRecord['description'] = remoteRecord['fabric'] ?? '';
+            sqliteRecord['fabric_photo_url'] = remoteRecord['fabricImageUrl'] ?? '';
+            sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+          } else if (table == 'expenses') {
+            sqliteRecord['category'] = remoteRecord['category'] ?? 'General';
+            sqliteRecord['amount'] = (remoteRecord['amount'] as num?)?.toDouble() ?? 0.0;
+            sqliteRecord['description'] = remoteRecord['description'] ?? '';
+
+            final rawDate = remoteRecord['date'] ?? remoteRecord['createdAt'];
+            sqliteRecord['date'] = rawDate != null
+                ? (DateTime.tryParse(rawDate.toString())?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch)
+                : DateTime.now().millisecondsSinceEpoch;
+
+            sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+          } else if (table == 'inventory') {
+            sqliteRecord['name'] = remoteRecord['itemName'] ?? 'Inventory Item';
+            sqliteRecord['category'] = remoteRecord['itemType'] ?? 'Accessories';
+            sqliteRecord['quantity'] = (remoteRecord['quantity'] as num?)?.toDouble() ?? 0.0;
+            sqliteRecord['unit_price'] = (remoteRecord['costPerUnit'] as num?)?.toDouble() ?? 0.0;
+            sqliteRecord['low_stock_threshold'] = (remoteRecord['minQuantity'] as num?)?.toDouble() ?? 5.0;
+            sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+          }
+
+          await _localDb.insertRecord(table, sqliteRecord);
+          if (table == 'orders') DatabaseService.orderSignal.add(null);
+          if (table == 'customers') DatabaseService.customerSignal.add(null);
+          if (table == 'expenses') DatabaseService.expenseSignal.add(null);
         }
-
-        await _localDb.insertRecord(table, sqliteRecord);
-        if (table == 'orders') DatabaseService.orderSignal.add(null);
-        if (table == 'customers') DatabaseService.customerSignal.add(null);
-        if (table == 'expenses') DatabaseService.expenseSignal.add(null);
+      } else {
+        throw StateError('Failed to pull $table records: HTTP ${response.statusCode}');
       }
-    } else {
-      throw StateError('Failed to pull $table records: ${response.statusCode}');
+    } on SocketException catch (_) {
+      throw StateError('Could not reach server. Please check your internet connection.');
+    } catch (e) {
+      if (e is StateError) rethrow;
+      developer.log('Pull error for $table: $e', name: 'SyncService');
+      throw StateError('Could not sync $table: $e');
     }
   }
 }

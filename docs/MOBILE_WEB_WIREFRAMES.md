@@ -26,12 +26,12 @@ also maintains encrypted local data and an offline sync queue.
 
 | Area | Mobile | Web |
 |---|---|---|
-| Primary navigation | Bottom navigation plus drawer/module hub | Persistent sidebar plus topbar |
+| Primary navigation | Home, Orders, Customers, Khata, More, with a centered New Order action | Persistent sidebar plus topbar |
 | Dense lists | Cards with progressive disclosure | Tables/cards with filters and bulk actions |
 | Forms | Full-screen step forms and bottom sheets | Multi-column forms, panels, and modals |
 | Detail pages | App bar, sections, expandable cards | Breadcrumb/title area, tabs, side panels |
 | Feedback | Snackbars, dialogs, inline validation | Toasts, inline validation, modal confirmations |
-| Offline state | Sync badge, queue count, manual sync | API loading/error states; no durable web offline database |
+| Offline state | Persistent sync badge, queue count, manual sync, and pending-record chips | API loading/error states; no durable web offline database |
 | Small screens | One-column layout, horizontal scrolling only for intentional data strips | Sidebar collapses into an overlay below the large breakpoint |
 
 ### 1.3 Shared visual anatomy
@@ -160,15 +160,14 @@ Mobile route definitions are implemented in
 +---------------------------+
 ```
 
-#### Role selection — `/role_selection`
+#### Role confirmation — `/role_selection`
 
 ```text
 +---------------------------+
-| Choose your role          |
-| [ Owner                 ] |
-| [ Manager               ] |
-| [ Staff                 ]  |
-| [ Karigar               ]  |
+| Access is assigned        |
+| Your role comes from your |
+| account or shop invite.  |
+|                           |
 | [Continue]                |
 +---------------------------+
 ```
@@ -199,13 +198,15 @@ Mobile route definitions are implemented in
 |       Current module      |
 |                           |
 +---------------------------+
-| Home | Orders | Khata | More |
+| Home | Orders | Customers |
+| Khata | More       [+] |
 +---------------------------+
 ```
 
-The shell hosts the dashboard and exposes the drawer/module destinations:
-Orders, Customers, Khata, Shop Hub, Repairs, Notifications, Profile, and
-settings-related screens.
+The shell hosts the dashboard and exposes Customers and Khata directly. More is
+the single destination for Shop Hub, Repairs, Notifications, Profile, staff,
+and settings. The cloud badge is available from every app bar and shows pending
+offline records.
 
 #### Dashboard
 
@@ -214,22 +215,21 @@ settings-related screens.
 | Good morning, Masterji    |
 | [Sync: Up to date]        |
 |                           |
-| [Orders] [Due] [Revenue]  |
-|                           |
-| Quick actions              |
-| [New order] [Customers]   |
-| [Khata]     [Inventory]   |
+| [Due today] 3 orders      |
+| [Late] 2 orders           |
+| [Money to collect] ₹12,500|
 |                           |
 | Order pipeline             |
 | [Incoming] [Stitching]    |
-| [Trial]    [Ready]        |
+| [Checking] [Ready]        |
 |                           |
 | Recent orders              |
 +---------------------------+
 ```
 
-- Summary metrics and order pipeline.
-- Quick actions.
+- Action cards for Due today, Late, and Money to collect.
+- Backend-aligned stages: Incoming, Measuring, Cutting, Stitching, Checking,
+  Ready, Delivered, and Cancelled. Trial is not shown.
 - Recent activity and notification entry point.
 - Loading, offline, and empty dashboard states.
 
@@ -239,9 +239,10 @@ settings-related screens.
 
 ```text
 +---------------------------+
-| Pending orders            |
+| Orders                    |
 | [Search orders... ] [≡]   |
-| [All] [Pending] [Rush]    |
+| [Today] [Late] [Ready]    |
+| [Unpaid]                  |
 |                           |
 | [Order card]              |
 | Customer • garment        |
@@ -273,15 +274,17 @@ Common frame:
 +---------------------------+
 ```
 
-1. **Garment selection**: garment category, preset style, and item type.
-2. **Customer selection**: search existing customer or create a customer.
+1. **Customer selection**: search existing customer or create a customer first.
+2. **Garment selection**: add one or more garment categories and item types.
 3. **Measurements**: measurement fields, voice input, notes, and photo attachment.
-4. **Material selection**: fabric, lining/astar, inventory, and karigar assignment.
-5. **Details and confirmation**: price, advance, delivery date, rush flag, and
-   final review.
+4. **Optional details**: fabric, lining/astar, inventory, and karigar assignment.
+5. **Pricing and confirmation**: price, advance, delivery date, running total,
+   rush flag, and final review.
 
-Each step must preserve entered values when navigating backward and show field
-validation before continuing.
+Each step preserves entered values when navigating backward, supports “use last
+measurements”, and validates before continuing. Measurement entry includes an
+in/cm toggle, fraction keypad, and sensible bounds. After an advance is saved,
+the confirmation state offers WhatsApp receipt sharing.
 
 #### Order details — `/order_details`
 
@@ -289,6 +292,7 @@ validation before continuing.
 +---------------------------+
 | < Orders     Order #123   |
 | Customer / phone          |
+| Due date • balance        |
 | Status: Stitching         |
 |                           |
 | Garment and measurements  |
@@ -296,8 +300,8 @@ validation before continuing.
 | Payment summary           |
 | Notes                     |
 |                           |
-| [Update status] [Invoice] |
-| [Record payment]          |
+| [Mark next stage]         |
+| [⋮ Invoice • Edit • Delete]|
 +---------------------------+
 ```
 
@@ -361,7 +365,8 @@ validation before continuing.
 +---------------------------+
 ```
 
-- Income list, expense list, and pending Udhar balances.
+- Udhar is the default tab and shows total outstanding above the customer list.
+- Income and Expenses have separate labeled add actions; no ambiguous global plus.
 - Add expense bottom sheet.
 - WhatsApp reminder action for pending customer balances.
 

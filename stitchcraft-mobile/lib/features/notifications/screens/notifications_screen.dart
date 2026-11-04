@@ -128,7 +128,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
           child: Container(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: theme.dividerColor,
             height: 1.0,
           ),
         ),
@@ -177,13 +177,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               'All Caught Up!',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'No new alerts or stock notifications.',
-              style: TextStyle(color: AppTheme.darkGrey),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
           ],
         ),
@@ -217,12 +219,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: isRead 
-                ? theme.cardTheme.color ?? const Color(0xFF1E293B)
+                ? theme.cardTheme.color ?? theme.colorScheme.surface
                 : AppTheme.brandPurple.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isRead 
-                  ? Colors.white.withValues(alpha: 0.05)
+                  ? theme.dividerColor.withValues(alpha: 0.5)
                   : AppTheme.brandPurple.withValues(alpha: 0.3),
               width: 1,
             ),
@@ -231,7 +233,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: CircleAvatar(
               backgroundColor: isRead 
-                  ? Colors.white.withValues(alpha: 0.05)
+                  ? theme.colorScheme.onSurface.withValues(alpha: 0.06)
                   : AppTheme.brandPurple.withValues(alpha: 0.15),
               child: Icon(
                 isRead ? Icons.notifications_none_rounded : Icons.notifications_active_rounded,
@@ -241,7 +243,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             title: Text(
               message,
               style: TextStyle(
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
                 fontSize: 14,
                 fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
               ),
@@ -251,7 +253,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
                       formattedDate,
-                      style: const TextStyle(color: AppTheme.darkGrey, fontSize: 11),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        fontSize: 11,
+                      ),
                     ),
                   )
                 : null,

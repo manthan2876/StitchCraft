@@ -44,6 +44,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     _loadProfile();
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _nameController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadProfile() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -337,6 +347,32 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   Future<void> _deleteShop(String id) async {
+    final isOwner = await _authService.isOwner();
+    if (!isOwner) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permission denied: Only the shop owner can delete a shop.'), backgroundColor: AppTheme.alertRed),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Shop?'),
+        content: const Text('Are you sure you want to delete this shop? All linked data will be removed.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.alertRed, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
     try {

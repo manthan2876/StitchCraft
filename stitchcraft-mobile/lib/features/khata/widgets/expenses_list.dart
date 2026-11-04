@@ -4,10 +4,12 @@ import 'package:stitchcraft/core/widgets/neo_card.dart';
 
 class ExpensesList extends StatelessWidget {
   final List<Map<String, dynamic>> expenses;
+  final bool isTab;
 
   const ExpensesList({
     super.key,
     required this.expenses,
+    this.isTab = false,
   });
 
   @override
@@ -23,7 +25,7 @@ class ExpensesList extends StatelessWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, isTab ? 96 : 24),
       itemCount: expenses.length,
       itemBuilder: (context, index) {
         final expense = expenses[index];

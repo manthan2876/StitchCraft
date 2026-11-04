@@ -8,6 +8,7 @@ import 'package:stitchcraft/features/khata/widgets/income_list.dart';
 import 'package:stitchcraft/features/khata/widgets/udhar_list.dart';
 
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:stitchcraft/core/widgets/neo_card.dart';
 
 class KhataScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -18,8 +19,8 @@ class KhataScreen extends StatefulWidget {
   State<KhataScreen> createState() => _KhataScreenState();
 }
 
-
-class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStateMixin {
+class _KhataScreenState extends State<KhataScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _localDb = LocalDatabaseService();
   List<Map<String, dynamic>> _expenses = [];
@@ -29,7 +30,11 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex,
+    );
     _loadData();
   }
 
@@ -84,31 +89,41 @@ class _KhataScreenState extends State<KhataScreen> with SingleTickerProviderStat
         title: context.loc.khata_ledger,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
+          labelColor: theme.colorScheme.primary,
           indicatorColor: AppTheme.brandPurple,
           unselectedLabelColor: AppTheme.darkGrey,
           tabs: [
-            Tab(text: context.loc.expenses),
-            Tab(text: context.loc.income),
             Tab(text: context.loc.udhar_ledger),
+            Tab(text: context.loc.income),
+            Tab(text: context.loc.expenses),
           ],
+          onTap: (_) => setState(() {}),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddExpenseModal,
-        backgroundColor: AppTheme.brandPurple,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: widget.isTab
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _showAddExpenseModal,
+              backgroundColor: AppTheme.brandPurple,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text('Add Expense', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(
               controller: _tabController,
               children: [
-                ExpensesList(expenses: _expenses),
-                IncomeList(orders: _orders),
-                UdharList(orders: _orders),
+                UdharList(orders: _orders, isTab: widget.isTab, onRefresh: _loadData),
+                IncomeList(orders: _orders, isTab: widget.isTab),
+                ExpensesList(expenses: _expenses, isTab: widget.isTab),
               ],
             ),
     );
   }
+
+  double get _outstandingAmount => _orders.fold<double>(0, (total, order) {
+    final amount = (order['total_amount'] as num?)?.toDouble() ?? 0;
+    final paid = (order['advance_amount'] as num?)?.toDouble() ?? 0;
+    return total + (amount - paid).clamp(0, double.infinity);
+  });
 }

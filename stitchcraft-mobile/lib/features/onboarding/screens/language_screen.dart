@@ -38,6 +38,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     });
 
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_selected_language', true);
     final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     final String? token = await AuthService().getToken();
 
@@ -76,10 +77,12 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(height: 6),
               Text(
-                'તમારી ભાષા પસંદ કરો',
+                'English • ગુજરાતી • हिंदी',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppTheme.darkGrey,
+                  color: AppTheme.brandPurple,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 32),
@@ -123,7 +126,9 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? AppTheme.brandPurple : Colors.white,
+                    color: isSelected
+                        ? AppTheme.brandPurple
+                        : theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(

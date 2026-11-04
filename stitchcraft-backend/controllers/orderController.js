@@ -32,7 +32,8 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Please provide price or items with pricing' });
     }
 
-    const result = await createOrderService(req.body, req.user.shopId, req.user._id);
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotencyKey || req.body.clientMutationId;
+    const result = await createOrderService({ ...req.body, idempotencyKey }, req.user.shopId, req.user._id);
     res.status(201).json(result);
   } catch (error) {
     console.error('Create order error:', error);
@@ -168,11 +169,30 @@ export const getOrderByIdPublic = async (req, res) => {
       (order.measurementsSnapshot.shirt || order.measurementsSnapshot.pant || order.measurementsSnapshot.others);
     const resolvedMeasurements = hasSnapshot ? order.measurementsSnapshot : measurements;
 
+    let customerPhone = order.customerPhone || order.customer?.phone || '';
+    let customerAddress = order.customer?.address || '';
+    if (!customerPhone && order.customer) {
+      try {
+        const custId = order.customer._id || order.customer;
+        const custDoc = await Customer.findById(custId);
+        if (custDoc) {
+          customerPhone = custDoc.phone || '';
+          customerAddress = custDoc.address || '';
+        }
+      } catch (_) {}
+    }
+
     // Build SANITIZED public invoice payload - STRICTLY stripping internal cost, profit, notes, karigar & machine assignments
     const publicInvoice = {
       _id: order._id,
       orderId: order.orderId,
       customerName: order.customerName,
+      customerPhone: customerPhone,
+      customer: {
+        name: order.customerName,
+        phone: customerPhone,
+        address: customerAddress,
+      },
       apparelType: order.apparelType,
       fabric: order.fabric || '',
       status: order.status,

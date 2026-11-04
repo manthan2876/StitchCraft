@@ -5,6 +5,8 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/utils/currency_utils.dart';
+import 'package:stitchcraft/core/widgets/state_views.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
@@ -26,6 +28,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   String? _resolvedFabricUrl;
   List<dynamic> _karigars = [];
   List<dynamic> _machines = [];
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
 
   Future<void> _loadStaffAndMachines() async {
     try {
@@ -171,6 +179,49 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     if (_order == null) return;
     final orderId = _order!['_id'] ?? _order!['id'];
 
+    if (newStatus == 'Delivered') {
+      final totalAmount = (_order!['payment'] is Map
+              ? (_order!['payment']['totalAmount'] as num?)?.toDouble()
+              : null) ??
+          (_order!['price'] as num?)?.toDouble() ??
+          (_order!['total_amount'] as num?)?.toDouble() ??
+          0.0;
+      final paidAmount = (_order!['payment'] is Map
+              ? (_order!['payment']['paidAmount'] as num?)?.toDouble()
+              : null) ??
+          (_order!['advancePaid'] as num?)?.toDouble() ??
+          (_order!['advance_amount'] as num?)?.toDouble() ??
+          0.0;
+      final balance = (totalAmount - paidAmount).clamp(0.0, double.infinity);
+
+      if (balance > 0) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Deliver with Unpaid Balance?'),
+            content: Text(
+              'This order has an outstanding balance of ₹${balance.toStringAsFixed(2)}.\n\nDo you want to confirm delivery and keep this balance in Khata (Udhar)?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.warmAmber,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Confirm Delivery'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+      }
+    }
+
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -185,6 +236,17 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       );
 
       if (response.statusCode == 200) {
+        // Also update local SQLite database status
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        try {
+          await _localDb.updateRecord('orders', orderId, {
+            'status': newStatus,
+            'updated_at': nowMs,
+          });
+        } catch (localDbErr) {
+          developer.log('Local status update sync note: $localDbErr');
+        }
+
         messenger.showSnackBar(
           SnackBar(content: Text('Status updated to $newStatus'), backgroundColor: AppTheme.trustGreen),
         );
@@ -247,36 +309,35 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final modalTheme = Theme.of(context);
             return AlertDialog(
-              backgroundColor: AppTheme.darkCard,
-              title: const Text('Record Payment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              backgroundColor: modalTheme.cardTheme.color ?? AppTheme.darkCard,
+              title: Text('Record Payment', style: TextStyle(color: modalTheme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: modalTheme.colorScheme.onSurface),
                     decoration: const InputDecoration(
                       labelText: 'Amount (₹)',
                       labelStyle: TextStyle(color: AppTheme.darkGrey),
-                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white10)),
-                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.brandPurple)),
                     ),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    dropdownColor: AppTheme.darkCard,
+                    dropdownColor: modalTheme.cardTheme.color ?? AppTheme.darkCard,
                     // ignore: deprecated_member_use
                     value: method,
                     decoration: const InputDecoration(
                       labelText: 'Payment Method',
                       labelStyle: TextStyle(color: AppTheme.darkGrey),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'Cash', child: Text('Cash', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'UPI/Online', child: Text('UPI/Online', style: TextStyle(color: Colors.white))),
-                      DropdownMenuItem(value: 'Card', child: Text('Card', style: TextStyle(color: Colors.white))),
+                    items: [
+                      DropdownMenuItem(value: 'Cash', child: Text('Cash', style: TextStyle(color: modalTheme.colorScheme.onSurface))),
+                      DropdownMenuItem(value: 'UPI/Online', child: Text('UPI/Online', style: TextStyle(color: modalTheme.colorScheme.onSurface))),
+                      DropdownMenuItem(value: 'Card', child: Text('Card', style: TextStyle(color: modalTheme.colorScheme.onSurface))),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -302,9 +363,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       },
     );
 
-    if (success != true) return;
+    if (success != true) {
+      amountController.dispose();
+      return;
+    }
 
     final amount = double.tryParse(amountController.text) ?? 0.0;
+    amountController.dispose();
     if (amount <= 0) return;
 
     setState(() => _isLoading = true);
@@ -323,6 +388,20 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        try {
+          final localOrder = await _localDb.getRecordById('orders', orderId);
+          if (localOrder != null) {
+            final prevAdvance = (localOrder['advance_amount'] as num?)?.toDouble() ?? 0.0;
+            await _localDb.updateRecord('orders', orderId, {
+              'advance_amount': prevAdvance + amount,
+              'payment_method': method,
+              'updated_at': DateTime.now().millisecondsSinceEpoch,
+            });
+          }
+        } catch (localErr) {
+          developer.log('Local payment sync note: $localErr');
+        }
+
         messenger.showSnackBar(
           const SnackBar(content: Text('Payment recorded successfully'), backgroundColor: AppTheme.trustGreen),
         );
@@ -331,9 +410,32 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         throw Exception(json.decode(response.body)['message'] ?? 'Failed to record payment');
       }
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Error recording payment: $e'), backgroundColor: AppTheme.alertRed),
-      );
+      // If offline or network issue, record locally in SQLite
+      bool savedLocally = false;
+      try {
+        final localOrder = await _localDb.getRecordById('orders', orderId);
+        if (localOrder != null) {
+          final prevAdvance = (localOrder['advance_amount'] as num?)?.toDouble() ?? 0.0;
+          await _localDb.updateRecord('orders', orderId, {
+            'advance_amount': prevAdvance + amount,
+            'payment_method': method,
+            'sync_status': 1,
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          });
+          savedLocally = true;
+        }
+      } catch (_) {}
+
+      if (savedLocally) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Payment recorded locally (offline)'), backgroundColor: AppTheme.trustGreen),
+        );
+        _loadOrderDetails(orderId);
+      } else {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Error recording payment: $e'), backgroundColor: AppTheme.alertRed),
+        );
+      }
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -467,9 +569,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       },
     );
 
-    if (success != true) return;
+    if (success != true) {
+      priceController.dispose();
+      return;
+    }
 
     final price = double.tryParse(priceController.text) ?? 0.0;
+    priceController.dispose();
     final orderId = _order!['_id'] ?? _order!['id'];
 
     if (!mounted) return;
@@ -723,9 +829,17 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       ),
                       const SizedBox(height: 16),
 
+                      // Interactive Production Stage Stepper
+                      _buildProductionStepper(theme),
+                      const SizedBox(height: 16),
+
+                      // Quick Action Bar (Call, WhatsApp, Invoice)
+                      _buildQuickActionBar(theme),
+                      const SizedBox(height: 16),
+
                       // Measurements details if present
                       if (_order!['measurements'] != null) ...[
-                        const Text('Measurements Snapshot', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                        Text('Measurements Snapshot', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
                         const SizedBox(height: 8),
                         NeoCard(
                           child: Wrap(
@@ -740,7 +854,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       // Captured Images Section
                       if ((_resolvedMaapUrl != null && _resolvedMaapUrl!.isNotEmpty) ||
                           (_resolvedFabricUrl != null && _resolvedFabricUrl!.isNotEmpty)) ...[
-                        const Text('Captured Photos', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                        Text('Captured Photos', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
                         const SizedBox(height: 8),
                         NeoCard(
                           child: SingleChildScrollView(
@@ -761,7 +875,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       ],
 
                       // Invoices & Payments summary
-                      const Text('Financial Summary', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                      Text('Financial Summary', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
                       const SizedBox(height: 8),
                       NeoCard(
                         child: Column(
@@ -771,7 +885,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Total Cost', style: TextStyle(color: AppTheme.darkGrey)),
-                                Text('₹${_order!['price'] ?? 0}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text('₹${_order!['price'] ?? 0}', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -811,7 +925,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       const SizedBox(height: 16),
 
                       // Notes Timeline Mapped from Backend
-                      const Text('Order Notes Timeline', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                      Text('Order Notes Timeline', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
                       const SizedBox(height: 8),
                       NeoCard(
                         child: Column(
@@ -843,7 +957,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text(note['text'] ?? '', style: const TextStyle(color: Colors.white)),
+                                              Text(note['text'] ?? '', style: TextStyle(color: theme.colorScheme.onSurface)),
                                               const SizedBox(height: 2),
                                               Text(dateStr, style: const TextStyle(color: AppTheme.darkGrey, fontSize: 11)),
                                             ],
@@ -860,7 +974,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                 Expanded(
                                   child: TextField(
                                     controller: _noteController,
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(color: theme.colorScheme.onSurface),
                                     decoration: const InputDecoration(
                                       hintText: 'Add instruction or timeline note...',
                                       hintStyle: TextStyle(color: AppTheme.darkGrey),
@@ -877,49 +991,257 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      NeoCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+      bottomNavigationBar: _order == null
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: _buildPrimaryNextStageButton(theme),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildPrimaryNextStageButton(ThemeData theme) {
+    final currentStatus = (_order!['status'] ?? 'Incoming').toString();
+    final stages = ['Incoming', 'Measuring', 'Cutting', 'Stitching', 'Checking', 'Ready', 'Delivered'];
+    final currentIndex = stages.indexWhere((s) => s.toLowerCase() == currentStatus.toLowerCase());
+    final nextStage = (currentIndex >= 0 && currentIndex < stages.length - 1) ? stages[currentIndex + 1] : null;
+
+    if (nextStage == null) {
+      return Container(
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppTheme.trustGreen.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.trustGreen.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, color: AppTheme.trustGreen, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              currentStatus.toLowerCase() == 'delivered' ? 'Order Delivered & Complete' : 'Order $currentStatus',
+              style: const TextStyle(
+                color: AppTheme.trustGreen,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final isReadyNext = nextStage == 'Ready';
+    final isDeliveredNext = nextStage == 'Delivered';
+
+    return PrimaryNextAction(
+      label: isDeliveredNext
+          ? 'Mark Delivered'
+          : isReadyNext
+              ? 'Mark Ready for Pickup'
+              : 'Move to $nextStage',
+      icon: isDeliveredNext
+          ? Icons.task_alt
+          : isReadyNext
+              ? Icons.check_circle_outline
+              : Icons.arrow_forward_rounded,
+      backgroundColor: isDeliveredNext ? AppTheme.trustGreen : AppTheme.brandPurple,
+      isLoading: _isLoading,
+      onPressed: () => _updateStatus(nextStage),
+    );
+  }
+
+  Widget _buildProductionStepper(ThemeData theme) {
+    final currentStatus = (_order!['status'] ?? 'Incoming').toString();
+    final stages = ['Incoming', 'Measuring', 'Cutting', 'Stitching', 'Checking', 'Ready', 'Delivered'];
+    final currentIndex = stages.indexWhere(
+      (s) => s.toLowerCase() == currentStatus.toLowerCase(),
+    );
+
+    return NeoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Production Progress',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Tap stage to update',
+                style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.darkGrey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: stages.asMap().entries.map((entry) {
+                final index = entry.key;
+                final stage = entry.value;
+                final isCurrent = currentIndex == index || (currentIndex == -1 && index == 0);
+                final isPassed = currentIndex >= 0 && index < currentIndex;
+
+                return GestureDetector(
+                  onTap: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: theme.cardTheme.color,
+                        title: Text('Advance to $stage?', style: TextStyle(color: theme.colorScheme.onSurface)),
+                        content: Text('Update order status to $stage?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Update'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      _updateStatus(stage);
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isCurrent
+                              ? AppTheme.brandPurple
+                              : isPassed
+                                  ? AppTheme.trustGreen.withValues(alpha: 0.15)
+                                  : theme.cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isCurrent
+                                ? AppTheme.brandPurple
+                                : isPassed
+                                    ? AppTheme.trustGreen
+                                    : AppTheme.darkGrey.withValues(alpha: 0.3),
+                            width: isCurrent ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (isPassed)
+                              const Icon(Icons.check, size: 14, color: AppTheme.trustGreen)
+                            else if (isCurrent)
+                              const Icon(Icons.radio_button_checked, size: 12, color: Colors.white),
+                            if (isPassed || isCurrent) const SizedBox(width: 4),
                             Text(
-                              'WhatsApp Customer Updates',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF25D366),
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                    ),
-                                    onPressed: _sendWhatsAppStatusUpdate,
-                                    icon: const Icon(Icons.notifications_active_outlined, color: Colors.white),
-                                    label: const Text('Send Status', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.brandPurple,
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                    ),
-                                    onPressed: _openInvoiceShare,
-                                    icon: const Icon(Icons.receipt_long_outlined, color: Colors.white),
-                                    label: const Text('View Invoice', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                              ],
+                              stage,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                color: isCurrent
+                                    ? Colors.white
+                                    : isPassed
+                                        ? AppTheme.trustGreen
+                                        : theme.colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      if (index < stages.length - 1)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: Icon(
+                            Icons.chevron_right,
+                            size: 14,
+                            color: isPassed ? AppTheme.trustGreen : AppTheme.darkGrey.withValues(alpha: 0.4),
+                          ),
+                        ),
                     ],
                   ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionBar(ThemeData theme) {
+    final customerPhone = (_order!['customerPhone'] ?? _order!['customer']?['phone'] ?? '').toString();
+    final hasPhone = customerPhone.isNotEmpty;
+
+    return NeoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick Actions',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (hasPhone) ...[
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest ?? AppTheme.darkCard,
+                      foregroundColor: theme.colorScheme.onSurface,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () async {
+                      final uri = Uri.parse('tel:$customerPhone');
+                      if (await canLaunchUrl(uri)) await launchUrl(uri);
+                    },
+                    icon: const Icon(Icons.phone, size: 18, color: AppTheme.brandPurple),
+                    label: const Text('Call', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
                 ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: _sendWhatsAppStatusUpdate,
+                  icon: const Icon(Icons.chat, size: 18, color: Colors.white),
+                  label: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.brandPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: _openInvoiceShare,
+                  icon: const Icon(Icons.receipt_long, size: 18, color: Colors.white),
+                  label: const Text('Invoice', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -930,7 +1252,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: AppTheme.darkGrey)),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(value, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -980,33 +1302,90 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _buildPhotoCard(String title, String url) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: 180,
-            height: 180,
-            color: Colors.white.withValues(alpha: 0.05),
-            child: Image.network(
-              url,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const Center(child: CircularProgressIndicator());
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return const Center(
-                  child: Icon(Icons.broken_image_outlined, color: AppTheme.alertRed, size: 36),
-                );
-              },
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.all(12),
+            child: Stack(
+              children: [
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: InteractiveViewer(
+                      panEnabled: true,
+                      minScale: 0.8,
+                      maxScale: 4.0,
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: CircleAvatar(
+                    backgroundColor: Colors.black54,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 180,
+              height: 180,
+              color: Colors.white.withValues(alpha: 0.05),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(Icons.broken_image_outlined, color: AppTheme.alertRed, size: 36),
+                      );
+                    },
+                  ),
+                  Positioned(
+                    bottom: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

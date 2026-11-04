@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/utils/phone_utils.dart';
+import 'package:stitchcraft/core/utils/currency_utils.dart';
+import 'package:stitchcraft/core/models/user_model.dart';
+import 'package:stitchcraft/core/services/whatsapp_service.dart';
 import 'package:stitchcraft/core/config/app_env.dart';
 import 'package:flutter/material.dart';
 
@@ -88,6 +91,132 @@ void main() {
         ),
         throwsA(isA<StateError>()),
       );
+    });
+  });
+
+  group('CurrencyUtils Unit Tests', () {
+    test('Formats standard INR with paise', () {
+      expect(CurrencyUtils.formatINR(500), '₹500.00');
+      expect(CurrencyUtils.formatINR(1250), '₹1,250.00');
+    });
+
+    test('Formats Indian lakh and crore number groupings correctly', () {
+      expect(CurrencyUtils.formatINR(100000), '₹1,00,000.00');
+      expect(CurrencyUtils.formatINR(1234567.50), '₹12,34,567.50');
+      expect(CurrencyUtils.formatINR(10000000), '₹1,00,00,000.00');
+    });
+
+    test('Formats without decimals when showDecimals is false', () {
+      expect(CurrencyUtils.formatINR(500, showDecimals: false), '₹500');
+      expect(CurrencyUtils.formatINR(125000, showDecimals: false), '₹1,25,000');
+    });
+
+    test('Handles null and zero values safely', () {
+      expect(CurrencyUtils.formatINR(null), '₹0.00');
+      expect(CurrencyUtils.formatINR(0), '₹0.00');
+    });
+
+    test('Calculates balance accurately without negative results', () {
+      expect(CurrencyUtils.calculateBalance(totalAmount: 1000, paidAmount: 400), 600.0);
+      expect(CurrencyUtils.calculateBalance(totalAmount: 1000, paidAmount: 1000), 0.0);
+      expect(CurrencyUtils.calculateBalance(totalAmount: 1000, paidAmount: 1200), 0.0);
+    });
+  });
+
+  group('UserRole & Permission Gate Unit Tests', () {
+    test('Role parsing from string handles variations and aliases', () {
+      expect(UserRole.fromString('owner'), UserRole.owner);
+      expect(UserRole.fromString('admin'), UserRole.owner);
+      expect(UserRole.fromString('Owner'), UserRole.owner);
+      expect(UserRole.fromString('manager'), UserRole.manager);
+      expect(UserRole.fromString('karigar'), UserRole.karigar);
+      expect(UserRole.fromString('staff'), UserRole.staff);
+      expect(UserRole.fromString('unknown_role'), UserRole.staff);
+      expect(UserRole.fromString(null), UserRole.staff);
+    });
+
+    test('Owner has full shop, staff, deletion, and financial capabilities', () {
+      const role = UserRole.owner;
+      expect(role.isOwner, true);
+      expect(role.isAdmin, true);
+      expect(role.canManageShop, true);
+      expect(role.canDeleteShop, true);
+      expect(role.canManageStaff, true);
+      expect(role.canDeleteOrders, true);
+      expect(role.canViewFinancials, true);
+    });
+
+    test('Manager has operational powers but cannot delete shop', () {
+      const role = UserRole.manager;
+      expect(role.isManager, true);
+      expect(role.isOwner, false);
+      expect(role.isAdmin, true);
+      expect(role.canManageShop, true);
+      expect(role.canDeleteShop, false); // Crucial security gate
+      expect(role.canManageStaff, true);
+      expect(role.canDeleteOrders, true);
+      expect(role.canViewFinancials, true);
+    });
+
+    test('Staff and Karigar have restricted task-only access', () {
+      const staffRole = UserRole.staff;
+      expect(staffRole.isStaff, true);
+      expect(staffRole.canManageShop, false);
+      expect(staffRole.canDeleteShop, false);
+      expect(staffRole.canViewFinancials, false);
+
+      const karigarRole = UserRole.karigar;
+      expect(karigarRole.isKarigar, true);
+      expect(karigarRole.canManageShop, false);
+      expect(karigarRole.canDeleteShop, false);
+      expect(karigarRole.canViewFinancials, false);
+    });
+  });
+
+  group('WhatsAppService Message Formatting Tests', () {
+    test('Generates canonical stage notifications for workshop lifecycle', () {
+      final incoming = WhatsAppService.buildOrderUpdateMessage('ORD-101', 'Incoming');
+      expect(incoming.contains('#ORD-101'), true);
+      expect(incoming.contains('received and booked'), true);
+
+      final stitching = WhatsAppService.buildOrderUpdateMessage('ORD-101', 'Stitching');
+      expect(stitching.contains('#ORD-101'), true);
+      expect(stitching.contains('handcrafted in our workshop'), true);
+
+      final ready = WhatsAppService.buildOrderUpdateMessage('ORD-101', 'Ready');
+      expect(ready.contains('#ORD-101'), true);
+      expect(ready.contains('ready for trial / pickup'), true);
+
+      final delivered = WhatsAppService.buildOrderUpdateMessage('ORD-101', 'Delivered');
+      expect(delivered.contains('#ORD-101'), true);
+      expect(delivered.contains('delivered'), true);
+    });
+
+    test('Generates gentle Udhar payment reminder message with formatted balance', () {
+      final reminder = WhatsAppService.buildPaymentReminderMessage(
+        customerName: 'Anil Kumar',
+        orderId: 'ORD-202',
+        balanceAmount: 1500,
+      );
+      expect(reminder.contains('Anil Kumar'), true);
+      expect(reminder.contains('Order #ORD-202'), true);
+      expect(reminder.contains('₹1,500.00'), true);
+    });
+  });
+
+  group('UX & Design System Tokens (DS-01 & DS-02)', () {
+    test('Enforces counter-first touch target dimensions', () {
+      expect(AppTheme.minTouchTarget, 48.0);
+      expect(AppTheme.primaryButtonHeight, 56.0);
+      expect(AppTheme.standardPadding, 16.0);
+    });
+
+    test('Semantic color tokens are properly defined', () {
+      expect(AppTheme.primaryAction, AppTheme.brandPurple);
+      expect(AppTheme.success, AppTheme.trustGreen);
+      expect(AppTheme.warning, AppTheme.safetyOrange);
+      expect(AppTheme.danger, AppTheme.alertRed);
+      expect(AppTheme.pending, const Color(0xFF0284C7));
     });
   });
 }

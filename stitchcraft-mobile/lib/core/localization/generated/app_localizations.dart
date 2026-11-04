@@ -849,6 +849,135 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Customer added successfully'**
   String get customer_added_successfully;
+
+  /// No description provided for @onboarding_measurements_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep measurements safe'**
+  String get onboarding_measurements_title;
+
+  /// No description provided for @onboarding_measurements_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save customer measurements digitally, even when your shop is offline.'**
+  String get onboarding_measurements_subtitle;
+
+  /// No description provided for @onboarding_khata_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay on top of udhar'**
+  String get onboarding_khata_title;
+
+  /// No description provided for @onboarding_khata_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'See who owes you money and send WhatsApp reminders in seconds.'**
+  String get onboarding_khata_subtitle;
+
+  /// No description provided for @onboarding_orders_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Run every order clearly'**
+  String get onboarding_orders_title;
+
+  /// No description provided for @onboarding_orders_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track stitching, delivery dates, payments, and workshop assignments in one place.'**
+  String get onboarding_orders_subtitle;
+
+  /// No description provided for @onboarding_skip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get onboarding_skip;
+
+  /// No description provided for @onboarding_next.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onboarding_next;
+
+  /// No description provided for @onboarding_start.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your shop'**
+  String get onboarding_start;
+
+  /// No description provided for @dashboard_data_local.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing saved shop data. Pull to refresh when you are online.'**
+  String get dashboard_data_local;
+
+  /// No description provided for @dashboard_chart_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Orders created in the selected period'**
+  String get dashboard_chart_summary;
+
+  /// No description provided for @no_customers_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first customer'**
+  String get no_customers_action;
+
+  /// No description provided for @sync_status_title.
+  String get sync_status_title;
+
+  /// No description provided for @deliver_unpaid_warning.
+  String get deliver_unpaid_warning;
+
+  /// No description provided for @deliver_unpaid_message.
+  String get deliver_unpaid_message;
+
+  /// No description provided for @danger_zone.
+  String get danger_zone;
+
+  /// No description provided for @delete_shop.
+  String get delete_shop;
+
+  String get home;
+  String get more;
+  String get saved_on_phone;
+  String get today;
+  String get due_today;
+  String get late_orders;
+  String get collect_money;
+  String get start_new_order;
+  String get next_up;
+  String get search_orders;
+  String get late;
+  String get ready;
+  String get unpaid;
+  String get all_stages;
+  String get create_first_order;
+  String get find_customer;
+  String get walk_in_customer;
+  String get reuse_measurements;
+  String get add_garment;
+  String get save_draft;
+  String get resume_draft;
+  String get advance_received;
+  String get view_receipt;
+  String get mark_delivered;
+  String get record_payment;
+  String get outstanding_balance;
+  String get call_customer;
+  String get search_customers;
+  String get new_order_for_customer;
+  String get customer_summary;
+  String get new_order_with_customer;
+  String get reuse_last_measurements;
+  String get no_measurements;
+  String get deliver_today;
+  String get ready_for_pickup;
+  String get deliver_order;
+  String get balance_due_before_delivery;
+  String get my_jobs;
+  String get assigned_to_me;
+  String get mark_ready;
+  String get no_assigned_jobs;
 }
 
 class _AppLocalizationsDelegate

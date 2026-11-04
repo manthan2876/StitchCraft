@@ -7,6 +7,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 
@@ -14,11 +15,13 @@ class MaterialSelectionScreen extends StatefulWidget {
   const MaterialSelectionScreen({super.key});
 
   @override
-  State<MaterialSelectionScreen> createState() => _MaterialSelectionScreenState();
+  State<MaterialSelectionScreen> createState() =>
+      _MaterialSelectionScreenState();
 }
 
 class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
   final _authService = AuthService();
+  final _localDb = LocalDatabaseService();
   bool _isLoading = false;
   Map<String, dynamic>? _wizardData;
 
@@ -32,21 +35,25 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
 
   Future<void> _pickFabricImage() async {
     final picker = ImagePicker();
+    final theme = Theme.of(context);
     final source = await showDialog<ImageSource>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        title: const Text('Select Fabric Photo Source', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: theme.cardTheme.color,
+        title: Text(
+          'Select Fabric Photo Source',
+          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold),
+        ),
         actions: [
           TextButton.icon(
             onPressed: () => Navigator.pop(context, ImageSource.camera),
             icon: const Icon(Icons.camera_alt, color: AppTheme.brandPurple),
-            label: const Text('Camera', style: TextStyle(color: Colors.white)),
+            label: Text('Camera', style: TextStyle(color: theme.colorScheme.onSurface)),
           ),
           TextButton.icon(
             onPressed: () => Navigator.pop(context, ImageSource.gallery),
             icon: const Icon(Icons.photo_library, color: AppTheme.brandPurple),
-            label: const Text('Gallery', style: TextStyle(color: Colors.white)),
+            label: Text('Gallery', style: TextStyle(color: theme.colorScheme.onSurface)),
           ),
         ],
       ),
@@ -69,7 +76,8 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_wizardData == null) {
-      _wizardData = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+      _wizardData =
+          ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       _loadLiningItems();
     }
   }
@@ -77,29 +85,68 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
   Future<void> _loadLiningItems() async {
     setState(() => _isLoading = true);
     try {
-      final token = await _authService.getToken();
-      final response = await http.get(
-        Uri.parse('${AuthService.baseUrl}/inventory'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      List<dynamic> items = [];
+      try {
+        final token = await _authService.getToken();
+        if (token != null) {
+          final response = await http.get(
+            Uri.parse('${AuthService.baseUrl}/inventory'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          ).timeout(const Duration(seconds: 8));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List;
+          if (response.statusCode == 200) {
+            items = json.decode(response.body) as List;
+          }
+        }
+      } catch (e) {
+        developer.log("Remote lining inventory unavailable; trying local SQLite: $e");
+      }
+
+      if (items.isEmpty) {
+        try {
+          items = await _localDb.getRecords('inventory');
+        } catch (localErr) {
+          developer.log("Error loading local lining items: $localErr");
+        }
+      }
+
+      bool isLiningOrFabric(dynamic item) {
+        if (item is! Map) return false;
+        final type = (item['itemType'] ?? item['category'] ?? '').toString().toLowerCase();
+        final name = (item['itemName'] ?? item['name'] ?? '').toString().toLowerCase();
+        final desc = (item['description'] ?? '').toString().toLowerCase();
+        return type.contains('lining') ||
+            type.contains('fabric') ||
+            type.contains('astar') ||
+            name.contains('lining') ||
+            name.contains('astar') ||
+            name.contains('fabric') ||
+            name.contains('cloth') ||
+            name.contains('cotton') ||
+            name.contains('silk') ||
+            desc.contains('lining') ||
+            desc.contains('astar');
+      }
+
+      var filtered = items.where(isLiningOrFabric).toList();
+      if (filtered.isEmpty && items.isNotEmpty) {
+        // Fallback to all available inventory so tailor is never blocked
+        filtered = items;
+      }
+
+      if (mounted) {
         setState(() {
-          // Filter items by type "lining" or let them choose any lining/lining-alike item
-          _inventoryItems = data.where((item) {
-            final type = (item['itemType'] ?? '').toString().toLowerCase();
-            return type.contains('lining') || type.contains('fabric') || type.contains('astar');
-          }).toList();
+          _inventoryItems = filtered;
+          if (filtered.isNotEmpty && _selectedLiningItem == null) {
+            _selectedLiningItem = filtered.first as Map<String, dynamic>;
+          }
         });
       }
-    } catch (e) {
-      developer.log("Error loading lining inventory: $e");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -108,7 +155,10 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
 
     if (_needsLining && _selectedLiningItem == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a lining material from your inventory'), backgroundColor: AppTheme.alertRed),
+        const SnackBar(
+          content: Text('Please select a lining material from your inventory'),
+          backgroundColor: AppTheme.alertRed,
+        ),
       );
       return;
     }
@@ -134,16 +184,21 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Material & Lining'),
-      ),
+      appBar: AppBar(title: const Text('New order · 4 of 5 · Material')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Fabric Details
-            const Text('Main Fabric Details', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+            Text(
+              'Main Fabric Details',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+                fontSize: 16,
+              ),
+            ),
             const SizedBox(height: 8),
             NeoCard(
               child: Column(
@@ -174,9 +229,18 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                           : Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.camera_alt_outlined, size: 36, color: AppTheme.brandPurple),
+                                const Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 36,
+                                  color: AppTheme.brandPurple,
+                                ),
                                 const SizedBox(height: 8),
-                                Text('Take Fabric Photo', style: TextStyle(color: theme.colorScheme.onSurface)),
+                                Text(
+                                  'Take Fabric Photo',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
                               ],
                             ),
                     ),
@@ -186,23 +250,35 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                     children: [
                       Expanded(
                         child: RadioListTile(
-                          title: Text('Customer', style: TextStyle(color: theme.colorScheme.onSurface)),
+                          title: Text(
+                            'Customer',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
                           value: 'Customer',
                           // ignore: deprecated_member_use
                           groupValue: _fabricSource,
                           // ignore: deprecated_member_use
-                          onChanged: (val) => setState(() => _fabricSource = val.toString()),
+                          onChanged: (val) =>
+                              setState(() => _fabricSource = val.toString()),
                           activeColor: AppTheme.brandPurple,
                         ),
                       ),
                       Expanded(
                         child: RadioListTile(
-                          title: Text('Shop', style: TextStyle(color: theme.colorScheme.onSurface)),
+                          title: Text(
+                            'Shop',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
                           value: 'Shop',
                           // ignore: deprecated_member_use
                           groupValue: _fabricSource,
                           // ignore: deprecated_member_use
-                          onChanged: (val) => setState(() => _fabricSource = val.toString()),
+                          onChanged: (val) =>
+                              setState(() => _fabricSource = val.toString()),
                           activeColor: AppTheme.brandPurple,
                         ),
                       ),
@@ -214,7 +290,14 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
             const SizedBox(height: 20),
 
             // Lining / Astar toggle details
-            const Text('Lining (Astar) Stock', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+            Text(
+              'Lining (Astar) Stock',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+                fontSize: 16,
+              ),
+            ),
             const SizedBox(height: 8),
             NeoCard(
               child: Column(
@@ -223,7 +306,10 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Needs Lining / Astar?', style: TextStyle(color: theme.colorScheme.onSurface)),
+                      Text(
+                        'Needs Lining / Astar?',
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                      ),
                       Switch(
                         value: _needsLining,
                         onChanged: (val) => setState(() => _needsLining = val),
@@ -235,39 +321,68 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                   if (_needsLining) ...[
                     const Divider(color: Colors.white10, height: 24),
                     _isLoading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
                         : _inventoryItems.isEmpty
-                            ? const Text('No lining materials found in stock.', style: TextStyle(color: AppTheme.darkGrey))
-                            : DropdownButtonFormField<Map<String, dynamic>>(
-                                dropdownColor: AppTheme.darkCard,
-                                isExpanded: true,
-                                decoration: const InputDecoration(labelText: 'Select Lining Stock'),
-                                // ignore: deprecated_member_use
-                                value: _selectedLiningItem,
-                                items: _inventoryItems.map((item) {
-                                  final name = item['itemName'] ?? 'Material';
-                                  final qty = item['quantity'] ?? 0;
-                                  final unit = item['unit'] ?? 'm';
-                                  return DropdownMenuItem(
-                                    value: item as Map<String, dynamic>,
-                                    child: Text(
-                                      '$name (Stock: $qty $unit)',
-                                      style: const TextStyle(color: Colors.white),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  setState(() {
-                                    _selectedLiningItem = val;
-                                  });
-                                },
-                              ),
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline, size: 16, color: AppTheme.safetyOrange),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'No lining materials found in stock.',
+                                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: _loadLiningItems,
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : DropdownButtonFormField<Map<String, dynamic>>(
+                            dropdownColor: theme.cardTheme.color ?? AppTheme.darkCard,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Select Lining Stock',
+                            ),
+                            // ignore: deprecated_member_use
+                            value: _selectedLiningItem,
+                            items: _inventoryItems.map((item) {
+                              final mapItem = item as Map<String, dynamic>;
+                              final name = mapItem['itemName'] ?? mapItem['name'] ?? 'Material';
+                              final qty = mapItem['quantity'] ?? 0;
+                              final unit = mapItem['unit'] ?? 'm';
+                              return DropdownMenuItem(
+                                value: mapItem,
+                                child: Text(
+                                  '$name (Stock: $qty $unit)',
+                                  style: TextStyle(color: theme.colorScheme.onSurface),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedLiningItem = val;
+                              });
+                            },
+                          ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        Text('Length Required: ', style: TextStyle(color: theme.colorScheme.onSurface)),
+                        Text(
+                          'Length Required: ',
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                        ),
                         Expanded(
                           child: Slider(
                             value: _liningLength,
@@ -276,12 +391,16 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
                             divisions: 19,
                             label: '${_liningLength}m',
                             activeColor: AppTheme.brandPurple,
-                            onChanged: (val) => setState(() => _liningLength = val),
+                            onChanged: (val) =>
+                                setState(() => _liningLength = val),
                           ),
                         ),
                         Text(
                           '${_liningLength}m',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -291,10 +410,7 @@ class _MaterialSelectionScreenState extends State<MaterialSelectionScreen> {
             ),
             const SizedBox(height: 40),
 
-            PrimaryButton(
-              text: 'Next: Confirm Details',
-              onPressed: _onNext,
-            ),
+            PrimaryButton(text: 'Next: Confirm Details', onPressed: _onNext),
           ],
         ),
       ),

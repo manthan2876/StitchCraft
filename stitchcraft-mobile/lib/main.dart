@@ -16,6 +16,7 @@ import 'package:stitchcraft/features/shop/screens/shop_setup_screen.dart';
 
 // Dashboard
 import 'package:stitchcraft/features/dashboard/screens/main_navigation_container.dart';
+import 'package:stitchcraft/features/dashboard/screens/more_hub_screen.dart';
 
 // Orders
 import 'package:stitchcraft/features/orders/screens/create_order/step1_garment.dart';
@@ -24,6 +25,7 @@ import 'package:stitchcraft/features/orders/screens/create_order/step3_measureme
 import 'package:stitchcraft/features/orders/screens/create_order/step4_material.dart';
 import 'package:stitchcraft/features/orders/screens/create_order/step5_details.dart';
 import 'package:stitchcraft/features/orders/screens/order_list_screen.dart';
+import 'package:stitchcraft/features/orders/screens/deliveries_screen.dart';
 
 import 'package:stitchcraft/core/services/notification_service.dart';
 
@@ -44,6 +46,9 @@ import 'package:stitchcraft/features/shop/screens/machine_details_screen.dart';
 import 'package:stitchcraft/features/shop/screens/inventory_details_screen.dart';
 import 'package:stitchcraft/features/orders/screens/invoice_details_screen.dart';
 import 'package:stitchcraft/features/shop/screens/karigar_details_screen.dart';
+import 'package:stitchcraft/features/shop/screens/shop_settings_screen.dart';
+import 'package:stitchcraft/features/profile/screens/sync_status_screen.dart';
+import 'package:stitchcraft/features/karigar/screens/my_jobs_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:stitchcraft/core/config/app_env.dart';
 import 'package:stitchcraft/core/services/sync_worker.dart';
@@ -122,6 +127,7 @@ class StitchCraftApp extends StatelessWidget {
           valueListenable: ThemeService().themeNotifier,
           builder: (context, currentThemeMode, child) {
             return MaterialApp(
+              navigatorKey: NotificationService.navigatorKey,
               title: 'StitchCraft',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
@@ -139,10 +145,13 @@ class StitchCraftApp extends StatelessWidget {
                 '/role_selection': (context) => const RoleSelectionScreen(),
                 '/shop_setup': (context) => const ShopSetupScreen(),
                 '/home': (context) => const MainNavigationContainer(),
+                '/more': (context) => const MoreHubScreen(),
 
                 // Order Wizard
                 '/create_order_step1': (context) =>
                     const GarmentSelectionScreen(),
+                '/create_order_customer': (context) =>
+                    const CustomerSelectionScreen(),
                 '/create_order_step2': (context) =>
                     const CustomerSelectionScreen(),
                 '/create_order_step3': (context) =>
@@ -173,12 +182,12 @@ class StitchCraftApp extends StatelessWidget {
                   title: 'Pending Orders',
                   statusFilter: 'pending',
                 ),
-                '/deliveries': (context) => const OrderListScreen(
-                  title: 'Deliveries',
-                  statusFilter: 'completed',
-                ),
+                '/deliveries': (context) => const DeliveriesScreen(),
                 '/invoices': (context) => const InvoiceScreen(),
                 '/payments': (context) => const KhataScreen(initialTabIndex: 1),
+                '/shop_settings': (context) => const ShopSettingsScreen(),
+                '/sync_status': (context) => const SyncStatusScreen(),
+                '/my_jobs': (context) => const MyJobsScreen(),
               },
             );
           },

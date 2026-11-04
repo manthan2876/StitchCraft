@@ -3,9 +3,8 @@ import 'package:flutter/foundation.dart';
 class AppEnv {
   static const String backendApiUrl = String.fromEnvironment('BACKEND_API_URL');
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-  );
+  static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const String webInvoiceUrl = String.fromEnvironment('WEB_INVOICE_URL');
 
   static void validate() {
     validateValues(

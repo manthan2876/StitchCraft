@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:stitchcraft/core/config/app_env.dart';
+import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
@@ -84,7 +86,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final double paid = (_order!['payment']?['paidAmount'] as num?)?.toDouble() ?? 0.0;
     final double balance = (_order!['payment']?['balanceAmount'] as num?)?.toDouble() ?? total;
     
-    final String guestUrl = 'https://stitchcraft-frontend.onrender.com/invoice/share/$orderId';
+    final String guestUrl = '${AppEnv.webInvoiceUrl}/invoice/share/$orderId';
 
     if (customerPhone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,7 +102,9 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         "View bill: $guestUrl\n\n"
         "Thank you for choosing $_shopName!";
 
-    final String url = "https://wa.me/91$customerPhone?text=${Uri.encodeComponent(message)}";
+    final cleanPhone = customerPhone.replaceAll(RegExp(r'\D'), '');
+    final targetPhone = cleanPhone.startsWith('91') || cleanPhone.length != 10 ? cleanPhone : '91$cleanPhone';
+    final String url = "https://wa.me/$targetPhone?text=${Uri.encodeComponent(message)}";
     
     try {
       final uri = Uri.parse(url);
@@ -129,7 +133,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final double total = (_order!['price'] as num?)?.toDouble() ?? 0.0;
     final double balance = (_order!['payment']?['balanceAmount'] as num?)?.toDouble() ?? total;
     
-    final String guestUrl = 'https://stitchcraft-frontend.onrender.com/invoice/share/$orderId';
+    final String guestUrl = '${AppEnv.webInvoiceUrl}/invoice/share/$orderId';
 
     if (customerPhone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,7 +146,9 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         "View bill: $guestUrl\n\n"
         "Thank you, $_shopName.";
 
-    final String url = "https://wa.me/91$customerPhone?text=${Uri.encodeComponent(message)}";
+    final cleanPhone = customerPhone.replaceAll(RegExp(r'\D'), '');
+    final targetPhone = cleanPhone.startsWith('91') || cleanPhone.length != 10 ? cleanPhone : '91$cleanPhone';
+    final String url = "https://wa.me/$targetPhone?text=${Uri.encodeComponent(message)}";
     
     try {
       final uri = Uri.parse(url);
@@ -248,21 +254,21 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                       const SizedBox(height: 20),
 
                       // Cost totals NeoCard
-                      Text(context.loc.total_charges, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                      Text(context.loc.total_charges, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
                       const SizedBox(height: 8),
                       NeoCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _infoRow(context.loc.total_amount, '₹${_order!['price'] ?? 0}'),
-                            _infoRow(context.loc.paid_amount, '₹${_order!['payment']?['paidAmount'] ?? 0}'),
-                            const Divider(color: Colors.white10),
+                            _infoRow(context.loc.total_amount, CurrencyUtils.formatINR(_order!['price'] as num?)),
+                            _infoRow(context.loc.paid_amount, CurrencyUtils.formatINR(_order!['payment']?['paidAmount'] as num?)),
+                            const Divider(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(context.loc.balance_amount_due, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                Text(context.loc.balance_amount_due, style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
                                 Text(
-                                  '₹${_order!['payment']?['balanceAmount'] ?? (_order!['price'] ?? 0)}',
+                                  CurrencyUtils.formatINR((_order!['payment']?['balanceAmount'] as num?) ?? (_order!['price'] as num?)),
                                   style: const TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold, fontSize: 18),
                                 ),
                               ],
@@ -270,10 +276,17 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+
+                      // Direct UPI Payment Card
+                      _buildUpiPaymentCard(
+                        theme,
+                        ((_order!['payment']?['balanceAmount'] ?? (_order!['price'] ?? 0)) as num).toDouble(),
+                      ),
+                      const SizedBox(height: 16),
 
                       // WhatsApp actions
-                      const Text('Communication Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                      Text('Communication Actions', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -281,6 +294,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF25D366), // WhatsApp color
+                                foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _shareInvoiceWhatsApp,
@@ -293,6 +307,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.brandPurple,
+                                foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _sendReminderWhatsApp,
@@ -303,31 +318,33 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      const Text('PDF Document Actions', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                      Text('PDF Document Actions', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white10,
+                                backgroundColor: theme.colorScheme.surfaceContainerHighest ?? AppTheme.darkCard,
+                                foregroundColor: theme.colorScheme.onSurface,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _downloadInvoicePdf,
-                              icon: const Icon(Icons.download, color: Colors.white),
-                              label: Text(context.loc.download_pdf, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              icon: Icon(Icons.download, color: theme.colorScheme.onSurface),
+                              label: Text(context.loc.download_pdf, style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white10,
+                                backgroundColor: theme.colorScheme.surfaceContainerHighest ?? AppTheme.darkCard,
+                                foregroundColor: theme.colorScheme.onSurface,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _sendInvoicePdf,
-                              icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-                              label: Text(context.loc.send_pdf, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              icon: Icon(Icons.picture_as_pdf, color: theme.colorScheme.onSurface),
+                              label: Text(context.loc.send_pdf, style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],
@@ -338,6 +355,77 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     );
   }
 
+  Widget _buildUpiPaymentCard(ThemeData theme, double balance) {
+    if (balance <= 0) return const SizedBox.shrink();
+    return NeoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.trustGreen.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.qr_code_2, color: AppTheme.trustGreen, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Direct UPI Scan & Pay', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    const Text('Counter QR code payment', style: TextStyle(fontSize: 12, color: AppTheme.darkGrey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.trustGreen.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Balance Due', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+                    Text(
+                      '₹${balance.toStringAsFixed(2)}',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.trustGreen),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.trustGreen.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.payment, size: 16, color: AppTheme.trustGreen),
+                      SizedBox(width: 4),
+                      Text('UPI READY', style: TextStyle(color: AppTheme.trustGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _infoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
@@ -345,7 +433,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: AppTheme.darkGrey)),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(value, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
         ],
       ),
     );

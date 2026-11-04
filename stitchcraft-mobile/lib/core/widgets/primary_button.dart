@@ -17,25 +17,26 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: double.infinity,
       height: 56, // Large touch target
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.marigold,
-          foregroundColor: AppTheme.navyBlue,
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
           elevation: 4, // Tactile feel
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
-                  color: AppTheme.navyBlue,
+                  color: colorScheme.onPrimary,
                   strokeWidth: 3,
                 ),
               )
@@ -46,10 +47,7 @@ class PrimaryButton extends StatelessWidget {
                     Icon(icon, size: 24),
                     const SizedBox(width: 8),
                   ],
-                  Text(
-                    text,
-                    style: AppTheme.buttonText,
-                  ),
+                  Text(text, style: AppTheme.buttonText),
                 ],
               ),
       ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
-import 'package:stitchcraft/core/widgets/neo_card.dart';
+import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
@@ -8,8 +8,10 @@ class RoleSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(context.loc.choose_role),
         automaticallyImplyLeading: false,
@@ -19,92 +21,42 @@ class RoleSelectionScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 20),
-            Text(
-              context.loc.who_are_you,
-              style: AppTheme.masterjiTheme.textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 40),
             Expanded(
-              child: SingleChildScrollView(
+              child: Center(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildRoleCard(
-                      context,
-                      context.loc.shop_owner_masterji,
-                      context.loc.full_access,
-                      Icons.store,
-                      AppTheme.marigold,
-                      () => Navigator.pushNamed(context, '/shop_setup'),
+                    const Icon(
+                      Icons.verified_user_outlined,
+                      size: 72,
+                      color: AppTheme.brandPurple,
                     ),
                     const SizedBox(height: 24),
-                    _buildRoleCard(
-                      context,
-                      context.loc.staff_karigar,
-                      context.loc.tasks_only,
-                      Icons.cut,
-                      AppTheme.emerald,
-                      () => Navigator.pushNamed(context, '/home'),
+                    Text(
+                      'Your role is assigned by your account',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Shop owners assign access when they create your account or send an invite. You cannot change roles from this device.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
+            PrimaryButton(
+              text: 'CONTINUE',
+              onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildRoleCard(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return NeoCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              size: 40,
-              color: AppTheme.navyBlue,
-            ),
-          ),
-          const SizedBox(width: 24),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: AppTheme.masterjiTheme.textTheme.headlineSmall?.copyWith(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: AppTheme.masterjiTheme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.arrow_forward_ios, color: Colors.grey),
-        ],
       ),
     );
   }

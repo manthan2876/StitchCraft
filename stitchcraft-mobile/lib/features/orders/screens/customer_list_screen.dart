@@ -1,17 +1,20 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/device_contacts_service.dart';
+import 'package:stitchcraft/core/utils/phone_utils.dart';
 import 'package:http/http.dart' as http;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class CustomerListScreen extends StatefulWidget {
-  const CustomerListScreen({super.key});
+  final bool isTab;
+  const CustomerListScreen({super.key, this.isTab = false});
 
   @override
   State<CustomerListScreen> createState() => _CustomerListScreenState();
@@ -21,6 +24,17 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   final _localDb = LocalDatabaseService();
   List<Map<String, dynamic>> _customers = [];
   bool _isLoading = false;
+  String _searchQuery = '';
+
+  List<Map<String, dynamic>> get _displayCustomers {
+    if (_searchQuery.trim().isEmpty) return _customers;
+    final query = _searchQuery.toLowerCase();
+    return _customers.where((c) {
+      final name = (c['name'] ?? '').toString().toLowerCase();
+      final phone = (c['phone'] ?? '').toString();
+      return name.contains(query) || phone.contains(query);
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -47,7 +61,8 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
           if (response.statusCode == 200) {
             final List<dynamic> remoteData = json.decode(response.body);
             for (final rawRecord in remoteData) {
-              final Map<String, dynamic> remoteRecord = Map<String, dynamic>.from(rawRecord);
+              final Map<String, dynamic> remoteRecord =
+                  Map<String, dynamic>.from(rawRecord);
               final String id = remoteRecord['_id'] ?? remoteRecord['id'] ?? '';
               if (id.isEmpty) continue;
 
@@ -66,8 +81,21 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         }
       }
 
+      final seenPhones = <String>{};
+      final uniqueCustomers = <Map<String, dynamic>>[];
+      for (final c in list) {
+        final phone = PhoneUtils.sanitizePhoneNumber((c['phone'] ?? '').toString());
+        if (phone.isNotEmpty) {
+          if (seenPhones.add(phone)) {
+            uniqueCustomers.add(c);
+          }
+        } else {
+          uniqueCustomers.add(c);
+        }
+      }
+
       setState(() {
-        _customers = list;
+        _customers = uniqueCustomers;
       });
     } catch (e) {
       debugPrint("Error loading customers: $e");
@@ -128,23 +156,35 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.brandPurple,
-                          side: const BorderSide(color: AppTheme.brandPurple, width: 1.5),
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          side: const BorderSide(
+                            color: AppTheme.brandPurple,
+                            width: 1.5,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         icon: const Icon(Icons.contacts_outlined, size: 20),
                         label: Text(
                           ctx.loc.import_contacts,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                         onPressed: () async {
-                          final picked = await DeviceContactsService().pickContact(ctx);
+                          final picked = await DeviceContactsService()
+                              .pickContact(ctx);
                           if (picked != null) {
                             setSheetState(() {
                               nameController.text = picked.fullName;
                               phoneController.text = picked.phoneNumber;
-                              isContactAlreadySaved = true;
-                              saveToDeviceContacts = false;
+                              isContactAlreadySaved = picked.phoneNumber.isNotEmpty;
+                              saveToDeviceContacts = picked.phoneNumber.isEmpty;
                             });
                           }
                         },
@@ -195,11 +235,15 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                         value: saveToDeviceContacts,
                         onChanged: isContactAlreadySaved
                             ? null
-                            : (val) => setSheetState(() => saveToDeviceContacts = val ?? false),
+                            : (val) => setSheetState(
+                                () => saveToDeviceContacts = val ?? false,
+                              ),
                         title: Text(
                           ctx.loc.save_contact_to_phone,
                           style: TextStyle(
-                            color: isContactAlreadySaved ? AppTheme.darkGrey : theme.colorScheme.onSurface,
+                            color: isContactAlreadySaved
+                                ? AppTheme.darkGrey
+                                : theme.colorScheme.onSurface,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -207,7 +251,10 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                         subtitle: isContactAlreadySaved
                             ? Text(
                                 ctx.loc.already_in_contacts,
-                                style: const TextStyle(color: AppTheme.trustGreen, fontSize: 12),
+                                style: const TextStyle(
+                                  color: AppTheme.trustGreen,
+                                  fontSize: 12,
+                                ),
                               )
                             : null,
                         controlAffinity: ListTileControlAffinity.leading,
@@ -227,7 +274,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                         if (name.isEmpty || phone.isEmpty) {
                           ScaffoldMessenger.of(ctx).showSnackBar(
                             const SnackBar(
-                              content: Text('Please enter customer name and phone number'),
+                              content: Text(
+                                'Please enter customer name and phone number',
+                              ),
                               backgroundColor: AppTheme.alertRed,
                             ),
                           );
@@ -253,24 +302,45 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                                   'email': email,
                                 }),
                               );
-                              if (response.statusCode == 200 || response.statusCode == 201) {
+                              if (response.statusCode == 200 ||
+                                  response.statusCode == 201) {
                                 final remoteData = json.decode(response.body);
-                                customerId = remoteData['_id'] ?? remoteData['id'] ?? customerId;
+                                customerId =
+                                    remoteData['_id'] ??
+                                    remoteData['id'] ??
+                                    customerId;
                               }
                             } catch (apiErr) {
-                              debugPrint('Error syncing customer with server: $apiErr');
+                              debugPrint(
+                                'Error syncing customer with server: $apiErr',
+                              );
                             }
                           }
 
-                          // Save to local database
-                          await _localDb.insertRecord('customers', {
-                            'id': customerId,
-                            'name': name,
-                            'phone': phone,
-                            'email': email,
-                            'sync_status': 0,
-                            'updated_at': DateTime.now().millisecondsSinceEpoch,
-                          });
+                          // Save or update in local database
+                          final existingList = await _localDb.getRecords('customers');
+                          final cleanPhone = PhoneUtils.sanitizePhoneNumber(phone);
+                          final existing = existingList.firstWhere(
+                            (c) => PhoneUtils.sanitizePhoneNumber(c['phone']?.toString() ?? '') == cleanPhone,
+                            orElse: () => {},
+                          );
+                          if (existing.isNotEmpty && existing['id'] != null) {
+                            customerId = existing['id'].toString();
+                            await _localDb.updateRecord('customers', customerId, {
+                              'name': name,
+                              'email': email,
+                              'updated_at': DateTime.now().millisecondsSinceEpoch,
+                            });
+                          } else {
+                            await _localDb.insertRecord('customers', {
+                              'id': customerId,
+                              'name': name,
+                              'phone': phone,
+                              'email': email,
+                              'sync_status': 0,
+                              'updated_at': DateTime.now().millisecondsSinceEpoch,
+                            });
+                          }
 
                           // Automatically save to mobile phone directory if selected
                           if (saveToDeviceContacts) {
@@ -285,7 +355,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(context.loc.customer_added_successfully),
+                                content: Text(
+                                  context.loc.customer_added_successfully,
+                                ),
                                 backgroundColor: AppTheme.trustGreen,
                               ),
                             );
@@ -295,7 +367,10 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                           debugPrint('Error creating customer: $e');
                           if (ctx.mounted) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text('Failed to add customer: $e'), backgroundColor: AppTheme.alertRed),
+                              SnackBar(
+                                content: Text('Failed to add customer: $e'),
+                                backgroundColor: AppTheme.alertRed,
+                              ),
                             );
                           }
                         } finally {
@@ -313,66 +388,167 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         );
       },
     );
+    nameController.dispose();
+    phoneController.dispose();
+    emailController.dispose();
   }
-
-
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final displayed = _displayCustomers;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(context.loc.customers),
+        actions: [
+          IconButton(
+            tooltip: context.loc.add_customer,
+            icon: const Icon(Icons.person_add_outlined),
+            onPressed: () => _showAddCustomerBottomSheet(context),
+          ),
+        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _customers.isEmpty
-              ? Center(
-                  child: Text(
-                    context.loc.no_customers_found,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.darkGrey),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _customers.length,
-                  itemBuilder: (context, index) {
-                    final customer = _customers[index];
-                    final String name = customer['name'] ?? 'Walk-in Customer';
-                    final String phone = customer['phone'] ?? '';
-                    final String email = customer['email'] ?? '';
-
-                    return NeoCard(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(4),
-                        onTap: () {
-                          Navigator.pushNamed(context, '/customer_details', arguments: customer['_id'] ?? customer['id'] ?? '');
-                        },
-                        leading: CircleAvatar(
-                          backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.15),
-                          child: Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'C',
-                            style: const TextStyle(color: AppTheme.brandPurple, fontWeight: FontWeight.bold),
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: TextField(
+              onChanged: (val) => setState(() => _searchQuery = val),
+              style: TextStyle(color: theme.colorScheme.onSurface),
+              decoration: InputDecoration(
+                hintText: 'Search customer by name or phone...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => setState(() => _searchQuery = ''),
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : displayed.isEmpty
+                    ? Center(
+                        child: Text(
+                          _searchQuery.isEmpty
+                              ? context.loc.no_customers_found
+                              : 'No customers match "$_searchQuery"',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.darkGrey,
                           ),
                         ),
-                        title: Text(name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                        subtitle: Text('$phone • $email'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.darkGrey),
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.fromLTRB(16, 8, 16, widget.isTab ? 96 : 24),
+                        itemCount: displayed.length,
+                        itemBuilder: (context, index) {
+                          final customer = displayed[index];
+                          final String name = customer['name'] ?? 'Walk-in Customer';
+                          final String phone = (customer['phone'] ?? '').toString();
+                          final String email = (customer['email'] ?? '').toString();
+
+                          final String subtitleText = email.isNotEmpty
+                              ? (phone.isNotEmpty ? '$phone • $email' : email)
+                              : phone;
+
+                          return NeoCard(
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/customer_details',
+                                  arguments: customer['_id'] ?? customer['id'] ?? '',
+                                );
+                              },
+                              leading: CircleAvatar(
+                                backgroundColor: AppTheme.brandPurple.withValues(
+                                  alpha: 0.15,
+                                ),
+                                child: Text(
+                                  name.isNotEmpty ? name[0].toUpperCase() : 'C',
+                                  style: const TextStyle(
+                                    color: AppTheme.brandPurple,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                name,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: subtitleText.isNotEmpty
+                                  ? Text(
+                                      subtitleText,
+                                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                                    )
+                                  : null,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (phone.isNotEmpty) ...[
+                                    IconButton(
+                                      icon: const Icon(Icons.phone_outlined, size: 20),
+                                      color: AppTheme.brandPurple,
+                                      tooltip: 'Call $name',
+                                      onPressed: () async {
+                                        final uri = Uri.parse('tel:$phone');
+                                        if (await canLaunchUrl(uri)) {
+                                          await launchUrl(uri);
+                                        }
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.chat_outlined, size: 20),
+                                      color: const Color(0xFF25D366),
+                                      tooltip: 'WhatsApp $name',
+                                      onPressed: () async {
+                                        final clean = phone.replaceAll(RegExp(r'\D'), '');
+                                        final target = clean.startsWith('91') || clean.length != 10 ? clean : '91$clean';
+                                        final uri = Uri.parse('https://wa.me/$target');
+                                        if (await canLaunchUrl(uri)) {
+                                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                  const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 14,
+                                    color: AppTheme.darkGrey,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.brandPurple,
-        icon: const Icon(Icons.person_add, color: Colors.white),
-        label: Text(
-          context.loc.add_customer,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        onPressed: () => _showAddCustomerBottomSheet(context),
+          ),
+        ],
       ),
+      floatingActionButton: widget.isTab
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: AppTheme.brandPurple,
+              icon: const Icon(Icons.person_add, color: Colors.white),
+              label: Text(
+                context.loc.add_customer,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () => _showAddCustomerBottomSheet(context),
+            ),
     );
   }
 }

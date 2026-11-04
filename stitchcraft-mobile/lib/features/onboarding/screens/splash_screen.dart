@@ -22,11 +22,19 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 2));
     final prefs = await SharedPreferences.getInstance();
     final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final bool hasSelectedLang = prefs.getBool('has_selected_language') ?? false;
     final String? token = await AuthService().getToken();
 
     if (mounted) {
       if (isLoggedIn && token != null && token.isNotEmpty) {
-        Navigator.pushReplacementNamed(context, '/home');
+        final shopId = prefs.getString('shopId');
+        if (shopId == null || shopId.isEmpty) {
+          Navigator.pushReplacementNamed(context, '/shop_setup');
+        } else {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } else if (hasSelectedLang) {
+        Navigator.pushReplacementNamed(context, '/onboarding');
       } else {
         Navigator.pushReplacementNamed(context, '/language');
       }

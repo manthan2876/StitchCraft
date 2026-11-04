@@ -60,9 +60,7 @@ class AuthService {
           id: data['_id'] ?? data['id'] ?? '',
           name: data['name'] ?? name,
           phone: data['email'] ?? email,
-          role: (data['role']?.toString().toLowerCase().contains('admin') ?? false)
-              ? UserRole.admin
-              : UserRole.staff,
+          role: UserRole.fromString(data['role']),
           updatedAt: DateTime.now(),
         );
         await _dbService.addUser(newUser);
@@ -131,7 +129,7 @@ class AuthService {
           id: userId,
           name: userName,
           phone: userEmail,
-          role: role.toLowerCase().contains('admin') ? UserRole.admin : UserRole.staff,
+          role: UserRole.fromString(role),
           updatedAt: DateTime.now(),
         );
         await _dbService.addUser(newUser);
@@ -205,8 +203,45 @@ class AuthService {
     return prefs.getString('userRole') ?? 'staff';
   }
 
-  // Get Current JWT Token (from Secure Storage with legacy SharedPreferences fallback)
+  Future<UserRole> getUserRoleEnum() async {
+    final roleStr = await getUserRole();
+    return UserRole.fromString(roleStr);
+  }
+
+  Future<bool> isOwner() async => (await getUserRoleEnum()).isOwner;
+  Future<bool> isManager() async => (await getUserRoleEnum()).isManager;
+  Future<bool> isStaff() async => (await getUserRoleEnum()).isStaff;
+  Future<bool> isKarigar() async => (await getUserRoleEnum()).isKarigar;
+  Future<bool> canManageShop() async => (await getUserRoleEnum()).canManageShop;
+  Future<bool> canDeleteShop() async => (await getUserRoleEnum()).canDeleteShop;
+  Future<bool> canManageStaff() async => (await getUserRoleEnum()).canManageStaff;
+  Future<bool> canDeleteOrders() async => (await getUserRoleEnum()).canDeleteOrders;
+  Future<bool> canViewFinancials() async => (await getUserRoleEnum()).canViewFinancials;
+
+  // Get Current JWT Token (from Supabase Auth session with fallback to Secure Storage)
   Future<String?> getToken() async {
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null) {
+        if (session.isExpired) {
+          developer.log('Supabase token expired. Refreshing session...', name: 'AuthService');
+          final response = await Supabase.instance.client.auth.refreshSession();
+          final newToken = response.session?.accessToken;
+          if (newToken != null && newToken.isNotEmpty) {
+            await _secureStorage.write(key: _tokenKey, value: newToken);
+            return newToken;
+          }
+        } else {
+          final token = session.accessToken;
+          if (token.isNotEmpty) {
+            return token;
+          }
+        }
+      }
+    } catch (e) {
+      developer.log('Supabase token check/refresh note: $e', name: 'AuthService');
+    }
+
     final secureToken = await _secureStorage.read(key: _tokenKey);
     if (secureToken != null && secureToken.isNotEmpty) {
       return secureToken;
@@ -221,6 +256,21 @@ class AuthService {
       return legacyToken;
     }
 
+    return null;
+  }
+
+  // Force refresh active session token
+  Future<String?> refreshToken() async {
+    try {
+      final response = await Supabase.instance.client.auth.refreshSession();
+      final newToken = response.session?.accessToken;
+      if (newToken != null && newToken.isNotEmpty) {
+        await _secureStorage.write(key: _tokenKey, value: newToken);
+        return newToken;
+      }
+    } catch (e) {
+      developer.log('Forced token refresh note: $e', name: 'AuthService');
+    }
     return null;
   }
 

@@ -15,7 +15,10 @@ class _ShopSetupScreenState extends State<ShopSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Setup Shop')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -32,9 +35,9 @@ class _ShopSetupScreenState extends State<ShopSetupScreen> {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardTheme.color,
+                  color: theme.cardTheme.color,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.navyBlue, width: 2),
+                  border: Border.all(color: AppTheme.brandPurple, width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.1),
@@ -45,14 +48,16 @@ class _ShopSetupScreenState extends State<ShopSetupScreen> {
                 child: const Icon(
                   Icons.camera_alt,
                   size: 40,
-                  color: AppTheme.navyBlue,
+                  color: AppTheme.brandPurple,
                 ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               'Add Profile Photo',
-              style: AppTheme.masterjiTheme.textTheme.bodyMedium,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
             ),
             const SizedBox(height: 32),
             

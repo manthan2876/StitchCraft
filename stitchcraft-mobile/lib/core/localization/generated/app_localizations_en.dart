@@ -385,4 +385,183 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get customer_added_successfully => 'Customer added successfully';
+
+  @override
+  String get onboarding_measurements_title => 'Keep measurements safe';
+
+  @override
+  String get onboarding_measurements_subtitle =>
+      'Save customer measurements digitally, even when your shop is offline.';
+
+  @override
+  String get onboarding_khata_title => 'Stay on top of udhar';
+
+  @override
+  String get onboarding_khata_subtitle =>
+      'See who owes you money and send WhatsApp reminders in seconds.';
+
+  @override
+  String get onboarding_orders_title => 'Run every order clearly';
+
+  @override
+  String get onboarding_orders_subtitle =>
+      'Track stitching, delivery dates, payments, and workshop assignments in one place.';
+
+  @override
+  String get onboarding_skip => 'Skip';
+
+  @override
+  String get onboarding_next => 'Next';
+
+  @override
+  String get onboarding_start => 'Create your shop';
+
+  @override
+  String get dashboard_data_local =>
+      'Showing saved shop data. Pull to refresh when you are online.';
+
+  @override
+  String get dashboard_chart_summary => 'Orders created in the selected period';
+
+  @override
+  String get no_customers_action => 'Add your first customer';
+
+  @override
+  String get sync_status_title => 'Sync Status & Offline Data';
+
+  @override
+  String get deliver_unpaid_warning => 'Deliver with unpaid balance?';
+
+  @override
+  String get deliver_unpaid_message =>
+      'This order has an outstanding balance. Are you sure you want to mark it as Delivered?';
+
+  @override
+  String get danger_zone => 'Danger Zone';
+
+  @override
+  String get delete_shop => 'Delete Shop';
+
+  @override
+  String get home => 'Home';
+
+  @override
+  String get more => 'More';
+
+  @override
+  String get saved_on_phone => 'Saved on this phone';
+
+  @override
+  String get today => 'Today';
+
+  @override
+  String get due_today => 'Due Today';
+
+  @override
+  String get late_orders => 'Late Orders';
+
+  @override
+  String get collect_money => 'Collect Money';
+
+  @override
+  String get start_new_order => 'Start New Order';
+
+  @override
+  String get next_up => 'Next Up';
+
+  @override
+  String get search_orders => 'Search customer or order';
+
+  @override
+  String get late => 'Late';
+
+  @override
+  String get ready => 'Ready';
+
+  @override
+  String get unpaid => 'Unpaid';
+
+  @override
+  String get all_stages => 'All Stages';
+
+  @override
+  String get create_first_order => 'Create First Order';
+
+  @override
+  String get find_customer => 'Find Customer';
+
+  @override
+  String get walk_in_customer => 'Walk-in Customer';
+
+  @override
+  String get reuse_measurements => 'Reuse Measurements';
+
+  @override
+  String get add_garment => 'Add Garment';
+
+  @override
+  String get save_draft => 'Save Draft';
+
+  @override
+  String get resume_draft => 'Resume Draft';
+
+  @override
+  String get advance_received => 'Advance Received';
+
+  @override
+  String get view_receipt => 'View Receipt';
+
+  @override
+  String get mark_delivered => 'Mark Delivered';
+
+  @override
+  String get record_payment => 'Record Payment';
+
+  @override
+  String get outstanding_balance => 'Outstanding Balance';
+
+  @override
+  String get call_customer => 'Call Customer';
+
+  @override
+  String get search_customers => 'Search name or phone';
+
+  @override
+  String get new_order_for_customer => 'New Order';
+
+  @override
+  String get customer_summary => 'Customer Summary';
+
+  @override
+  String get new_order_with_customer => 'New Order with Customer';
+
+  @override
+  String get reuse_last_measurements => 'Use Last Measurements';
+
+  @override
+  String get no_measurements => 'No measurements saved';
+
+  @override
+  String get deliver_today => 'Deliver Today';
+
+  @override
+  String get ready_for_pickup => 'Ready for Pickup';
+
+  @override
+  String get deliver_order => 'Deliver Order';
+
+  @override
+  String get balance_due_before_delivery => 'Balance Due Before Delivery';
+
+  @override
+  String get my_jobs => 'My Jobs';
+
+  @override
+  String get assigned_to_me => 'Assigned to Me';
+
+  @override
+  String get mark_ready => 'Mark Ready';
+
+  @override
+  String get no_assigned_jobs => 'No jobs assigned currently';
 }
