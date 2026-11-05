@@ -6,6 +6,7 @@ import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+import 'package:stitchcraft/features/auth/widgets/verify_email_sheet.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -48,6 +49,24 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('not confirmed') || errorMsg.contains('email_not_confirmed')) {
+        final email = _emailController.text.trim();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email not confirmed. Please enter your 6-digit code or check Gmail.'),
+            backgroundColor: AppTheme.safetyOrange,
+          ),
+        );
+        VerifyEmailSheet.show(
+          context,
+          email: email.isNotEmpty ? email : null,
+          onVerified: () {
+            if (mounted) _handleLogin();
+          },
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${context.loc.login_failed}: ${e.toString().replaceAll('Exception: ', '')}'),
@@ -237,29 +256,84 @@ class _LoginScreenState extends State<LoginScreen> {
                   isPassword: true,
                 ),
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _showForgotPasswordDialog,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      context.loc.forgot_password,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppTheme.brandPurple,
-                        fontWeight: FontWeight.bold,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        final email = _emailController.text.trim();
+                        VerifyEmailSheet.show(
+                          context,
+                          email: email.isNotEmpty ? email : null,
+                          onVerified: () {
+                            if (mounted) _handleLogin();
+                          },
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Verify Email?',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppTheme.brandPurple,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
+                    TextButton(
+                      onPressed: _showForgotPasswordDialog,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        context.loc.forgot_password,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppTheme.brandPurple,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 28),
                 PrimaryButton(
                   text: context.loc.sign_in,
                   isLoading: _isLoading,
                   onPressed: _handleLogin,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Don't have an account? ",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.darkGrey,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/signup');
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        "Sign Up",
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.brandPurple,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

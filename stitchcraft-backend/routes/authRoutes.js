@@ -4,6 +4,7 @@ import {
   registerUser,
   loginUser,
   verifyEmail,
+  resendVerification,
   updatePassword,
   verifyPasswordOnly,
   forgotPassword,
@@ -32,6 +33,7 @@ import {
 router.post('/register', authLimiter, validateRegisterRequest, registerUser);
 router.post('/login', authLimiter, loginUser);
 router.post('/verify', authLimiter, verifyEmail);
+router.post('/resend-verification', authLimiter, resendVerification);
 router.post('/forgot-password', authLimiter, validateForgotPasswordRequest, forgotPassword);
 router.post('/reset-password', protect, authLimiter, validateResetPasswordRequest, resetPassword);
 router.route('/profile')

@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -113,6 +114,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
         });
 
         // Cache locally for offline access
+        final prefs = await SharedPreferences.getInstance();
+        final shopId = prefs.getString('shopId');
         for (final it in decoded) {
           try {
             await LocalDatabaseService().insertRecord('inventory', {
@@ -122,6 +125,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               'quantity': (it['quantity'] as num?)?.toDouble() ?? 0.0,
               'unit_price': (it['costPerUnit'] as num?)?.toDouble() ?? 0.0,
               'low_stock_threshold': (it['minQuantity'] as num?)?.toDouble() ?? 5.0,
+              'shop_id': shopId,
               'sync_status': 0,
               'updated_at': DateTime.now().millisecondsSinceEpoch,
             });
@@ -140,7 +144,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Future<void> _loadOfflineFallback() async {
     try {
-      final local = await LocalDatabaseService().getRecords('inventory');
+      final prefs = await SharedPreferences.getInstance();
+      final shopId = prefs.getString('shopId');
+      final local = await LocalDatabaseService().getAllInventory(shopId: shopId);
       if (local.isNotEmpty && mounted) {
         setState(() {
           _items = local.map((row) => {

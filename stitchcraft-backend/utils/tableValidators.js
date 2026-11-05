@@ -165,8 +165,12 @@ export const validateDocument = (collection, doc) => {
       if (doc.type && !['Payment', 'Refund'].includes(doc.type)) {
         errors.type = 'Transaction type must be Payment or Refund';
       }
-      if (doc.paymentType && !['Cash', 'UPI', 'Card', 'Credit', 'Bank'].includes(doc.paymentType)) {
-        errors.paymentType = 'Invalid payment mode';
+      if (doc.paymentType) {
+        const pt = typeof doc.paymentType === 'string' ? doc.paymentType.trim() : '';
+        const validModes = ['Cash', 'UPI', 'Card', 'Credit', 'Bank', 'Online', 'cash', 'upi', 'online', 'card', 'credit', 'bank'];
+        if (!validModes.includes(pt)) {
+          errors.paymentType = 'Invalid payment mode';
+        }
       }
       break;
     }

@@ -15,6 +15,8 @@ class DatabaseService {
   LocalDatabaseService get localDb => _localDb;
   Uuid get uuid => _uuid;
 
+  Future<void> clearAllData() => _localDb.clearAllData();
+
   // Signal Controllers for reactive UI (broadcasters)
   static final customerSignal = StreamController<void>.broadcast();
   static final orderSignal = StreamController<void>.broadcast();

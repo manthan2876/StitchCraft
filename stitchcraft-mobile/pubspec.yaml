@@ -44,7 +44,6 @@ dependencies:
   flutter_animate: ^4.2.0
   google_fonts: ^9.0.0
   confetti: ^0.8.0
-  sqflite: ^2.4.1
   sqflite_sqlcipher: ^3.0.1
   path_provider: ^2.1.5
   path: ^1.9.1
@@ -78,6 +77,9 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+
+dependency_overrides:
+  sqflite_common: 2.5.6+1
 
 flutter_launcher_icons:
   android: true

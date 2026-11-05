@@ -127,6 +127,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: CustomAppBar(
         title: context.loc.notifications,
+        showNotificationBell: false,
+        actions: [
+          if (_notifications.any((n) => n['read'] == false))
+            IconButton(
+              icon: const Icon(Icons.done_all),
+              tooltip: 'Mark all as read',
+              onPressed: _markAllAsRead,
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
           child: Container(

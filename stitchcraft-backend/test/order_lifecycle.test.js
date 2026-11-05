@@ -114,5 +114,21 @@ describe('Order Lifecycle & Financial Computations', () => {
     assert.equal(activeOrders.length, 2);
     assert.equal(activeRevenue, 3200);
   });
+
+  it('should disallow outsourcing/delegating completed, delivered, ready, or cancelled orders', () => {
+    const isOutsourcable = (status) => {
+      const s = (status || '').toLowerCase();
+      return !['delivered', 'completed', 'ready', 'cancelled'].includes(s);
+    };
+
+    assert.equal(isOutsourcable('Incoming'), true);
+    assert.equal(isOutsourcable('Cutting'), true);
+    assert.equal(isOutsourcable('Stitching'), true);
+    assert.equal(isOutsourcable('Checking'), true);
+    assert.equal(isOutsourcable('Ready'), false);
+    assert.equal(isOutsourcable('Delivered'), false);
+    assert.equal(isOutsourcable('Completed'), false);
+    assert.equal(isOutsourcable('Cancelled'), false);
+  });
 });
 

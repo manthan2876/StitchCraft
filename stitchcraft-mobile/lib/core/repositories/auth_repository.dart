@@ -8,8 +8,28 @@ class AuthRepository {
     return _authService.login(email, password);
   }
 
-  Future<Map<String, dynamic>?> signUp(String email, String password, String name) {
-    return _authService.signUp(email, password, name);
+  Future<Map<String, dynamic>?> signUp(
+    String email,
+    String password,
+    String name, {
+    String? shopName,
+    String? phone,
+  }) {
+    return _authService.signUp(
+      email,
+      password,
+      name,
+      shopName: shopName,
+      phone: phone,
+    );
+  }
+
+  Future<Map<String, dynamic>?> verifyEmailOtp(String email, String token) {
+    return _authService.verifyEmailOtp(email, token);
+  }
+
+  Future<void> resendVerificationEmail(String email) {
+    return _authService.resendVerificationEmail(email);
   }
 
   Future<void> logout() {

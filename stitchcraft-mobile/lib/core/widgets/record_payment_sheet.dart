@@ -28,7 +28,7 @@ class RecordPaymentSheet extends StatefulWidget {
 
 class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
   late final TextEditingController _amountController;
-  String _paymentMethod = 'cash';
+  String _paymentMethod = 'Cash';
 
   @override
   void initState() {
@@ -55,7 +55,11 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
       return;
     }
 
-    Navigator.of(context).pop(PaymentResult(amount: amt, method: _paymentMethod));
+    final normalized = _paymentMethod.toLowerCase() == 'online' || _paymentMethod.toLowerCase() == 'upi'
+        ? 'UPI'
+        : (_paymentMethod.toLowerCase() == 'cash' ? 'Cash' : _paymentMethod);
+
+    Navigator.of(context).pop(PaymentResult(amount: amt, method: normalized));
   }
 
   @override
@@ -149,17 +153,17 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
               children: [
                 ChoiceChip(
                   label: const Text('Cash'),
-                  selected: _paymentMethod == 'cash',
+                  selected: _paymentMethod == 'Cash',
                   onSelected: (val) {
-                    if (val) setState(() => _paymentMethod = 'cash');
+                    if (val) setState(() => _paymentMethod = 'Cash');
                   },
                 ),
                 const SizedBox(width: 10),
                 ChoiceChip(
                   label: const Text('UPI / Online'),
-                  selected: _paymentMethod == 'online',
+                  selected: _paymentMethod == 'UPI',
                   onSelected: (val) {
-                    if (val) setState(() => _paymentMethod = 'online');
+                    if (val) setState(() => _paymentMethod = 'UPI');
                   },
                 ),
               ],
@@ -180,7 +184,7 @@ class _RecordPaymentSheetState extends State<RecordPaymentSheet> {
                 icon: const Icon(Icons.check, size: 20),
                 label: const Text(
                   'Confirm Payment',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                 ),
               ),
             ),

@@ -16,6 +16,7 @@ import {
   deleteOrderService,
   delegateOrderService,
   revokeDelegationService,
+  sanitizeOrderForPartnerTailor,
 } from '../services/orderService.js';
 
 // @desc    Create a new order
@@ -49,13 +50,24 @@ export const createOrder = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const { status, urgency, type } = req.query;
-    let filter = { shopId: req.user.shopId, isDeleted: { $ne: true } };
+    let filter;
 
     // Support fetching jobs delegated from other tailor shops to this shop
     if (type === 'partner_jobs' || type === 'external_jobs') {
       filter = { delegatedToShopId: req.user.shopId, isDeleted: { $ne: true } };
     } else if (type === 'my_delegated') {
       filter = { shopId: req.user.shopId, delegationStatus: 'assigned', isDeleted: { $ne: true } };
+    } else if (type === 'own' || type === 'in_house') {
+      filter = { shopId: req.user.shopId, isDeleted: { $ne: true } };
+    } else {
+      // By default, include orders originating in this shop OR outsourced to this shop
+      filter = {
+        $or: [
+          { shopId: req.user.shopId },
+          { delegatedToShopId: req.user.shopId },
+        ],
+        isDeleted: { $ne: true },
+      };
     }
 
     if (status) filter.status = status;
@@ -80,7 +92,10 @@ export const getOrders = async (req, res) => {
       const item = o.toJSON();
       item.payment = payment;
       item.delivery = delivery;
-      populatedOrders.push(item);
+
+      // Authoritative privacy & sanitization for partner tailors
+      const sanitized = sanitizeOrderForPartnerTailor(item, req.user.shopId);
+      populatedOrders.push(sanitized);
     }
 
     res.json(populatedOrders);
@@ -105,6 +120,9 @@ export const getOrderById = async (req, res) => {
     }
 
     await order.populate('customer');
+    try {
+      await order.populate('asterInventoryItem');
+    } catch (_) {}
 
     const payment = await Payment.findOne({ orderId: order._id });
     const delivery = await Delivery.findOne({ orderId: order._id });
@@ -129,7 +147,8 @@ export const getOrderById = async (req, res) => {
     result.asterProfit = asterProfit;
     result.asterCostPrice = costPrice;
 
-    res.json(result);
+    const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
+    res.json(sanitized);
   } catch (error) {
     console.error('Get order by ID error:', error);
     res.status(500).json({ message: error.message });
@@ -300,7 +319,8 @@ export const updateOrder = async (req, res) => {
   try {
     const result = await updateOrderService(req.params.id, req.body, req.user.shopId, req.user.name);
     if (!result) return res.status(404).json({ message: 'Order not found' });
-    res.json(result);
+    const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
+    res.json(sanitized);
   } catch (error) {
     console.error('Update order error:', error);
     res.status(500).json({ message: error.message });
@@ -315,9 +335,18 @@ export const recordOrderPayment = async (req, res) => {
     const order = await findOrderScoped(req.params.id, req.user.shopId);
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
-    const { amount, paymentType } = req.body;
+    let { amount, paymentType } = req.body;
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({ message: 'Please provide a positive payment amount' });
+    }
+
+    if (paymentType && typeof paymentType === 'string') {
+      const pt = paymentType.trim().toLowerCase();
+      if (pt === 'cash') paymentType = 'Cash';
+      else if (pt === 'upi' || pt === 'online') paymentType = 'UPI';
+      else if (pt === 'card') paymentType = 'Card';
+      else if (pt === 'credit') paymentType = 'Credit';
+      else if (pt === 'bank') paymentType = 'Bank';
     }
 
     await Transaction.create({
@@ -343,7 +372,8 @@ export const recordOrderPayment = async (req, res) => {
     result.payment = payment;
     result.delivery = await Delivery.findOne({ orderId: order._id });
 
-    res.json(result);
+    const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
+    res.json(sanitized);
   } catch (error) {
     console.error('Record payment error:', error);
     res.status(500).json({ message: error.message });
@@ -395,7 +425,7 @@ export const addNoteToOrder = async (req, res) => {
 // @access  Private
 export const delegateOrder = async (req, res) => {
   try {
-    const { targetShopId, targetShopName, targetPhone, notes } = req.body;
+    const { targetShopId, targetShopName, targetPhone, notes, agreedCost } = req.body;
     if (!targetShopId) {
       return res.status(400).json({ message: 'Target partner tailor/shop ID is required' });
     }
@@ -408,6 +438,7 @@ export const delegateOrder = async (req, res) => {
       targetShopName,
       targetPhone,
       notes,
+      agreedCost,
     });
 
     if (!updated) {
@@ -417,7 +448,7 @@ export const delegateOrder = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error('Delegate order error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.message?.includes('Cannot') ? 400 : 500).json({ message: error.message });
   }
 };
 
@@ -433,6 +464,6 @@ export const revokeDelegation = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error('Revoke delegation error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.message?.includes('Cannot') ? 400 : 500).json({ message: error.message });
   }
 };

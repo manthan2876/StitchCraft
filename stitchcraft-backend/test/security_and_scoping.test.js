@@ -156,6 +156,79 @@ describe('Public Invoice Sanitization Safety', () => {
   });
 });
 
+describe('Outsourced Partner Order Privacy & Sanitization', () => {
+  it('should sanitize outsourced orders for partner tailor: 1 day earlier due date, agreed cost, no customer details, fabric details preserved', async () => {
+    const { sanitizeOrderForPartnerTailor } = await import('../services/orderService.js');
+
+    const mainOrder = {
+      _id: 'ord-999',
+      orderId: 'ORD-999',
+      shopId: 'main-shop-111',
+      originShopId: 'main-shop-111',
+      originShopName: 'Masterji Ramesh Tailors',
+      originPhone: '9876543210',
+      delegatedToShopId: 'partner-shop-222',
+      delegatedToShopName: 'Anil Express Stitching',
+      delegatedNotes: 'Urgent: finish collar and sleeves with gold piping',
+      delegatedCost: 450,
+      customerName: 'Smt. Anjali Mehta', // SENSITIVE
+      customerPhone: '9123456780', // SENSITIVE
+      customerAddress: '123 Riverfront Road, Ahmedabad', // SENSITIVE
+      deliveryDate: '2026-11-20T18:00:00.000Z',
+      dueDate: new Date('2026-11-20T18:00:00.000Z').getTime(),
+      price: 1800, // MAIN TAILOR RETAIL BILLING COST - SENSITIVE
+      totalAmount: 1800,
+      needsAster: true,
+      asterQuantity: 2.5,
+      asterItemName: 'Satin Lining',
+      asterProfit: 300, // SENSITIVE
+      fabric: 'Chanderi Silk 3m Blue Floral',
+      fabricImageUrl: 'https://cdn.stitchcraft.com/fabrics/silk_999.jpg',
+      transactions: [{ id: 'tx-1', amount: 800, type: 'Payment' }], // SENSITIVE
+    };
+
+    // 1. When viewed by the Main Tailor (originating shop):
+    const mainView = sanitizeOrderForPartnerTailor(mainOrder, 'main-shop-111');
+    assert.equal(mainView.customerName, 'Smt. Anjali Mehta');
+    assert.equal(mainView.price, 1800);
+    assert.equal(mainView.deliveryDate, '2026-11-20T18:00:00.000Z');
+    assert.equal(mainView.isPartnerJob, undefined);
+
+    // 2. When viewed by the Outsourced Partner Tailor:
+    const partnerView = sanitizeOrderForPartnerTailor(mainOrder, 'partner-shop-222');
+
+    // Check coming from other tailor
+    assert.equal(partnerView.isPartnerJob, true);
+    assert.equal(partnerView.isOutsourcedToMe, true);
+    assert.equal(partnerView.originShopName, 'Masterji Ramesh Tailors');
+    assert.equal(partnerView.customerName, 'Partner Tailor: Masterji Ramesh Tailors');
+    assert.equal(partnerView.customerPhone, '9876543210'); // Main tailor phone, not customer!
+    assert.equal('customerAddress' in partnerView, false);
+
+    // Check Due Date is ONE DAY BEFORE main order
+    const expectedPartnerDate = new Date('2026-11-19T18:00:00.000Z').toISOString();
+    assert.equal(partnerView.deliveryDate, expectedPartnerDate);
+    assert.equal(partnerView.partnerDueDate, expectedPartnerDate);
+
+    // Check Billing Cost is the agreed outsourced cost set by main tailor (₹450), NOT retail ₹1800
+    assert.equal(partnerView.price, 450);
+    assert.equal(partnerView.totalAmount, 450);
+    assert.equal(partnerView.payment.totalAmount, 450);
+    assert.equal(partnerView.advanceAmount, 0);
+    assert.equal(partnerView.advance_amount, 0);
+    assert.equal(partnerView.advancePaid, 0);
+    assert.equal(partnerView.transactions.length, 0); // Customer transactions stripped!
+    assert.equal('asterProfit' in partnerView, false);
+
+    // Check Fabric and Tailoring Specs are completely preserved
+    assert.equal(partnerView.fabric, 'Chanderi Silk 3m Blue Floral');
+    assert.equal(partnerView.fabricImageUrl, 'https://cdn.stitchcraft.com/fabrics/silk_999.jpg');
+    assert.equal(partnerView.needsAster, true);
+    assert.equal(partnerView.asterQuantity, 2.5);
+    assert.equal(partnerView.delegatedNotes, 'Urgent: finish collar and sleeves with gold piping');
+  });
+});
+
 describe('Notification Dispatch Service', () => {
   it('should handle unconfigured Firebase credentials gracefully without throwing', async () => {
     const { dispatchNotification } = await import('../services/notificationService.js');
@@ -362,6 +435,45 @@ describe('API Request Validation Middlewares', () => {
     let validNextCalled = false;
     validateResetPasswordRequest(validReq, {}, () => { validNextCalled = true; });
     assert.equal(validNextCalled, true);
+  });
+
+  it('should validate payment request amounts and normalize payment types', async () => {
+    const { validatePaymentRequest } = await import('../middleware/validationMiddleware.js');
+
+    // Negative or zero amount rejected
+    const invalidAmountReq = { body: { amount: 0, paymentType: 'online' } };
+    let statusCode = null;
+    let jsonBody = null;
+    const res = {
+      status(code) { statusCode = code; return this; },
+      json(body) { jsonBody = body; return this; },
+    };
+    let nextCalled = false;
+    validatePaymentRequest(invalidAmountReq, res, () => { nextCalled = true; });
+    assert.equal(statusCode, 400);
+    assert.equal(nextCalled, false);
+
+    // Invalid mode rejected
+    const invalidModeReq = { body: { amount: 500, paymentType: 'Bitcoin' } };
+    statusCode = null;
+    nextCalled = false;
+    validatePaymentRequest(invalidModeReq, res, () => { nextCalled = true; });
+    assert.equal(statusCode, 400);
+    assert.equal(nextCalled, false);
+
+    // Online normalized to UPI
+    const onlineReq = { body: { amount: 1500, paymentType: 'online' } };
+    let onlineNext = false;
+    validatePaymentRequest(onlineReq, {}, () => { onlineNext = true; });
+    assert.equal(onlineNext, true);
+    assert.equal(onlineReq.body.paymentType, 'UPI');
+
+    // Cash normalized to Cash
+    const cashReq = { body: { amount: 1000, paymentType: 'cash' } };
+    let cashNext = false;
+    validatePaymentRequest(cashReq, {}, () => { cashNext = true; });
+    assert.equal(cashNext, true);
+    assert.equal(cashReq.body.paymentType, 'Cash');
   });
 });
 

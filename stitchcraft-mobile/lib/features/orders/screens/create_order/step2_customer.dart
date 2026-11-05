@@ -105,7 +105,9 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
     } catch (e) {
       developer.log("Remote customers unavailable, checking local DB: $e");
       try {
-        final localData = await LocalDatabaseService().getRecords('customers');
+        final prefs = await SharedPreferences.getInstance();
+        final shopId = prefs.getString('shopId');
+        final localData = await LocalDatabaseService().getAllCustomers(shopId: shopId);
         final seenPhones = <String>{};
         final uniqueList = <dynamic>[];
         for (final c in localData) {

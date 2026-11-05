@@ -7,8 +7,11 @@ import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/widgets/record_payment_sheet.dart';
+import 'package:stitchcraft/core/services/database_service.dart';
+import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UdharList extends StatelessWidget {
   final List<Map<String, dynamic>> orders;
@@ -46,29 +49,57 @@ class UdharList extends StatelessWidget {
     if (result == null || result.amount <= 0) return;
 
     try {
+      final normalizedMethod = result.method.toLowerCase() == 'online' || result.method.toLowerCase() == 'upi'
+          ? 'UPI'
+          : (result.method.toLowerCase() == 'cash' ? 'Cash' : result.method);
+
       // 1. Update local database
       final currentAdvance = (order['advance_amount'] as num?)?.toDouble() ?? 0.0;
       final newAdvance = currentAdvance + result.amount;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
       await LocalDatabaseService().updateRecord('orders', orderId, {
         'advance_amount': newAdvance,
+        'payment_method': normalizedMethod,
         'sync_status': 3,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
+        'updated_at': nowMs,
       });
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final shopId = prefs.getString('shopId');
+        await LocalDatabaseService().insertPayment({
+          'id': const Uuid().v4(),
+          'order_id': orderId,
+          'amount': result.amount,
+          'payment_method': normalizedMethod,
+          'date': nowMs,
+          'shop_id': shopId,
+          'sync_status': 1,
+          'updated_at': nowMs,
+        });
+        DatabaseService.orderSignal.add(null);
+      } catch (e) {
+        debugPrint('Udhar payment insert error: $e');
+      }
 
       // 2. Push to server if online
       final token = await AuthService().getToken();
       if (token != null) {
-        await http.post(
-          Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: json.encode({
-            'amount': result.amount,
-            'paymentType': result.method,
-          }),
-        );
+        try {
+          await http.post(
+            Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: json.encode({
+              'amount': result.amount,
+              'paymentType': normalizedMethod,
+            }),
+          ).timeout(const Duration(seconds: 10));
+        } catch (netErr) {
+          // Handled offline-first; will sync later
+        }
       }
 
       if (context.mounted) {
@@ -97,8 +128,17 @@ class UdharList extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Filter orders with outstanding balance
+    // Filter orders with outstanding balance, strictly excluding outsourced partner jobs
     final udharOrders = orders.where((o) {
+      final bool isPartnerJob = o['isPartnerJob'] == true ||
+          o['isOutsourcedToMe'] == true ||
+          (o['origin_shop_name'] != null && o['origin_shop_name'].toString().isNotEmpty) ||
+          (o['delegation_status'] == 'assigned' && o['origin_shop_name'] != null);
+      if (isPartnerJob) return false;
+
+      final status = (o['status'] ?? '').toString().toLowerCase();
+      if (status == 'cancelled') return false;
+
       final total = (o['total_amount'] as num?)?.toDouble() ?? 0.0;
       final advance = (o['advance_amount'] as num?)?.toDouble() ?? 0.0;
       return (total - advance) > 0.01;

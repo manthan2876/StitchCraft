@@ -5,6 +5,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/services/database_service.dart';
 import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/widgets/state_views.dart';
 import 'package:stitchcraft/core/widgets/record_payment_sheet.dart';
@@ -13,6 +14,24 @@ import 'package:stitchcraft/features/orders/widgets/outsource_order_sheet.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _InventoryChargeItem {
+  final String itemName;
+  final double quantity;
+  final String unit;
+  final double rate;
+  final double totalCharge;
+
+  _InventoryChargeItem({
+    required this.itemName,
+    required this.quantity,
+    required this.unit,
+    required this.rate,
+    required this.totalCharge,
+  });
+}
 
 class OrderDetailsScreen extends StatefulWidget {
   const OrderDetailsScreen({super.key});
@@ -29,6 +48,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   final _noteController = TextEditingController();
   String? _resolvedMaapUrl;
   String? _resolvedFabricUrl;
+  String? _currentShopId;
 
   @override
   void dispose() {
@@ -102,13 +122,21 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Future<void> _loadOrderDetails(String orderId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _currentShopId = prefs.getString('shopId');
+    } catch (_) {}
+
     // 1. Try loading from local database first for instant load
     try {
       final localOrder = await _localDb.getRecordById('orders', orderId);
       if (localOrder != null) {
-        setState(() {
-          _order = _mapSqliteOrderToBackend(localOrder);
-        });
+        final liningItems = await _localDb.getLiningItemsByOrder(orderId);
+        if (mounted) {
+          setState(() {
+            _order = _mapSqliteOrderToBackend(localOrder, liningItems: liningItems);
+          });
+        }
       }
     } catch (e) {
       developer.log("Error loading local order details: $e");
@@ -154,27 +182,15 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final orderId = _order!['_id'] ?? _order!['id'];
 
     if (newStatus == 'Delivered') {
-      final totalAmount = (_order!['payment'] is Map
-              ? (_order!['payment']['totalAmount'] as num?)?.toDouble()
-              : null) ??
-          (_order!['price'] as num?)?.toDouble() ??
-          (_order!['total_amount'] as num?)?.toDouble() ??
-          0.0;
-      final paidAmount = (_order!['payment'] is Map
-              ? (_order!['payment']['paidAmount'] as num?)?.toDouble()
-              : null) ??
-          (_order!['advancePaid'] as num?)?.toDouble() ??
-          (_order!['advance_amount'] as num?)?.toDouble() ??
-          0.0;
-      final balance = (totalAmount - paidAmount).clamp(0.0, double.infinity);
+      final balance = _balanceAmount;
 
-      if (balance > 0) {
+      if (balance > 0.01) {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Deliver with Unpaid Balance?'),
             content: Text(
-              'This order has an outstanding balance of ₹${balance.toStringAsFixed(2)}.\n\nDo you want to confirm delivery and keep this balance in Khata (Udhar)?',
+              'This order has an outstanding balance of ${CurrencyUtils.formatINR(balance)}.\n\nDo you want to confirm delivery and keep this balance in Khata (Udhar)?',
             ),
             actions: [
               TextButton(
@@ -285,9 +301,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     if (_order == null) return;
     final orderId = (_order!['_id'] ?? _order!['id'] ?? '').toString();
     final customerName = _order!['customer_name'] ?? _order!['customer']?['name'] ?? 'Customer';
-    final total = (_order!['total_amount'] as num?)?.toDouble() ?? (_order!['price'] as num?)?.toDouble() ?? 0.0;
-    final advance = (_order!['advance_amount'] as num?)?.toDouble() ?? 0.0;
-    final balance = (total - advance).clamp(0.0, double.infinity);
+    final balance = _balanceAmount;
 
     final result = await showModalBottomSheet<PaymentResult>(
       context: context,
@@ -308,30 +322,55 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final token = await _authService.getToken();
+      final normalizedMethod = result.method.toLowerCase() == 'online' || result.method.toLowerCase() == 'upi'
+          ? 'UPI'
+          : (result.method.toLowerCase() == 'cash' ? 'Cash' : result.method);
+
       if (token != null) {
-        http.post(
-          Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: json.encode({
-            'amount': result.amount,
-            'paymentType': result.method,
-          }),
-        );
+        try {
+          final res = await http.post(
+            Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: json.encode({
+              'amount': result.amount,
+              'paymentType': normalizedMethod,
+            }),
+          ).timeout(const Duration(seconds: 10));
+
+          if (res.statusCode != 200 && res.statusCode != 201) {
+            final errBody = json.decode(res.body);
+            developer.log('Remote payment recording note: ${errBody['message']}');
+          }
+        } catch (netErr) {
+          developer.log('Remote payment network note (will sync): $netErr');
+        }
       }
 
       try {
         final localOrder = await _localDb.getRecordById('orders', orderId);
         if (localOrder != null) {
           final prevAdvance = (localOrder['advance_amount'] as num?)?.toDouble() ?? 0.0;
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
           await _localDb.updateRecord('orders', orderId, {
             'advance_amount': prevAdvance + result.amount,
-            'payment_method': result.method,
+            'payment_method': normalizedMethod,
             'sync_status': 3,
-            'updated_at': DateTime.now().millisecondsSinceEpoch,
+            'updated_at': nowMs,
           });
+
+          await _localDb.insertPayment({
+            'id': const Uuid().v4(),
+            'order_id': orderId,
+            'amount': result.amount,
+            'payment_method': normalizedMethod,
+            'date': nowMs,
+            'sync_status': 1,
+            'updated_at': nowMs,
+          });
+          DatabaseService.orderSignal.add(null);
         }
       } catch (localErr) {
         developer.log('Local payment sync note: $localErr');
@@ -358,76 +397,25 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   Future<void> _editOrder() async {
     if (_order == null) return;
 
-    final priceController = TextEditingController(text: _order!['price']?.toString() ?? '0');
-    DateTime dueDate = _order!['deliveryDate'] != null ? DateTime.parse(_order!['deliveryDate']) : DateTime.now();
+    final initialPrice = (_order!['price'] as num?)?.toDouble() ?? 0.0;
+    final initialDueDate = _order!['deliveryDate'] != null
+        ? (DateTime.tryParse(_order!['deliveryDate']) ?? DateTime.now())
+        : DateTime.now();
 
-    final success = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<_EditOrderResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppTheme.darkCard,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('Edit Order Details', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-
-                  // Price
-                  TextField(
-                    controller: priceController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: 'Total Price (₹)'),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Due Date Selector
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Delivery Date', style: TextStyle(color: AppTheme.darkGrey, fontSize: 12)),
-                    subtitle: Text(DateFormat('dd MMMM yyyy (EEEE)').format(dueDate), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    trailing: const Icon(Icons.calendar_today, color: AppTheme.brandPurple),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: dueDate,
-                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (picked != null) {
-                        setModalState(() {
-                          dueDate = picked;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandPurple),
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      builder: (context) => _EditOrderBottomSheet(
+        initialPrice: initialPrice,
+        initialDueDate: initialDueDate,
+      ),
     );
 
-    if (success != true) {
-      priceController.dispose();
-      return;
-    }
+    if (result == null) return;
 
-    final price = double.tryParse(priceController.text) ?? 0.0;
-    priceController.dispose();
+    final price = result.price;
+    final dueDate = result.dueDate;
     final orderId = _order!['_id'] ?? _order!['id'];
 
     if (!mounted) return;
@@ -586,16 +574,18 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         title: Text(title),
         actions: _order != null
             ? [
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
-                  onPressed: _editOrder,
-                  tooltip: 'Edit Order',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.alertRed),
-                  onPressed: _deleteOrder,
-                  tooltip: 'Delete Order',
-                ),
+                if (!_isPartnerJobFromOtherShop) ...[
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                    onPressed: _editOrder,
+                    tooltip: 'Edit Order',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: AppTheme.alertRed),
+                    onPressed: _deleteOrder,
+                    tooltip: 'Delete Order',
+                  ),
+                ],
                 PopupMenuButton<String>(
                   color: AppTheme.darkCard,
                   onSelected: _updateStatus,
@@ -640,13 +630,47 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (_isPartnerJobFromOtherShop) ...[
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.brandPurple.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.brandPurple.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.handshake_outlined, color: AppTheme.brandPurple, size: 16),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Outsourced Job from: ${_order!['originShopName'] ?? _order!['origin_shop_name'] ?? 'Partner Tailor'}',
+                                        style: const TextStyle(
+                                          color: AppTheme.brandPurple,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  _order!['customerName'] ?? 'Walk-in Customer',
-                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                Expanded(
+                                  child: Text(
+                                    _isPartnerJobFromOtherShop
+                                        ? 'Partner Tailor: ${_order!['originShopName'] ?? _order!['origin_shop_name'] ?? 'Other Tailor'}'
+                                        : (_order!['customerName'] ?? 'Walk-in Customer'),
+                                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
@@ -666,11 +690,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                             ),
                             const Divider(color: Colors.white10, height: 24),
                             _infoRow('Garment Category', _order!['garmentType'] ?? 'Custom Order'),
-                            _infoRow('Fabric details', _order!['fabric'] ?? 'N/A'),
+                            _infoRow('Fabric details', _order!['fabric'] ?? 'Customer Provided'),
+                            if (_order!['needsAster'] == true)
+                              _infoRow('Lining / Aster Material', '${_order!['asterQuantity'] ?? 0}m (${_order!['asterItemName'] ?? 'Aster'})'),
                             _infoRow(
                               'Due Date',
                               _order!['deliveryDate'] != null
-                                  ? DateFormat('dd MMM yyyy').format(DateTime.parse(_order!['deliveryDate']))
+                                  ? '${DateFormat('dd MMM yyyy').format(DateTime.parse(_order!['deliveryDate']))}${_isPartnerJobFromOtherShop ? ' (Buffer: 1 Day Before Main Order)' : ''}'
                                   : 'N/A',
                             ),
                             if (_isOutsourcedToPartner)
@@ -680,7 +706,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               ),
                             if (_isPartnerJobFromOtherShop)
                               _infoRow(
-                                'Job from Shop',
+                                'Originating Tailor',
                                 '${_order!['originShopName'] ?? _order!['origin_shop_name'] ?? 'External Shop'}',
                               ),
                           ],
@@ -689,8 +715,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       const SizedBox(height: 16),
 
                       // Outsource / Partner Tailor Action & Status Card
-                      _buildOutsourcingSection(theme),
-                      const SizedBox(height: 16),
+                      if (!_isOrderCompleted || _isOutsourcedToPartner || _isPartnerJobFromOtherShop) ...[
+                        _buildOutsourcingSection(theme),
+                        const SizedBox(height: 16),
+                      ],
 
                       // Interactive Production Stage Stepper
                       _buildProductionStepper(theme),
@@ -738,54 +766,267 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       ],
 
                       // Invoices & Payments summary
-                      Text('Financial Summary', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
-                      const SizedBox(height: 8),
-                      NeoCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      if (_isPartnerJobFromOtherShop) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Total Cost', style: TextStyle(color: AppTheme.darkGrey)),
-                                Text('₹${_order!['price'] ?? 0}', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
-                              ],
+                            Text(
+                              'Outsourcing Financial Terms',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 16,
+                              ),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Total Paid', style: TextStyle(color: AppTheme.darkGrey)),
-                                Text(
-                                  '₹${_order!['payment']?['paidAmount'] ?? 0}',
-                                  style: const TextStyle(color: AppTheme.trustGreen, fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Balance Amount', style: TextStyle(color: AppTheme.darkGrey)),
-                                Text(
-                                  '₹${_order!['payment']?['balanceAmount'] ?? (_order!['price'] ?? 0)}',
-                                  style: const TextStyle(color: AppTheme.alertRed, fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                              ],
-                            ),
-                            const Divider(color: Colors.white10, height: 24),
-                            Center(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandPurple),
-                                onPressed: _recordPayment,
-                                icon: const Icon(Icons.payment, color: Colors.white),
-                                label: const Text('Record Payment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.trustGreen.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Agreed B2B Rate',
+                                style: TextStyle(color: AppTheme.trustGreen, fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 8),
+                        NeoCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _infoRow(
+                                'Agreed Stitching Charge',
+                                CurrencyUtils.formatINR((_order!['delegatedCost'] ?? _order!['delegated_cost'] ?? _order!['price'] ?? 0.0 as num).toDouble()),
+                              ),
+                              const Divider(color: Colors.white10, height: 20),
+                              _infoRow(
+                                'Payable by Main Tailor',
+                                (_order!['originShopName'] ?? _order!['origin_shop_name'] ?? 'Originating Tailor').toString(),
+                              ),
+                              _infoRow(
+                                'B2B Payment Settlement',
+                                'Direct Settlement with Origin Tailor',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ] else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Financial Summary',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 16,
+                              ),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                foregroundColor: AppTheme.brandPurple,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              ),
+                              onPressed: _openInvoiceShare,
+                              icon: const Icon(Icons.receipt_long, size: 16),
+                              label: const Text('View Invoice', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        NeoCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 1. Stitching Service Charge
+                              _infoRow('Stitching Charge', CurrencyUtils.formatINR(_stitchingBasePrice)),
+
+                              // 2. Inventory Material Additions (if any, matching invoice)
+                              if (_inventoryCharges.isNotEmpty) ...[
+                                const Divider(color: Colors.white10, height: 20),
+                                Row(
+                                  children: [
+                                    Icon(Icons.inventory_2_outlined, size: 15, color: theme.colorScheme.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'INVENTORY CHARGES INCLUDED:',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.primary,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ..._inventoryCharges.map((inv) => Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.brandPurple.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: AppTheme.brandPurple.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    inv.itemName,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.trustGreen.withValues(alpha: 0.15),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: const Text(
+                                                    'From Stock',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: AppTheme.trustGreen,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${inv.quantity} ${inv.unit} @ ${CurrencyUtils.formatINR(inv.rate, showDecimals: false)}/${inv.unit}',
+                                              style: const TextStyle(color: AppTheme.darkGrey, fontSize: 11),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '+${CurrencyUtils.formatINR(inv.totalCharge)}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.trustGreen,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                                if (_totalInventoryCharges > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4, bottom: 2),
+                                    child: _infoRow(
+                                      'Total Inventory Added',
+                                      '+${CurrencyUtils.formatINR(_totalInventoryCharges)}',
+                                    ),
+                                  ),
+                              ],
+
+                              const Divider(color: Colors.white10, height: 20),
+
+                              // 3. Total Bill Amount (Invoice Total)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Amount (Invoice)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Text(
+                                    CurrencyUtils.formatINR(_effectiveBillTotal),
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+
+                              // 4. Paid Amount
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Total Paid', style: TextStyle(color: AppTheme.darkGrey)),
+                                  Text(
+                                    CurrencyUtils.formatINR(_paidAmount),
+                                    style: const TextStyle(
+                                      color: AppTheme.trustGreen,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+
+                              // 5. Balance Due
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _balanceAmount <= 0.01 ? 'Balance (Fully Paid)' : 'Balance Due',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    CurrencyUtils.formatINR(_balanceAmount),
+                                    style: TextStyle(
+                                      color: _balanceAmount <= 0.01 ? AppTheme.trustGreen : AppTheme.alertRed,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              // 6. Record Payment Action
+                              if (_balanceAmount > 0.01) ...[
+                                const Divider(color: Colors.white10, height: 24),
+                                Center(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.brandPurple,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    onPressed: _recordPayment,
+                                    icon: const Icon(Icons.payment, color: Colors.white, size: 18),
+                                    label: const Text(
+                                      'Record Payment',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
 
                       // Notes Timeline Mapped from Backend
                       Text('Order Notes Timeline', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16)),
@@ -1043,6 +1284,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     );
   }
 
+  bool get _isOrderCompleted {
+    final status = (_order?['status'] ?? '').toString().toLowerCase();
+    return status == 'completed' || status == 'delivered' || status == 'ready' || status == 'cancelled';
+  }
+
   bool get _isOutsourcedToPartner {
     final name = _order?['delegatedToShopName'] ?? _order?['delegated_to_shop_name'];
     final status = _order?['delegationStatus'] ?? _order?['delegation_status'];
@@ -1050,12 +1296,136 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   bool get _isPartnerJobFromOtherShop {
+    if (_order?['isPartnerJob'] == true || _order?['isOutsourcedToMe'] == true) {
+      return true;
+    }
     final origin = _order?['originShopName'] ?? _order?['origin_shop_name'];
-    return origin != null && origin.toString().trim().isNotEmpty;
+    final delegatedTo = _order?['delegatedToShopId'] ?? _order?['delegated_to_shop_id'];
+    if (origin != null && origin.toString().trim().isNotEmpty) {
+      if (_currentShopId != null && delegatedTo != null && delegatedTo.toString() == _currentShopId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  List<_InventoryChargeItem> _getInventoryCharges(Map<String, dynamic> order) {
+    final List<_InventoryChargeItem> items = [];
+
+    final bool needsAster = order['needsAster'] == true || order['astar_required'] == 1;
+    final double asterQty = (order['asterQuantity'] as num?)?.toDouble() ?? 0.0;
+    final double asterPrice = (order['asterSellingPrice'] as num?)?.toDouble() ?? 0.0;
+    final double astarCost = (order['astar_cost'] as num?)?.toDouble() ??
+        (order['material_cost'] as num?)?.toDouble() ??
+        0.0;
+
+    String itemName = 'Lining / Aster Material';
+    if (order['asterInventoryItem'] is Map) {
+      itemName = order['asterInventoryItem']['itemName'] ??
+          order['asterInventoryItem']['name'] ??
+          itemName;
+    } else if (order['asterItemName'] is String && (order['asterItemName'] as String).isNotEmpty) {
+      itemName = order['asterItemName'] as String;
+    } else if (order['astar_source'] is String &&
+        (order['astar_source'] as String).isNotEmpty &&
+        order['astar_source'] != 'Customer') {
+      itemName = order['astar_source'] as String;
+    }
+
+    String unit = 'm';
+    if (order['asterInventoryItem'] is Map && order['asterInventoryItem']['unit'] != null) {
+      unit = order['asterInventoryItem']['unit'].toString();
+    }
+
+    if (needsAster) {
+      final double total = asterQty > 0 && asterPrice > 0
+          ? (asterQty * asterPrice)
+          : (astarCost > 0 ? astarCost : 0.0);
+
+      if (total > 0 || asterQty > 0) {
+        items.add(_InventoryChargeItem(
+          itemName: itemName,
+          quantity: asterQty > 0 ? asterQty : 1.0,
+          unit: unit,
+          rate: asterPrice > 0 ? asterPrice : (total > 0 ? total : 0.0),
+          totalCharge: total,
+        ));
+      }
+    }
+
+    // Check sub-items in multi-item orders
+    if (order['items'] is List) {
+      for (final it in (order['items'] as List)) {
+        if (it is Map && (it['needsAster'] == true || it['astar_required'] == 1)) {
+          final q = (it['asterQuantity'] as num?)?.toDouble() ?? 0.0;
+          final p = (it['asterSellingPrice'] as num?)?.toDouble() ?? 0.0;
+          final name = (it['asterItemName'] ?? it['liningName'] ?? 'Lining (${it['name'] ?? it['apparelType'] ?? 'Item'})').toString();
+          if (q > 0 || p > 0) {
+            items.add(_InventoryChargeItem(
+              itemName: name,
+              quantity: q > 0 ? q : 1.0,
+              unit: 'm',
+              rate: p,
+              totalCharge: q * p,
+            ));
+          }
+        }
+      }
+    }
+
+    return items;
+  }
+
+  List<_InventoryChargeItem> get _inventoryCharges =>
+      _order != null ? _getInventoryCharges(_order!) : const [];
+
+  double get _totalInventoryCharges =>
+      _inventoryCharges.fold(0.0, (sum, i) => sum + i.totalCharge);
+
+  double get _rawOrderPrice {
+    if (_order == null) return 0.0;
+    return (_order!['price'] as num?)?.toDouble() ??
+        (_order!['total_amount'] as num?)?.toDouble() ??
+        0.0;
+  }
+
+  double get _stitchingBasePrice {
+    if (_order == null) return 0.0;
+    final raw = _rawOrderPrice;
+    final totalInv = _totalInventoryCharges;
+    final bool hasExplicitAster = _order!['needsAster'] == true &&
+        _order!['asterQuantity'] != null &&
+        _order!['asterSellingPrice'] != null;
+
+    if (hasExplicitAster) {
+      return raw;
+    }
+    return (raw > totalInv && totalInv > 0) ? raw - totalInv : raw;
+  }
+
+  double get _effectiveBillTotal {
+    if (_order == null) return 0.0;
+    if (_order!['payment'] is Map && _order!['payment']['totalAmount'] != null) {
+      final t = (_order!['payment']['totalAmount'] as num).toDouble();
+      if (t > 0) return t;
+    }
+    return _stitchingBasePrice + _totalInventoryCharges;
+  }
+
+  double get _paidAmount {
+    if (_order == null) return 0.0;
+    return (_order!['payment']?['paidAmount'] as num?)?.toDouble() ??
+        (_order!['advance_amount'] as num?)?.toDouble() ??
+        (_order!['advancePaid'] as num?)?.toDouble() ??
+        0.0;
+  }
+
+  double get _balanceAmount {
+    return (_effectiveBillTotal - _paidAmount).clamp(0.0, double.infinity);
   }
 
   void _openOutsourceSheet() {
-    if (_order == null) return;
+    if (_order == null || _isOrderCompleted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1125,6 +1495,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   ),
               ],
             ),
+            if ((_order!['delegatedCost'] ?? _order!['delegated_cost']) != null && ((_order!['delegatedCost'] ?? _order!['delegated_cost']) as num) > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Agreed Outsourced Rate: ₹${_order!['delegatedCost'] ?? _order!['delegated_cost']}',
+                style: const TextStyle(color: AppTheme.trustGreen, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
             if (notes.toString().isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
@@ -1153,6 +1530,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 ),
               ],
             ),
+            if ((_order!['delegatedCost'] ?? _order!['delegated_cost']) != null && ((_order!['delegatedCost'] ?? _order!['delegated_cost']) as num) > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Agreed Outsourced Rate: ₹${_order!['delegatedCost'] ?? _order!['delegated_cost']}',
+                style: const TextStyle(color: AppTheme.trustGreen, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
           ],
         ),
       );
@@ -1211,6 +1595,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 ),
               ],
             ),
+            if ((_order!['delegatedCost'] ?? _order!['delegated_cost']) != null && ((_order!['delegatedCost'] ?? _order!['delegated_cost']) as num) > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Agreed Outsourced Rate: ₹${_order!['delegatedCost'] ?? _order!['delegated_cost']}',
+                style: const TextStyle(color: AppTheme.trustGreen, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
             if (notes.toString().isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
@@ -1244,28 +1635,40 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       },
                     ),
                   ),
-                if (partnerPhone.toString().isNotEmpty) const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandPurple,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                if (partnerPhone.toString().isNotEmpty && !_isOrderCompleted) const SizedBox(width: 10),
+                if (!_isOrderCompleted)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brandPurple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.settings, size: 16),
+                      label: const Text('Manage / Recall', style: TextStyle(fontSize: 12)),
+                      onPressed: _openOutsourceSheet,
                     ),
-                    icon: const Icon(Icons.settings, size: 16),
-                    label: const Text('Manage / Recall', style: TextStyle(fontSize: 12)),
-                    onPressed: _openOutsourceSheet,
                   ),
-                ),
               ],
             ),
+            if ((_order!['delegatedCost'] ?? _order!['delegated_cost']) != null && ((_order!['delegatedCost'] ?? _order!['delegated_cost']) as num) > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Agreed Outsourced Rate: ₹${_order!['delegatedCost'] ?? _order!['delegated_cost']}',
+                style: const TextStyle(color: AppTheme.trustGreen, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
           ],
         ),
       );
     }
 
-    // Default: Not outsourced yet
+    // Default: Not outsourced yet. If order is completed/delivered/ready/cancelled, do not show option to outsource
+    if (_isOrderCompleted) {
+      return const SizedBox.shrink();
+    }
+
     return NeoCard(
       child: Row(
         children: [
@@ -1290,6 +1693,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   'Assign this order as a job to another tailor',
                   style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 11),
                 ),
+                if ((_order!['delegatedCost'] ?? _order!['delegated_cost']) != null && ((_order!['delegatedCost'] ?? _order!['delegated_cost']) as num) > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Agreed Outsourced Rate: ₹${_order!['delegatedCost'] ?? _order!['delegated_cost']}',
+                    style: const TextStyle(color: AppTheme.trustGreen, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1309,6 +1719,64 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _buildQuickActionBar(ThemeData theme) {
+    if (_isPartnerJobFromOtherShop) {
+      final originPhone = (_order!['originPhone'] ?? _order!['origin_phone'] ?? '').toString();
+      final originShop = (_order!['originShopName'] ?? _order!['origin_shop_name'] ?? 'Partner Tailor').toString();
+
+      return NeoCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.handshake_outlined, color: AppTheme.brandPurple, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Partner Tailor Actions',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            if ((_order!['delegatedCost'] ?? _order!['delegated_cost']) != null && ((_order!['delegatedCost'] ?? _order!['delegated_cost']) as num) > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Agreed Outsourced Rate: ₹${_order!['delegatedCost'] ?? _order!['delegated_cost']}',
+                style: const TextStyle(color: AppTheme.trustGreen, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              'This order was outsourced from $originShop. Customer contact details and customer quick actions are restricted to protect merchant privacy.',
+              style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12),
+            ),
+            if (originPhone.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.brandPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () async {
+                    final uri = Uri.parse('tel:$originPhone');
+                    if (await canLaunchUrl(uri)) await launchUrl(uri);
+                  },
+                  icon: const Icon(Icons.phone, size: 18, color: Colors.white),
+                  label: Text(
+                    'Call Origin Tailor ($originShop)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
     final customerPhone = (_order!['customerPhone'] ?? _order!['customer']?['phone'] ?? '').toString();
     final hasPhone = customerPhone.isNotEmpty;
 
@@ -1536,7 +2004,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     );
   }
 
-  Map<String, dynamic> _mapSqliteOrderToBackend(Map<String, dynamic> m) {
+  Map<String, dynamic> _mapSqliteOrderToBackend(
+    Map<String, dynamic> m, {
+    List<Map<String, dynamic>> liningItems = const [],
+  }) {
     final Map<String, dynamic> data = {};
     data['_id'] = m['id'];
     data['id'] = m['id'];
@@ -1554,31 +2025,45 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     
     // Price
     data['price'] = (m['total_amount'] as num?)?.toDouble() ?? 0.0;
-    
-    // Dates
-    if (m['order_date'] != null) {
-      data['date'] = DateTime.fromMillisecondsSinceEpoch(m['order_date'] as int).toUtc().toIso8601String();
+    data['total_amount'] = data['price'];
+    data['advance_amount'] = (m['advance_amount'] as num?)?.toDouble() ?? 0.0;
+    data['advancePaid'] = data['advance_amount'];
+
+    // Lining & Aster inventory fields from SQLite
+    data['astar_required'] = m['astar_required'];
+    data['astar_source'] = m['astar_source'];
+    data['astar_cost'] = (m['astar_cost'] as num?)?.toDouble() ?? 0.0;
+    data['material_cost'] = (m['material_cost'] as num?)?.toDouble() ?? 0.0;
+
+    double inventoryTotal = 0.0;
+    if (liningItems.isNotEmpty) {
+      final firstLining = liningItems.first;
+      data['needsAster'] = true;
+      final q = (firstLining['quantity'] as num?)?.toDouble() ?? 1.0;
+      final p = (firstLining['unit_price'] as num?)?.toDouble() ?? 0.0;
+      data['asterQuantity'] = q;
+      data['asterSellingPrice'] = p;
+      data['asterItemName'] = firstLining['material_type'] ?? 'Lining Stock';
+      inventoryTotal = q * p;
+    } else if (m['astar_required'] == 1 || (m['astar_cost'] as num? ?? 0) > 0) {
+      data['needsAster'] = true;
+      data['asterQuantity'] = 1.0;
+      data['asterSellingPrice'] = (m['astar_cost'] as num?)?.toDouble() ?? 0.0;
+      data['asterItemName'] = (m['astar_source'] != null && m['astar_source'] != 'Customer')
+          ? m['astar_source']
+          : 'Lining Material';
+      inventoryTotal = data['asterSellingPrice'];
     }
-    if (m['due_date'] != null) {
-      data['deliveryDate'] = DateTime.fromMillisecondsSinceEpoch(m['due_date'] as int).toUtc().toIso8601String();
-    }
-    
-    // Apparel/Garment Type
-    final itemTypesStr = m['item_types'] as String?;
-    final itemTypesList = itemTypesStr != null ? itemTypesStr.split(',').where((e) => e.isNotEmpty).toList() : [];
-    data['garmentType'] = itemTypesList.isNotEmpty ? itemTypesList.first : 'Custom Order';
-    data['apparelType'] = data['garmentType'];
-    
-    // Fabric
-    data['fabric'] = m['description'] ?? '';
-    
-    // Fabric image
-    data['fabricImageUrl'] = m['fabric_photo_url'] ?? '';
-    
-    // Payment mock
+
+    final rawPrice = (m['total_amount'] as num?)?.toDouble() ?? 0.0;
+    final totalBill = rawPrice + inventoryTotal;
+    final advancePaid = (m['advance_amount'] as num?)?.toDouble() ?? 0.0;
+
+    // Payment mock including inventory costs
     data['payment'] = {
-      'paidAmount': (m['advance_amount'] as num?)?.toDouble() ?? 0.0,
-      'balanceAmount': ((m['total_amount'] as num?)?.toDouble() ?? 0.0) - ((m['advance_amount'] as num?)?.toDouble() ?? 0.0),
+      'totalAmount': totalBill,
+      'paidAmount': advancePaid,
+      'balanceAmount': (totalBill - advancePaid).clamp(0.0, double.infinity),
     };
     
     // Default empty lists for relation population
@@ -1595,6 +2080,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     data['delegatedNotes'] = m['delegated_notes'];
     data['originShopName'] = m['origin_shop_name'];
     data['originPhone'] = m['origin_phone'];
+    data['delegatedCost'] = (m['delegated_cost'] as num?)?.toDouble() ?? 0.0;
+    data['delegated_cost'] = data['delegatedCost'];
     
     // Try to parse style attributes
     if (m['style_attributes_json'] != null) {
@@ -1606,5 +2093,106 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
     
     return data;
+  }
+}
+
+class _EditOrderResult {
+  final double price;
+  final DateTime dueDate;
+
+  const _EditOrderResult({required this.price, required this.dueDate});
+}
+
+class _EditOrderBottomSheet extends StatefulWidget {
+  final double initialPrice;
+  final DateTime initialDueDate;
+
+  const _EditOrderBottomSheet({
+    required this.initialPrice,
+    required this.initialDueDate,
+  });
+
+  @override
+  State<_EditOrderBottomSheet> createState() => _EditOrderBottomSheetState();
+}
+
+class _EditOrderBottomSheetState extends State<_EditOrderBottomSheet> {
+  late final TextEditingController _priceController;
+  late DateTime _dueDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _priceController = TextEditingController(
+      text: widget.initialPrice > 0 ? widget.initialPrice.toStringAsFixed(0) : '0',
+    );
+    _dueDate = widget.initialDueDate;
+  }
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Edit Order Details',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+
+            // Price
+            TextField(
+              controller: _priceController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Total Price (₹)'),
+            ),
+            const SizedBox(height: 12),
+
+            // Due Date Selector
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Delivery Date', style: TextStyle(color: AppTheme.darkGrey, fontSize: 12)),
+              subtitle: Text(
+                DateFormat('dd MMMM yyyy (EEEE)').format(_dueDate),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              trailing: const Icon(Icons.calendar_today, color: AppTheme.brandPurple),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dueDate,
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (picked != null) {
+                  setState(() => _dueDate = picked);
+                }
+              },
+            ),
+            const SizedBox(height: 24),
+
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandPurple),
+              onPressed: () {
+                final parsed = double.tryParse(_priceController.text) ?? 0.0;
+                Navigator.pop(context, _EditOrderResult(price: parsed, dueDate: _dueDate));
+              },
+              child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

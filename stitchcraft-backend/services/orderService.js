@@ -340,12 +340,22 @@ export const createOrderService = async (reqBody, shopId, userId) => {
     shareTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
   });
 
+  let effectivePaymentType = paymentType || 'Cash';
+  if (typeof effectivePaymentType === 'string') {
+    const pt = effectivePaymentType.trim().toLowerCase();
+    if (pt === 'cash') effectivePaymentType = 'Cash';
+    else if (pt === 'upi' || pt === 'online') effectivePaymentType = 'UPI';
+    else if (pt === 'card') effectivePaymentType = 'Card';
+    else if (pt === 'credit') effectivePaymentType = 'Credit';
+    else if (pt === 'bank') effectivePaymentType = 'Bank';
+  }
+
   const payment = await Payment.create({
     shopId,
     orderId: order._id,
     totalAmount: effectivePrice + asterTotalCharge,
     paidAmount: advancePaid || 0,
-    paymentType: paymentType || 'Cash',
+    paymentType: effectivePaymentType,
   });
 
   if (advancePaid && Number(advancePaid) > 0) {
@@ -353,7 +363,7 @@ export const createOrderService = async (reqBody, shopId, userId) => {
       shopId,
       orderId: order._id,
       amount: Number(advancePaid),
-      paymentType: paymentType || 'Cash',
+      paymentType: effectivePaymentType,
       type: 'Payment',
     });
     await syncPaymentFromTransactions(order._id, shopId);
@@ -498,14 +508,20 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
 };
 
 // Delegate Order to Another Tailor
-export const delegateOrderService = async (orderId, shopId, { targetShopId, targetShopName, targetPhone, notes }) => {
+export const delegateOrderService = async (orderId, shopId, { targetShopId, targetShopName, targetPhone, notes, agreedCost }) => {
   const query = isValidIdentifier(orderId)
     ? { _id: orderId, shopId }
     : { orderId: typeof orderId === 'string' ? orderId : '', shopId };
   const order = await Order.findOne(query);
   if (!order) return null;
 
+  const currentStatus = (order.status || '').toLowerCase();
+  if (['delivered', 'completed', 'ready', 'cancelled'].includes(currentStatus)) {
+    throw new Error('Cannot outsource an order that is already completed or cancelled');
+  }
+
   const originShop = await Shop.findById(shopId);
+  const costNum = agreedCost !== undefined && agreedCost !== null ? Number(agreedCost) : 0;
 
   order.delegatedToShopId = targetShopId;
   order.delegatedToShopName = targetShopName || '';
@@ -513,6 +529,8 @@ export const delegateOrderService = async (orderId, shopId, { targetShopId, targ
   order.delegatedAt = new Date();
   order.delegationStatus = 'assigned';
   order.delegatedNotes = notes || '';
+  order.delegatedCost = costNum;
+  order.agreedCost = costNum;
   order.originShopId = shopId;
   order.originShopName = originShop?.shopName || 'Main Shop';
   order.originPhone = originShop?.phone || '';
@@ -524,12 +542,97 @@ export const delegateOrderService = async (orderId, shopId, { targetShopId, targ
     shopId: targetShopId,
     orderId: order._id,
     title: 'New Job from Partner Tailor! 🧵',
-    message: `${originShop?.shopName || 'Another tailor shop'} sent you an order for ${order.customerName} (${order.apparelType || 'Garment'}).`,
+    message: `${originShop?.shopName || 'Another tailor shop'} sent you an order for ${order.apparelType || order.garmentType || 'Garment'} with agreed rate ₹${costNum}.`,
     type: 'delegated_order_assigned',
     sendPush: true,
   });
 
   return updated;
+};
+
+// Sanitize Order details when accessed by an outsourced partner tailor
+export const sanitizeOrderForPartnerTailor = (orderObj, requestingShopId) => {
+  if (!orderObj) return orderObj;
+
+  const isPlain = typeof orderObj.toJSON === 'function' ? orderObj.toJSON() : { ...orderObj };
+  const originShopId = isPlain.shopId || isPlain.originShopId;
+  const isDelegatedToMe = Boolean(
+    requestingShopId &&
+    isPlain.delegatedToShopId &&
+    String(isPlain.delegatedToShopId) === String(requestingShopId) &&
+    String(originShopId) !== String(requestingShopId)
+  );
+
+  if (!isDelegatedToMe) {
+    return isPlain;
+  }
+
+  // 1. Show as coming from other tailor
+  const originShopName = isPlain.originShopName || 'Partner Tailor Shop';
+  const originPhone = isPlain.originPhone || '';
+
+  isPlain.isPartnerJob = true;
+  isPlain.isOutsourcedToMe = true;
+  isPlain.delegationStatus = isPlain.delegationStatus || 'assigned';
+
+  // 2. Hide customer details (protect privacy, no customer poaching)
+  isPlain.customerName = `Partner Tailor: ${originShopName}`;
+  isPlain.customerPhone = originPhone;
+  isPlain.customerId = null;
+  isPlain.customer = {
+    name: `Partner Tailor: ${originShopName}`,
+    phone: originPhone,
+    isPartnerShop: true,
+  };
+  delete isPlain.customerAddress;
+
+  // 3. Due date must be ONE DAY BEFORE the main order's delivery date
+  if (isPlain.deliveryDate) {
+    const origDelivery = new Date(isPlain.deliveryDate);
+    if (!isNaN(origDelivery.getTime())) {
+      const oneDayBefore = new Date(origDelivery.getTime() - 24 * 60 * 60 * 1000);
+      isPlain.deliveryDate = oneDayBefore.toISOString();
+      isPlain.partnerDueDate = oneDayBefore.toISOString();
+    }
+  }
+  if (isPlain.dueDate) {
+    const origDue = typeof isPlain.dueDate === 'number'
+      ? new Date(isPlain.dueDate)
+      : new Date(isPlain.dueDate);
+    if (!isNaN(origDue.getTime())) {
+      const oneDayBefore = new Date(origDue.getTime() - 24 * 60 * 60 * 1000);
+      isPlain.dueDate = typeof isPlain.dueDate === 'number'
+        ? oneDayBefore.getTime()
+        : oneDayBefore.toISOString();
+    }
+  }
+
+  // 4. Billing cost privacy: show billing cost set by main tailor at time of outsourcing
+  const outsourcedCost = Number(isPlain.delegatedCost ?? isPlain.agreedCost ?? 0);
+  isPlain.price = outsourcedCost;
+  isPlain.totalAmount = outsourcedCost;
+  isPlain.laborCost = outsourcedCost;
+  delete isPlain.originalPrice;
+  delete isPlain.asterProfit;
+  delete isPlain.asterCostPrice;
+  delete isPlain.materialCost;
+  delete isPlain.overheadCost;
+  isPlain.advanceAmount = 0;
+  isPlain.advance_amount = 0;
+  isPlain.advancePaid = 0;
+
+  // Mask payment object to reflect agreed outsourced fee
+  isPlain.payment = {
+    totalAmount: outsourcedCost,
+    paidAmount: 0,
+    balanceAmount: outsourcedCost,
+    status: 'Pending',
+    isPartnerB2B: true,
+  };
+  isPlain.transactions = []; // Strip all customer transactions
+
+  // 5. Fabric details (fabric, fabricImageUrl, asterQuantity, etc.) remain intact
+  return isPlain;
 };
 
 // Revoke Delegated Order back to originating tailor
@@ -539,6 +642,11 @@ export const revokeDelegationService = async (orderId, shopId) => {
     : { orderId: typeof orderId === 'string' ? orderId : '', shopId };
   const order = await Order.findOne(query);
   if (!order) return null;
+
+  const currentStatus = (order.status || '').toLowerCase();
+  if (['delivered', 'completed', 'ready', 'cancelled'].includes(currentStatus)) {
+    throw new Error('Cannot recall an order that is already completed or cancelled');
+  }
 
   const previousPartnerShopId = order.delegatedToShopId;
 

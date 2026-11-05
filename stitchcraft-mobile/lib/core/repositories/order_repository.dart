@@ -92,6 +92,9 @@ class OrderRepository {
 
   Future<void> recordPayment(String orderId, double amount, String method) async {
     final token = await _authService.getToken();
+    final normalizedMethod = method.toLowerCase() == 'online' || method.toLowerCase() == 'upi'
+        ? 'UPI'
+        : (method.toLowerCase() == 'cash' ? 'Cash' : method);
     final response = await http.post(
       Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
       headers: {
@@ -100,7 +103,7 @@ class OrderRepository {
       },
       body: json.encode({
         'amount': amount,
-        'paymentType': method,
+        'paymentType': normalizedMethod,
       }),
     ).timeout(const Duration(seconds: 10));
 

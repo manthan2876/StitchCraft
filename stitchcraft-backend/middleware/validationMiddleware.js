@@ -173,7 +173,7 @@ export const validateOrderUpdateRequest = (req, res, next) => {
  * Validate payment record
  */
 export const validatePaymentRequest = (req, res, next) => {
-  const { amount, paymentType } = req.body;
+  let { amount, paymentType } = req.body;
   const errors = {};
 
   const numAmount = Number(amount);
@@ -181,7 +181,17 @@ export const validatePaymentRequest = (req, res, next) => {
     errors.amount = 'Payment amount must be a positive number';
   }
 
-  if (paymentType && !['Cash', 'UPI', 'Card', 'Credit', 'Bank'].includes(paymentType)) {
+  if (paymentType && typeof paymentType === 'string') {
+    const pt = paymentType.trim().toLowerCase();
+    if (pt === 'cash') paymentType = 'Cash';
+    else if (pt === 'upi' || pt === 'online') paymentType = 'UPI';
+    else if (pt === 'card') paymentType = 'Card';
+    else if (pt === 'credit') paymentType = 'Credit';
+    else if (pt === 'bank') paymentType = 'Bank';
+    req.body.paymentType = paymentType;
+  }
+
+  if (paymentType && !['Cash', 'UPI', 'Card', 'Credit', 'Bank', 'Online'].includes(paymentType)) {
     errors.paymentType = 'Invalid payment mode';
   }
 

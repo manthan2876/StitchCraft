@@ -4,7 +4,6 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/localization_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
-import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class LanguageSelectionScreen extends StatefulWidget {
   const LanguageSelectionScreen({super.key});
@@ -17,6 +16,7 @@ class LanguageSelectionScreen extends StatefulWidget {
 class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
   final _loc = LocalizationService();
   String _selectedLang = 'en';
+  bool _isChanging = false;
 
   @override
   void initState() {
@@ -26,32 +26,118 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
 
   Future<void> _loadCurrentLanguage() async {
     await _loc.loadLanguage();
-    setState(() {
-      _selectedLang = _loc.currentLanguage;
-    });
+    if (mounted) {
+      setState(() {
+        _selectedLang = _loc.currentLanguage;
+      });
+    }
+  }
+
+  String _getTitle() {
+    switch (_selectedLang) {
+      case 'gu':
+        return 'ભાષા સેટિંગ્સ';
+      case 'hi':
+        return 'भाषा सेटिंग्स';
+      case 'en':
+      default:
+        return 'Language Settings';
+    }
+  }
+
+  String _getHeading() {
+    switch (_selectedLang) {
+      case 'gu':
+        return 'તમારી ભાષા પસંદ કરો';
+      case 'hi':
+        return 'अपनी भाषा चुनें';
+      case 'en':
+      default:
+        return 'Select Language';
+    }
+  }
+
+  String _getContinueText() {
+    switch (_selectedLang) {
+      case 'gu':
+        return 'આગળ વધો';
+      case 'hi':
+        return 'आगे बढ़ें';
+      case 'en':
+      default:
+        return 'Continue';
+    }
+  }
+
+  String _getLanguageUpdatedText(String code) {
+    switch (code) {
+      case 'gu':
+        return 'ભાષા ગુજરાતીમાં બદલાઈ ગઈ છે';
+      case 'hi':
+        return 'भाषा बदलकर हिंदी कर दी गई है';
+      case 'en':
+      default:
+        return 'Language changed to English';
+    }
   }
 
   Future<void> _changeLanguage(String code) async {
-    await _loc.setLanguage(code);
+    if (_isChanging) return;
     setState(() {
       _selectedLang = code;
+      _isChanging = true;
     });
 
+    try {
+      await _loc.setLanguage(code);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_selected_language', true);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_getLanguageUpdatedText(code)),
+          duration: const Duration(seconds: 2),
+          backgroundColor: AppTheme.brandPurple,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      // If opened from inside the app (e.g. Settings or Drawer), smoothly pop back after user sees checkmark
+      if (Navigator.canPop(context)) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isChanging = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _proceedFromOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_selected_language', true);
     final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     final String? token = await AuthService().getToken();
 
-    if (mounted) {
-      if (isLoggedIn && token != null && token.isNotEmpty) {
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context);
-        } else {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
+    if (!mounted) return;
+
+    if (isLoggedIn && token != null && token.isNotEmpty) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
       } else {
-        Navigator.pushNamed(context, '/onboarding');
+        Navigator.pushReplacementNamed(context, '/home');
       }
+    } else {
+      Navigator.pushNamed(context, '/onboarding');
     }
   }
 
@@ -62,7 +148,13 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: Navigator.canPop(context)
-          ? AppBar(title: Text(context.loc.language_settings))
+          ? AppBar(
+              title: Text(_getTitle()),
+              leading: IconButton(
+                icon: const BackButtonIcon(),
+                onPressed: () => Navigator.pop(context),
+              ),
+            )
           : null,
       body: SafeArea(
         child: Padding(
@@ -72,7 +164,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
             children: [
               const SizedBox(height: 20),
               Text(
-                context.loc.select_language,
+                _getHeading(),
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -95,6 +187,31 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   ],
                 ),
               ),
+              if (!Navigator.canPop(context)) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.brandPurple,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _isChanging ? null : _proceedFromOnboarding,
+                    child: Text(
+                      _getContinueText(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -14,13 +14,17 @@ class LocalizationService {
   Future<void> loadLanguage() async {
     final prefs = await SharedPreferences.getInstance();
     final String code = prefs.getString('language') ?? 'en';
-    localeNotifier.value = Locale(code, '');
+    if (localeNotifier.value.languageCode != code) {
+      localeNotifier.value = Locale(code, '');
+    }
   }
 
   Future<void> setLanguage(String languageCode) async {
-    localeNotifier.value = Locale(languageCode, '');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language', languageCode);
+    if (localeNotifier.value.languageCode != languageCode) {
+      localeNotifier.value = Locale(languageCode, '');
+    }
   }
 
   String translate(BuildContext context, String key) {

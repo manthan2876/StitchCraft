@@ -70,6 +70,20 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         } else {
           await prefs.remove('userAvatar');
         }
+
+        final activeShopId = profile['shopId'] as String?;
+        if (activeShopId != null && shops.isNotEmpty) {
+          final activeShop = shops.firstWhere(
+            (s) => s['_id'] == activeShopId || s['id'] == activeShopId,
+            orElse: () => null,
+          );
+          if (activeShop != null) {
+            if (activeShop['shopName'] != null) await prefs.setString('shopName', activeShop['shopName']);
+            if (activeShop['upiId'] != null) await prefs.setString('shopUpi', activeShop['upiId']);
+            if (activeShop['gstin'] != null) await prefs.setString('shopGstin', activeShop['gstin']);
+          }
+        }
+
         setState(() {
           _userProfile = profile;
           _nameController.text = profile['name'] ?? '';
@@ -274,7 +288,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  Future<void> _addShop(String name, String phone, String address) async {
+  Future<void> _addShop(String name, String phone, String address, String upiId, String gstin) async {
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -289,6 +303,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           'shopName': name,
           'phone': phone,
           'address': address,
+          'upiId': upiId,
+          'gstin': gstin,
         }),
       );
 
@@ -310,7 +326,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
-  Future<void> _editShop(String id, String name, String phone, String address) async {
+  Future<void> _editShop(String id, String name, String phone, String address, String upiId, String gstin) async {
     setState(() => _isLoading = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -325,6 +341,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           'shopName': name,
           'phone': phone,
           'address': address,
+          'upiId': upiId,
+          'gstin': gstin,
         }),
       );
 
@@ -420,7 +438,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: CustomAppBar(
         title: context.loc.settings_and_hub,
-        showDrawerButton: !widget.isTab,
+        showDrawerButton: false,
+        automaticallyImplyLeading: !widget.isTab,
+        leading: !widget.isTab
+            ? IconButton(
+                icon: const BackButtonIcon(),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacementNamed(context, '/home');
+                  }
+                },
+              )
+            : null,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,

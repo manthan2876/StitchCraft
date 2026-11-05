@@ -204,7 +204,7 @@ class _AddIncomeBottomSheetState extends State<AddIncomeBottomSheet> {
                 icon: const Icon(Icons.check, size: 20),
                 label: const Text(
                   'Save Income Entry',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                 ),
               ),
             ),

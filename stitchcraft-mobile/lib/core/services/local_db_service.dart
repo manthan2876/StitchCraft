@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,7 @@ class LocalDatabaseService {
   static final LocalDatabaseService _instance =
       LocalDatabaseService._internal();
   static Database? _database;
+  static Completer<Database>? _dbOpenCompleter;
   static final Map<String, List<Map<String, dynamic>>> _webDb = {};
 
   static const _secureStorage = FlutterSecureStorage(
@@ -35,6 +37,7 @@ class LocalDatabaseService {
       'lining_items',
       'gallery_items',
       'inventory',
+      'order_payments',
     ];
     for (final table in tables) {
       _webDb.putIfAbsent(table, () => []);
@@ -46,9 +49,21 @@ class LocalDatabaseService {
       await _initWebDb();
       return null;
     }
-    if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
+    if (_dbOpenCompleter != null) return await _dbOpenCompleter!.future;
+
+    _dbOpenCompleter = Completer<Database>();
+    try {
+      _database = await _initDatabase();
+      _dbOpenCompleter!.complete(_database);
+      return _database!;
+    } catch (e, stack) {
+      _dbOpenCompleter!.completeError(e, stack);
+      _database = null;
+      rethrow;
+    } finally {
+      _dbOpenCompleter = null;
+    }
   }
 
   Future<String> _getOrGenerateDatabaseKey() async {
@@ -72,17 +87,34 @@ class LocalDatabaseService {
     final secureKey = await _getOrGenerateDatabaseKey();
 
     try {
-      return await openDatabase(
+      final db = await openDatabase(
         path,
         password: secureKey,
-        version: 7, // Incremented for delegation columns
+        version: 8, // Incremented to 8 for tenant isolation & shop_id columns
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys = ON');
         },
       );
+      await _ensureAllRequiredColumns(db);
+      return db;
     } catch (e) {
+      final errStr = e.toString().toLowerCase();
+      final isDecryptionError = errStr.contains('not a database') ||
+          errStr.contains('code 26') ||
+          errStr.contains('file is not a database') ||
+          errStr.contains('hmac check failed');
+
+      if (!isDecryptionError) {
+        developer.log(
+          'Database open failed with non-decryption error: $e',
+          name: 'LocalDatabaseService',
+          error: e,
+        );
+        rethrow;
+      }
+
       // Database may have been encrypted with the legacy committed key
       try {
         final legacyDb = await openDatabase(
@@ -96,16 +128,18 @@ class LocalDatabaseService {
           name: 'LocalDatabaseService',
         );
 
-        return await openDatabase(
+        final recoveredDb = await openDatabase(
           path,
           password: secureKey,
-          version: 7,
+          version: 8,
           onCreate: _onCreate,
           onUpgrade: _onUpgrade,
           onConfigure: (db) async {
             await db.execute('PRAGMA foreign_keys = ON');
           },
         );
+        await _ensureAllRequiredColumns(recoveredDb);
+        return recoveredDb;
       } catch (migrationErr) {
         developer.log(
           'Could not open or migrate the local database: $migrationErr',
@@ -119,52 +153,138 @@ class LocalDatabaseService {
     }
   }
 
+  Future<void> _safeExecute(Database db, String statement) async {
+    try {
+      await db.execute(statement);
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('duplicate column name') ||
+          msg.contains('already exists')) {
+        developer.log(
+          'Notice: migration statement skipped ($e)',
+          name: 'LocalDatabaseService',
+        );
+        return;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _ensureColumnExists(
+    Database db,
+    String table,
+    String column,
+    String definition,
+  ) async {
+    try {
+      final columns = await db.rawQuery('PRAGMA table_info($table)');
+      final hasColumn = columns.any(
+        (col) => col['name']?.toString().toLowerCase() == column.toLowerCase(),
+      );
+      if (!hasColumn) {
+        await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+      }
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('duplicate column name')) {
+        return;
+      }
+      developer.log(
+        'Error ensuring column $table.$column: $e',
+        name: 'LocalDatabaseService',
+      );
+    }
+  }
+
+  Future<void> _ensureAllRequiredColumns(Database db) async {
+    try {
+      // 1. Ensure order_payments table exists
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS order_payments (
+          id TEXT PRIMARY KEY,
+          order_id TEXT NOT NULL,
+          amount REAL NOT NULL,
+          payment_method TEXT,
+          date INTEGER NOT NULL,
+          shop_id TEXT,
+          sync_status INTEGER DEFAULT 1,
+          updated_at INTEGER NOT NULL
+        )
+      ''');
+
+      // 2. Ensure shop_id on all tenant-isolated tables
+      await _ensureColumnExists(db, 'orders', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'customers', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'expenses', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'expenses', 'type', "TEXT DEFAULT 'expense'");
+      await _ensureColumnExists(db, 'order_payments', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'inventory', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'repair_jobs', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'measurements', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'lining_items', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'gallery_items', 'shop_id', 'TEXT');
+
+      // 3. Ensure order delegation & styling columns
+      await _ensureColumnExists(db, 'orders', 'delegated_to_shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'orders', 'delegated_to_shop_name', 'TEXT');
+      await _ensureColumnExists(db, 'orders', 'delegated_to_phone', 'TEXT');
+      await _ensureColumnExists(
+        db,
+        'orders',
+        'delegation_status',
+        "TEXT DEFAULT 'none'",
+      );
+      await _ensureColumnExists(db, 'orders', 'origin_shop_name', 'TEXT');
+      await _ensureColumnExists(db, 'orders', 'origin_phone', 'TEXT');
+      await _ensureColumnExists(db, 'orders', 'delegated_notes', 'TEXT');
+      await _ensureColumnExists(db, 'orders', 'delegated_cost', 'REAL DEFAULT 0.0');
+      await _ensureColumnExists(db, 'orders', 'fabric_photo_url', 'TEXT');
+      await _ensureColumnExists(db, 'orders', 'astar_required', 'INTEGER DEFAULT 0');
+      await _ensureColumnExists(db, 'orders', 'astar_source', 'TEXT');
+      await _ensureColumnExists(db, 'orders', 'astar_cost', 'REAL DEFAULT 0.0');
+
+      // 4. Ensure customer physical and preference columns
+      await _ensureColumnExists(db, 'customers', 'physical_attributes', 'TEXT');
+      await _ensureColumnExists(db, 'customers', 'soft_preferences', 'TEXT');
+      await _ensureColumnExists(db, 'customers', 'ltv', 'REAL DEFAULT 0.0');
+
+      // 5. Ensure measurement columns
+      await _ensureColumnExists(db, 'measurements', 'measurement_mode', 'TEXT DEFAULT "body"');
+      await _ensureColumnExists(db, 'measurements', 'garment_type', 'TEXT');
+      await _ensureColumnExists(db, 'measurements', 'stretch_factor', 'INTEGER DEFAULT 0');
+    } catch (e) {
+      developer.log(
+        'Warning: _ensureAllRequiredColumns encountered an error: $e',
+        name: 'LocalDatabaseService',
+        error: e,
+      );
+    }
+  }
+
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     developer.log(
       'Upgrading database from version $oldVersion to $newVersion...',
       name: 'LocalDatabaseService',
     );
     if (oldVersion < 5) {
-      // Add the missing column to your orders table only if it doesn't already exist
-      final columns = await db.rawQuery('PRAGMA table_info(orders)');
-      final hasColumn = columns.any(
-        (column) => column['name'] == 'fabric_photo_url',
-      );
-      if (!hasColumn) {
-        await db.execute('ALTER TABLE orders ADD COLUMN fabric_photo_url TEXT');
-      }
+      await _ensureColumnExists(db, 'orders', 'fabric_photo_url', 'TEXT');
     }
     if (oldVersion < 6) {
-      final columns = await db.rawQuery('PRAGMA table_info(expenses)');
-      final hasColumn = columns.any(
-        (column) => column['name'] == 'type',
+      await _ensureColumnExists(
+        db,
+        'expenses',
+        'type',
+        "TEXT DEFAULT 'expense'",
       );
-      if (!hasColumn) {
-        await db.execute("ALTER TABLE expenses ADD COLUMN type TEXT DEFAULT 'expense'");
-      }
     }
-    if (oldVersion < 7) {
-      try {
-        final orderCols = await db.rawQuery('PRAGMA table_info(orders)');
-        final colNames = orderCols.map((c) => c['name']?.toString()).toSet();
-        if (!colNames.contains('delegated_to_shop_id')) {
-          await db.execute('ALTER TABLE orders ADD COLUMN delegated_to_shop_id TEXT');
-          await db.execute('ALTER TABLE orders ADD COLUMN delegated_to_shop_name TEXT');
-          await db.execute('ALTER TABLE orders ADD COLUMN delegated_to_phone TEXT');
-          await db.execute("ALTER TABLE orders ADD COLUMN delegation_status TEXT DEFAULT 'none'");
-          await db.execute('ALTER TABLE orders ADD COLUMN origin_shop_name TEXT');
-          await db.execute('ALTER TABLE orders ADD COLUMN origin_phone TEXT');
-          await db.execute('ALTER TABLE orders ADD COLUMN delegated_notes TEXT');
-        }
-      } catch (colErr) {
-        developer.log('Delegation column migration note: $colErr');
-      }
+    if (oldVersion < 8) {
+      await _ensureAllRequiredColumns(db);
     }
     for (int version = oldVersion + 1; version <= newVersion; version++) {
       final statements = upgradeTableStatements[version];
       if (statements != null) {
         for (final statement in statements) {
-          await db.execute(statement);
+          await _safeExecute(db, statement);
         }
       }
     }
@@ -200,7 +320,17 @@ class LocalDatabaseService {
       return;
     }
     final db = await database;
-    await db!.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
+    try {
+      await db!.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('no such column') || msg.contains('has no column named')) {
+        await _ensureAllRequiredColumns(db!);
+        await db.insert(table, data, conflictAlgorithm: ConflictAlgorithm.replace);
+        return;
+      }
+      rethrow;
+    }
   }
 
   Future<void> updateRecord(
@@ -223,12 +353,27 @@ class LocalDatabaseService {
       return;
     }
     final db = await database;
-    await db!.update(
-      table,
-      data,
-      where: '$idColumn = ?',
-      whereArgs: [id],
-    );
+    try {
+      await db!.update(
+        table,
+        data,
+        where: '$idColumn = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('no such column') || msg.contains('has no column named')) {
+        await _ensureAllRequiredColumns(db!);
+        await db.update(
+          table,
+          data,
+          where: '$idColumn = ?',
+          whereArgs: [id],
+        );
+        return;
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>?> getRecordById(
@@ -280,12 +425,26 @@ class LocalDatabaseService {
     final db = await database;
     final baseWhere = 'sync_status != 2';
     final resolvedWhere = where != null ? '$baseWhere AND ($where)' : baseWhere;
-    return await db!.query(
-      table,
-      where: resolvedWhere,
-      whereArgs: whereArgs,
-      orderBy: orderBy,
-    );
+    try {
+      return await db!.query(
+        table,
+        where: resolvedWhere,
+        whereArgs: whereArgs,
+        orderBy: orderBy,
+      );
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('no such column')) {
+        await _ensureAllRequiredColumns(db!);
+        return await db.query(
+          table,
+          where: resolvedWhere,
+          whereArgs: whereArgs,
+          orderBy: orderBy,
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> softDeleteRecord(
@@ -340,8 +499,18 @@ class LocalDatabaseService {
   // ============== CUSTOMER CRUD ==============
   Future<void> insertCustomer(Map<String, dynamic> customer) =>
       insertRecord('customers', customer);
-  Future<List<Map<String, dynamic>>> getCustomers() => getRecords('customers');
-  Future<List<Map<String, dynamic>>> getAllCustomers() => getCustomers();
+  Future<List<Map<String, dynamic>>> getCustomers({String? shopId}) {
+    if (shopId != null && shopId.isNotEmpty) {
+      return getRecords(
+        'customers',
+        where: 'shop_id IS NULL OR shop_id = "" OR shop_id = ?',
+        whereArgs: [shopId],
+      );
+    }
+    return getRecords('customers');
+  }
+  Future<List<Map<String, dynamic>>> getAllCustomers({String? shopId}) =>
+      getCustomers(shopId: shopId);
   Future<Map<String, dynamic>?> getCustomer(String id) =>
       getRecordById('customers', id);
 
@@ -383,12 +552,20 @@ class LocalDatabaseService {
   Future<void> insertOrder(Map<String, dynamic> order) =>
       insertRecord('orders', order);
 
-  Future<List<Map<String, dynamic>>> getAllOrders() async {
+  Future<List<Map<String, dynamic>>> getAllOrders({String? shopId}) async {
     if (kIsWeb) {
       await _initWebDb();
-      final orders = List<Map<String, dynamic>>.from(
+      var orders = List<Map<String, dynamic>>.from(
         _webDb['orders']!.where((r) => r['sync_status'] != 2),
       );
+      if (shopId != null && shopId.isNotEmpty) {
+        orders = orders.where((o) =>
+          o['shop_id'] == null ||
+          o['shop_id'].toString().isEmpty ||
+          o['shop_id'].toString() == shopId ||
+          o['delegated_to_shop_id']?.toString() == shopId
+        ).toList();
+      }
       for (int i = 0; i < orders.length; i++) {
         final custId = orders[i]['customer_id'];
         final cust = _webDb['customers']?.firstWhere(
@@ -405,13 +582,22 @@ class LocalDatabaseService {
     }
     final db = await database;
     try {
+      final String whereClause;
+      final List<dynamic> whereArgs;
+      if (shopId != null && shopId.isNotEmpty) {
+        whereClause = 'WHERE orders.sync_status != 2 AND (orders.shop_id IS NULL OR orders.shop_id = "" OR orders.shop_id = ? OR orders.delegated_to_shop_id = ?)';
+        whereArgs = [shopId, shopId];
+      } else {
+        whereClause = 'WHERE orders.sync_status != 2';
+        whereArgs = [];
+      }
       final results = await db!.rawQuery('''
         SELECT orders.*, customers.phone AS customer_phone 
         FROM orders 
         LEFT JOIN customers ON orders.customer_id = customers.id 
-        WHERE orders.sync_status != 2 
+        $whereClause 
         ORDER BY orders.order_date DESC
-      ''');
+      ''', whereArgs);
       return results.map((row) {
         final map = Map<String, dynamic>.from(row);
         if (map['phone'] == null || (map['phone'] as String).isEmpty) {
@@ -419,7 +605,36 @@ class LocalDatabaseService {
         }
         return map;
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('no such column')) {
+        await _ensureAllRequiredColumns(db!);
+        try {
+          final String whereClause;
+          final List<dynamic> whereArgs;
+          if (shopId != null && shopId.isNotEmpty) {
+            whereClause = 'WHERE orders.sync_status != 2 AND (orders.shop_id IS NULL OR orders.shop_id = "" OR orders.shop_id = ? OR orders.delegated_to_shop_id = ?)';
+            whereArgs = [shopId, shopId];
+          } else {
+            whereClause = 'WHERE orders.sync_status != 2';
+            whereArgs = [];
+          }
+          final retryResults = await db.rawQuery('''
+            SELECT orders.*, customers.phone AS customer_phone 
+            FROM orders 
+            LEFT JOIN customers ON orders.customer_id = customers.id 
+            $whereClause 
+            ORDER BY orders.order_date DESC
+          ''', whereArgs);
+          return retryResults.map((row) {
+            final map = Map<String, dynamic>.from(row);
+            if (map['phone'] == null || (map['phone'] as String).isEmpty) {
+              map['phone'] = map['customer_phone'] ?? '';
+            }
+            return map;
+          }).toList();
+        } catch (_) {}
+      }
       return getRecords('orders', orderBy: 'order_date DESC');
     }
   }
@@ -429,8 +644,17 @@ class LocalDatabaseService {
   // ============== EXPENSE & INCOME CRUD ==============
   Future<void> insertExpense(Map<String, dynamic> expense) =>
       insertRecord('expenses', expense);
-  Future<List<Map<String, dynamic>>> getAllExpenses() =>
-      getRecords('expenses', orderBy: 'date DESC');
+  Future<List<Map<String, dynamic>>> getAllExpenses({String? shopId}) {
+    if (shopId != null && shopId.isNotEmpty) {
+      return getRecords(
+        'expenses',
+        where: 'shop_id IS NULL OR shop_id = "" OR shop_id = ?',
+        whereArgs: [shopId],
+        orderBy: 'date DESC',
+      );
+    }
+    return getRecords('expenses', orderBy: 'date DESC');
+  }
   Future<void> deleteExpense(String id) => softDeleteRecord('expenses', id);
   Future<void> insertIncome(Map<String, dynamic> income) {
     income['type'] = 'income';
@@ -441,8 +665,17 @@ class LocalDatabaseService {
   // ============== REPAIR JOBS CRUD ==============
   Future<void> insertRepairJob(Map<String, dynamic> job) =>
       insertRecord('repair_jobs', job);
-  Future<List<Map<String, dynamic>>> getAllRepairJobs() =>
-      getRecords('repair_jobs', orderBy: 'created_date DESC');
+  Future<List<Map<String, dynamic>>> getAllRepairJobs({String? shopId}) {
+    if (shopId != null && shopId.isNotEmpty) {
+      return getRecords(
+        'repair_jobs',
+        where: 'shop_id IS NULL OR shop_id = "" OR shop_id = ?',
+        whereArgs: [shopId],
+        orderBy: 'created_date DESC',
+      );
+    }
+    return getRecords('repair_jobs', orderBy: 'created_date DESC');
+  }
   Future<void> deleteRepairJob(String id) =>
       softDeleteRecord('repair_jobs', id);
 
@@ -457,14 +690,105 @@ class LocalDatabaseService {
   // ============== GALLERY ITEMS CRUD ==============
   Future<void> insertGalleryItem(Map<String, dynamic> item) =>
       insertRecord('gallery_items', item);
-  Future<List<Map<String, dynamic>>> getAllGalleryItems() =>
-      getRecords('gallery_items', orderBy: 'updated_at DESC');
+  Future<List<Map<String, dynamic>>> getAllGalleryItems({String? shopId}) {
+    if (shopId != null && shopId.isNotEmpty) {
+      return getRecords(
+        'gallery_items',
+        where: 'shop_id IS NULL OR shop_id = "" OR shop_id = ?',
+        whereArgs: [shopId],
+        orderBy: 'updated_at DESC',
+      );
+    }
+    return getRecords('gallery_items', orderBy: 'updated_at DESC');
+  }
   Future<void> deleteGalleryItem(String id) =>
       softDeleteRecord('gallery_items', id);
 
   // ============== INVENTORY CRUD ==============
-  Future<List<Map<String, dynamic>>> getAllInventory() =>
-      getRecords('inventory');
+  Future<List<Map<String, dynamic>>> getAllInventory({String? shopId}) {
+    if (shopId != null && shopId.isNotEmpty) {
+      return getRecords(
+        'inventory',
+        where: 'shop_id IS NULL OR shop_id = "" OR shop_id = ?',
+        whereArgs: [shopId],
+      );
+    }
+    return getRecords('inventory');
+  }
+
+  // ============== ORDER PAYMENTS CRUD ==============
+  Future<void> insertPayment(Map<String, dynamic> payment) =>
+      insertRecord('order_payments', payment);
+  Future<List<Map<String, dynamic>>> getAllPayments({String? shopId}) async {
+    if (kIsWeb) {
+      await _initWebDb();
+      var payments = List<Map<String, dynamic>>.from(
+        _webDb['order_payments']!.where((r) => r['sync_status'] != 2),
+      );
+      if (shopId != null && shopId.isNotEmpty) {
+        payments = payments.where((p) =>
+          p['shop_id'] == null ||
+          p['shop_id'].toString().isEmpty ||
+          p['shop_id'].toString() == shopId
+        ).toList();
+      }
+      return payments;
+    }
+    final db = await database;
+    try {
+      if (shopId != null && shopId.isNotEmpty) {
+        return await db!.query(
+          'order_payments',
+          where: 'sync_status != 2 AND (shop_id IS NULL OR shop_id = "" OR shop_id = ?)',
+          whereArgs: [shopId],
+          orderBy: 'date DESC',
+        );
+      }
+      return await db!.query(
+        'order_payments',
+        where: 'sync_status != 2',
+        orderBy: 'date DESC',
+      );
+    } catch (_) {
+      return getRecords('order_payments', orderBy: 'date DESC');
+    }
+  }
+  Future<List<Map<String, dynamic>>> getPaymentsByOrder(String orderId) =>
+      getRecords('order_payments', where: 'order_id = ?', whereArgs: [orderId]);
+  Future<void> deletePayment(String id) =>
+      deleteRecordPermanently('order_payments', id);
+
+  /// Clears all local table data to guarantee complete isolation across tailor accounts
+  Future<void> clearAllData() async {
+    if (kIsWeb) {
+      await _initWebDb();
+      for (final key in _webDb.keys) {
+        _webDb[key]?.clear();
+      }
+      return;
+    }
+    final db = await database;
+    if (db == null) return;
+    final tables = [
+      'orders',
+      'order_payments',
+      'expenses',
+      'customers',
+      'measurements',
+      'inventory',
+      'repair_jobs',
+      'lining_items',
+      'gallery_items',
+      'users',
+      'shop',
+      'shop_settings',
+    ];
+    for (final table in tables) {
+      try {
+        await db.delete(table);
+      } catch (_) {}
+    }
+  }
 
   // ============== SYNC HELPERS ==============
   Future<List<Map<String, dynamic>>> getUnsyncedRecords(String table) async {

@@ -265,6 +265,21 @@ export const verifyEmail = async (req, res) => {
     const { data, error } = await supabase.auth.verifyOtp(verificationParams);
 
     if (error) {
+      // Fallback: Check if user is already verified or provisioned in system
+      const emailLower = email.toLowerCase().trim();
+      let user = await User.findOne({ email: emailLower }).populate('shopId');
+      if (user) {
+        return res.json({
+          message: 'Email already verified and profile ready.',
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar,
+          shopId: user.shopId ? user.shopId._id : null,
+          shopName: user.shopId ? user.shopId.shopName : '',
+        });
+      }
       return res.status(400).json({ message: error.message });
     }
 
@@ -325,6 +340,32 @@ export const verifyEmail = async (req, res) => {
     });
   } catch (error) {
     console.error('Email verification error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Resend email verification via Supabase
+// @route   POST /api/auth/resend-verification
+// @access  Public
+export const resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email address is required' });
+    }
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: 'io.supabase.stitchcraft://login-callback/',
+      },
+    });
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+    res.json({ message: 'Verification email sent successfully' });
+  } catch (error) {
+    console.error('Resend verification error:', error);
     res.status(500).json({ message: error.message });
   }
 };

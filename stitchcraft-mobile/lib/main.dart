@@ -11,6 +11,7 @@ import 'package:stitchcraft/features/onboarding/screens/splash_screen.dart';
 import 'package:stitchcraft/features/onboarding/screens/language_screen.dart';
 import 'package:stitchcraft/features/onboarding/screens/onboarding_carousel_screen.dart';
 import 'package:stitchcraft/features/auth/screens/login_screen.dart';
+import 'package:stitchcraft/features/auth/screens/signup_screen.dart';
 import 'package:stitchcraft/features/auth/screens/role_selection_screen.dart';
 import 'package:stitchcraft/features/shop/screens/shop_setup_screen.dart';
 
@@ -140,6 +141,7 @@ class StitchCraftApp extends StatelessWidget {
                 '/language': (context) => const LanguageSelectionScreen(),
                 '/onboarding': (context) => const OnboardingCarouselScreen(),
                 '/login': (context) => const LoginScreen(),
+                '/signup': (context) => const SignupScreen(),
                 '/role_selection': (context) => const RoleSelectionScreen(),
                 '/shop_setup': (context) => const ShopSetupScreen(),
                 '/home': (context) => const MainNavigationContainer(),

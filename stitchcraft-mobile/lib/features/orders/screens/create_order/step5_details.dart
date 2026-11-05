@@ -263,6 +263,19 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
     try {
       await LocalDatabaseService().insertRecord('orders', localOrderRecord);
+      if (advance > 0) {
+        try {
+          await LocalDatabaseService().insertPayment({
+            'id': Uuid().v4(),
+            'order_id': localOrderId,
+            'amount': advance,
+            'payment_method': 'Cash',
+            'date': nowMs,
+            'sync_status': 1,
+            'updated_at': nowMs,
+          });
+        } catch (_) {}
+      }
       if (_wizardData!['needsLining'] == true && _wizardData!['liningItem'] != null) {
         final liningMap = _wizardData!['liningItem'] as Map<String, dynamic>;
         final qty = ((_wizardData!['liningQtyUsed'] as num?)?.toDouble() ?? 1.0);

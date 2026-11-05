@@ -42,6 +42,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   bool _isLoading = false;
   Map<String, dynamic>? _order;
   String _shopName = 'StitchCraft';
+  String _shopUpi = '';
+  String _shopGstin = '';
 
   @override
   void didChangeDependencies() {
@@ -57,6 +59,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _shopName = prefs.getString('shopName') ?? 'StitchCraft';
+      _shopUpi = prefs.getString('shopUpi') ?? '';
+      _shopGstin = prefs.getString('shopGstin') ?? '';
     });
   }
 
@@ -236,7 +240,14 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         ? "• Inventory Material Added: ${inventoryCharges.map((c) => "${c.itemName} (+₹${c.totalCharge.toStringAsFixed(0)})").join(', ')}\n"
         : "";
 
-    final String message = "Hello $customerName, here is the invoice $invoiceNumber for your tailoring order at $_shopName.\n\n"
+    final String effectiveGstin = (_order!['shop']?['gstin'] ?? _shopGstin).toString().trim();
+    final String effectiveUpi = (_order!['shop']?['upiId'] ?? _shopUpi).toString().trim();
+    final String gstinLine = effectiveGstin.isNotEmpty ? "GSTIN: $effectiveGstin\n" : "";
+    final String upiLine = effectiveUpi.isNotEmpty ? "UPI ID: $effectiveUpi\n" : "";
+
+    final String message = "Hello $customerName, here is the invoice $invoiceNumber for your tailoring order at $_shopName.\n"
+        "$gstinLine"
+        "$upiLine\n"
         "• Stitching Service: ₹${stitchingPrice.toStringAsFixed(2)}\n"
         "$materialBreakdown"
         "Total Bill Amount: ₹${billTotal.toStringAsFixed(2)}\n"
@@ -396,6 +407,30 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                       _shopName,
                                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                                     ),
+                                    if ((_order!['shop']?['gstin'] ?? _shopGstin).toString().trim().isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'GSTIN: ${(_order!['shop']?['gstin'] ?? _shopGstin).toString().trim()}',
+                                        style: const TextStyle(
+                                          color: AppTheme.darkGrey,
+                                          fontSize: 11,
+                                          fontFamily: 'monospace',
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                    if ((_order!['shop']?['upiId'] ?? _shopUpi).toString().trim().isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'UPI: ${(_order!['shop']?['upiId'] ?? _shopUpi).toString().trim()}',
+                                        style: const TextStyle(
+                                          color: AppTheme.darkGrey,
+                                          fontSize: 11,
+                                          fontFamily: 'monospace',
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                     const Text('StitchCraft Tailoring Bill', style: TextStyle(color: AppTheme.darkGrey, fontSize: 13)),
                                   ],
                                 ),
@@ -702,25 +737,36 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       return const SizedBox.shrink();
     }
 
-    final shopUpi = _order?['shop']?['upiId'] ?? 'merchant@upi';
+    final rawShopUpi = (_order?['shop']?['upiId'] ?? _shopUpi).toString().trim();
+    final effectiveUpi = rawShopUpi.isNotEmpty ? rawShopUpi : 'merchant@upi';
     final customerName = _order?['customerName'] ?? 'Customer';
     final orderId = _order?['_id'] ?? _order?['id'] ?? '';
     final formattedBalance = balanceDue.toStringAsFixed(2);
-    final upiUrl = 'upi://pay?pa=$shopUpi&pn=${Uri.encodeComponent(_shopName)}&am=$formattedBalance&cu=INR&tn=${Uri.encodeComponent('Tailoring Bill #$orderId')}';
+    final upiUrl = 'upi://pay?pa=$effectiveUpi&pn=${Uri.encodeComponent(_shopName)}&am=$formattedBalance&cu=INR&tn=${Uri.encodeComponent('Tailoring Bill #$orderId')}';
+    final qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${Uri.encodeComponent(upiUrl)}';
 
     return NeoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.trustGreen.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 76,
+                  height: 76,
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(4),
+                  child: Image.network(
+                    qrUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (ctx, err, stack) => const Center(
+                      child: Icon(Icons.qr_code_2, color: Colors.black87, size: 48),
+                    ),
+                  ),
                 ),
-                child: const Icon(Icons.qr_code, color: AppTheme.trustGreen, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -731,9 +777,20 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                       'Collect Balance: ${CurrencyUtils.formatINR(balanceDue)}',
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      'Direct UPI Payment for $customerName',
-                      style: const TextStyle(color: AppTheme.darkGrey, fontSize: 13),
+                      'Scan Pay QR or direct UPI for $customerName',
+                      style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'UPI ID: $effectiveUpi',
+                      style: const TextStyle(
+                        color: AppTheme.trustGreen,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
                     ),
                   ],
                 ),

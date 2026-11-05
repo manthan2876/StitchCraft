@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/utils/phone_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CustomerRepository {
   final _authService = AuthService();
@@ -38,7 +39,9 @@ class CustomerRepository {
     }
 
     // Fallback to local SQLite cache
-    final localList = await _localDb.getAllCustomers();
+    final prefs = await SharedPreferences.getInstance();
+    final shopId = prefs.getString('shopId');
+    final localList = await _localDb.getAllCustomers(shopId: shopId);
     if (search != null && search.isNotEmpty) {
       final q = search.toLowerCase();
       return localList.where((c) {
@@ -109,11 +112,14 @@ class CustomerRepository {
       final data = json.decode(response.body) as Map<String, dynamic>;
       final remoteId = data['_id'] ?? data['id'];
       if (remoteId != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final shopId = prefs.getString('shopId');
         await _localDb.insertRecord('customers', {
           'id': remoteId,
           'name': name.trim(),
           'phone': cleanPhone,
           'email': email ?? '',
+          'shop_id': shopId,
           'sync_status': 0,
           'updated_at': DateTime.now().millisecondsSinceEpoch,
         });

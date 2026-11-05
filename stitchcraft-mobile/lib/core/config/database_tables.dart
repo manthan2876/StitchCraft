@@ -38,6 +38,7 @@ const List<String> createTableStatements = [
     rating REAL,
     loyalty_points INTEGER,
     ltv REAL DEFAULT 0.0,
+    shop_id TEXT,
     sync_status INTEGER DEFAULT 1, -- 0: synced, 1: pending, 2: deleted_locally
     updated_at INTEGER NOT NULL
   )
@@ -52,6 +53,7 @@ const List<String> createTableStatements = [
     measurements_json TEXT NOT NULL, -- JSON
     measurement_date INTEGER NOT NULL,
     notes TEXT,
+    shop_id TEXT,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL,
     measurement_mode TEXT DEFAULT "body",
@@ -90,6 +92,8 @@ const List<String> createTableStatements = [
     origin_shop_name TEXT,
     origin_phone TEXT,
     delegated_notes TEXT,
+    delegated_cost REAL DEFAULT 0.0,
+    shop_id TEXT,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
@@ -104,6 +108,7 @@ const List<String> createTableStatements = [
     description TEXT,
     date INTEGER NOT NULL,
     type TEXT DEFAULT 'expense',
+    shop_id TEXT,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL
   )
@@ -117,6 +122,7 @@ const List<String> createTableStatements = [
     quantity REAL NOT NULL,
     unit_price REAL NOT NULL,
     low_stock_threshold REAL,
+    shop_id TEXT,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL
   )
@@ -135,6 +141,7 @@ const List<String> createTableStatements = [
     created_date INTEGER NOT NULL,
     completed_date INTEGER,
     notes TEXT,
+    shop_id TEXT,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
@@ -150,6 +157,7 @@ const List<String> createTableStatements = [
     unit_price REAL NOT NULL,
     quantity REAL NOT NULL,
     notes TEXT,
+    shop_id TEXT,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
@@ -166,6 +174,7 @@ const List<String> createTableStatements = [
     reference_url TEXT,
     title TEXT,
     description TEXT,
+    shop_id TEXT,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL
   )
@@ -176,6 +185,20 @@ const List<String> createTableStatements = [
     key TEXT PRIMARY KEY,
     value TEXT,
     updated_at INTEGER NOT NULL
+  )
+  ''',
+  // Order Payments Table
+  '''
+  CREATE TABLE IF NOT EXISTS order_payments (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    amount REAL NOT NULL,
+    payment_method TEXT,
+    date INTEGER NOT NULL,
+    shop_id TEXT,
+    sync_status INTEGER DEFAULT 1,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
   )
   ''',
 ];
@@ -190,7 +213,7 @@ const Map<int, List<String>> upgradeTableStatements = {
   ],
   3: [
     '''
-    CREATE TABLE shop (
+    CREATE TABLE IF NOT EXISTS shop (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       address TEXT,
@@ -200,7 +223,7 @@ const Map<int, List<String>> upgradeTableStatements = {
     )
     ''',
     '''
-    CREATE TABLE users (
+    CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       phone TEXT NOT NULL,
@@ -214,7 +237,7 @@ const Map<int, List<String>> upgradeTableStatements = {
   ],
   4: [
     '''
-    CREATE TABLE repair_jobs (
+    CREATE TABLE IF NOT EXISTS repair_jobs (
       id TEXT PRIMARY KEY,
       customer_id TEXT NOT NULL,
       customer_name TEXT NOT NULL,
@@ -232,7 +255,7 @@ const Map<int, List<String>> upgradeTableStatements = {
     )
     ''',
     '''
-    CREATE TABLE lining_items (
+    CREATE TABLE IF NOT EXISTS lining_items (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL,
       material_type TEXT NOT NULL,
@@ -246,7 +269,7 @@ const Map<int, List<String>> upgradeTableStatements = {
     )
     ''',
     '''
-    CREATE TABLE gallery_items (
+    CREATE TABLE IF NOT EXISTS gallery_items (
       id TEXT PRIMARY KEY,
       image_url TEXT NOT NULL,
       fabric_tags TEXT,
@@ -260,7 +283,7 @@ const Map<int, List<String>> upgradeTableStatements = {
     )
     ''',
     '''
-    CREATE TABLE shop_settings (
+    CREATE TABLE IF NOT EXISTS shop_settings (
       key TEXT PRIMARY KEY,
       value TEXT,
       updated_at INTEGER NOT NULL
@@ -274,7 +297,17 @@ const Map<int, List<String>> upgradeTableStatements = {
     'ALTER TABLE measurements ADD COLUMN garment_type TEXT',
     'ALTER TABLE measurements ADD COLUMN stretch_factor INTEGER DEFAULT 0',
   ],
-  6: [
-    "ALTER TABLE expenses ADD COLUMN type TEXT DEFAULT 'expense'",
+  6: [],
+  7: [
+    'ALTER TABLE orders ADD COLUMN delegated_cost REAL DEFAULT 0.0',
+    'ALTER TABLE orders ADD COLUMN shop_id TEXT',
+    'ALTER TABLE expenses ADD COLUMN shop_id TEXT',
+    'ALTER TABLE order_payments ADD COLUMN shop_id TEXT',
+    'ALTER TABLE customers ADD COLUMN shop_id TEXT',
+    'ALTER TABLE inventory ADD COLUMN shop_id TEXT',
+    'ALTER TABLE repair_jobs ADD COLUMN shop_id TEXT',
+    'ALTER TABLE measurements ADD COLUMN shop_id TEXT',
+    'ALTER TABLE lining_items ADD COLUMN shop_id TEXT',
+    'ALTER TABLE gallery_items ADD COLUMN shop_id TEXT',
   ],
 };

@@ -464,6 +464,7 @@ class SyncService {
             sqliteRecord['name'] = remoteRecord['name'] ?? 'Customer';
             sqliteRecord['phone'] = remoteRecord['phone'] ?? '';
             sqliteRecord['email'] = remoteRecord['email'] ?? '';
+            sqliteRecord['shop_id'] = remoteRecord['shopId'] ?? remoteRecord['shop_id'] ?? shopId;
             sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
           } else if (table == 'orders') {
             sqliteRecord['customer_id'] = remoteRecord['customer'] is Map
@@ -492,13 +493,27 @@ class SyncService {
 
             sqliteRecord['status'] = remoteRecord['status'] ?? 'Incoming';
             sqliteRecord['total_amount'] = (remoteRecord['price'] as num?)?.toDouble() ?? 0.0;
-            final double paid = (remoteRecord['payment'] is Map
-                    ? (remoteRecord['payment']['paidAmount'] as num?)?.toDouble()
-                    : null) ??
-                (remoteRecord['advancePaid'] as num?)?.toDouble() ??
-                (remoteRecord['advance_amount'] as num?)?.toDouble() ??
-                0.0;
-            sqliteRecord['advance_amount'] = paid;
+            
+            final bool isPartnerJob = remoteRecord['isPartnerJob'] == true ||
+                remoteRecord['isOutsourcedToMe'] == true ||
+                (remoteRecord['delegatedToShopId'] != null &&
+                    remoteRecord['delegatedToShopId'].toString() == shopId &&
+                    remoteRecord['shopId'] != null &&
+                    remoteRecord['shopId'].toString() != shopId);
+
+            if (isPartnerJob) {
+              // Partner tailors must never inherit another tailor's customer advance
+              sqliteRecord['advance_amount'] = 0.0;
+            } else {
+              final double paid = (remoteRecord['payment'] is Map
+                      ? (remoteRecord['payment']['paidAmount'] as num?)?.toDouble()
+                      : null) ??
+                  (remoteRecord['advancePaid'] as num?)?.toDouble() ??
+                  (remoteRecord['advance_amount'] as num?)?.toDouble() ??
+                  0.0;
+              sqliteRecord['advance_amount'] = paid;
+            }
+
             sqliteRecord['payment_method'] = (remoteRecord['payment'] is Map
                     ? remoteRecord['payment']['paymentType']
                     : null) ??
@@ -506,11 +521,23 @@ class SyncService {
                 'Cash';
             sqliteRecord['description'] = remoteRecord['fabric'] ?? '';
             sqliteRecord['fabric_photo_url'] = remoteRecord['fabricImageUrl'] ?? '';
+            sqliteRecord['delegated_to_shop_id'] = remoteRecord['delegatedToShopId'] ?? remoteRecord['delegated_to_shop_id'];
+            sqliteRecord['delegated_to_shop_name'] = remoteRecord['delegatedToShopName'] ?? remoteRecord['delegated_to_shop_name'];
+            sqliteRecord['delegated_to_phone'] = remoteRecord['delegatedToPhone'] ?? remoteRecord['delegated_to_phone'];
+            sqliteRecord['delegation_status'] = remoteRecord['delegationStatus'] ?? remoteRecord['delegation_status'] ?? 'none';
+            sqliteRecord['origin_shop_name'] = remoteRecord['originShopName'] ?? remoteRecord['origin_shop_name'];
+            sqliteRecord['origin_phone'] = remoteRecord['originPhone'] ?? remoteRecord['origin_phone'];
+            sqliteRecord['delegated_notes'] = remoteRecord['delegatedNotes'] ?? remoteRecord['delegated_notes'];
+            sqliteRecord['delegated_cost'] = (remoteRecord['delegatedCost'] as num?)?.toDouble() ??
+                (remoteRecord['delegated_cost'] as num?)?.toDouble() ??
+                0.0;
+            sqliteRecord['shop_id'] = remoteRecord['shopId'] ?? remoteRecord['shop_id'] ?? shopId;
             sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
           } else if (table == 'expenses') {
             sqliteRecord['category'] = remoteRecord['category'] ?? 'General';
             sqliteRecord['amount'] = (remoteRecord['amount'] as num?)?.toDouble() ?? 0.0;
             sqliteRecord['description'] = remoteRecord['description'] ?? '';
+            sqliteRecord['shop_id'] = remoteRecord['shopId'] ?? remoteRecord['shop_id'] ?? shopId;
 
             final rawDate = remoteRecord['date'] ?? remoteRecord['createdAt'];
             sqliteRecord['date'] = rawDate != null
@@ -524,6 +551,7 @@ class SyncService {
             sqliteRecord['quantity'] = (remoteRecord['quantity'] as num?)?.toDouble() ?? 0.0;
             sqliteRecord['unit_price'] = (remoteRecord['costPerUnit'] as num?)?.toDouble() ?? 0.0;
             sqliteRecord['low_stock_threshold'] = (remoteRecord['minQuantity'] as num?)?.toDouble() ?? 5.0;
+            sqliteRecord['shop_id'] = remoteRecord['shopId'] ?? remoteRecord['shop_id'] ?? shopId;
             sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
           }
 

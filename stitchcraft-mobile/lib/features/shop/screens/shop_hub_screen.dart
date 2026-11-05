@@ -14,7 +14,21 @@ class ShopHubScreen extends StatelessWidget {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: CustomAppBar(
         title: context.loc.shop_hub,
-        showDrawerButton: !isTab,
+        showDrawerButton: false,
+        automaticallyImplyLeading: !isTab,
+        leading: !isTab
+            ? IconButton(
+                icon: const BackButtonIcon(),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacementNamed(context, '/home');
+                  }
+                },
+              )
+            : null,
       ),
       body: const ShopManageTab(),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/features/khata/widgets/add_expense_bottom_sheet.dart';
 import 'package:stitchcraft/features/khata/widgets/add_income_bottom_sheet.dart';
 import 'package:stitchcraft/features/khata/widgets/expenses_list.dart';
@@ -56,8 +57,10 @@ class _KhataScreenState extends State<KhataScreen>
       setState(() => _isLoading = true);
     }
     try {
-      final allExpensesAndIncomes = await _localDb.getAllExpenses();
-      final ordersList = await _localDb.getAllOrders();
+      final prefs = await SharedPreferences.getInstance();
+      final shopId = prefs.getString('shopId');
+      final allExpensesAndIncomes = await _localDb.getAllExpenses(shopId: shopId);
+      final ordersList = await _localDb.getAllOrders(shopId: shopId);
 
       final actualExpenses = allExpensesAndIncomes.where((e) {
         final type = (e['type'] ?? '').toString().toLowerCase();
@@ -72,7 +75,14 @@ class _KhataScreenState extends State<KhataScreen>
       }).toList();
 
       // Only orders whose payment is done (full payment received and not cancelled)
+      // Exclude outsourced partner jobs (workshop tasks for another tailor)
       final paidOrders = ordersList.where((o) {
+        final bool isPartnerJob = o['isPartnerJob'] == true ||
+            o['isOutsourcedToMe'] == true ||
+            (o['origin_shop_name'] != null && o['origin_shop_name'].toString().isNotEmpty) ||
+            (o['delegation_status'] == 'assigned' && o['origin_shop_name'] != null);
+        if (isPartnerJob) return false;
+
         final status = (o['status'] ?? '').toString().toLowerCase();
         if (status == 'cancelled') return false;
 
@@ -113,6 +123,11 @@ class _KhataScreenState extends State<KhataScreen>
       builder: (context) {
         return AddExpenseBottomSheet(
           onAddExpense: (newExpense) async {
+            final prefs = await SharedPreferences.getInstance();
+            final shopId = prefs.getString('shopId');
+            if (shopId != null && shopId.isNotEmpty) {
+              newExpense['shop_id'] = shopId;
+            }
             await _localDb.insertExpense(newExpense);
             _loadData(showLoading: false);
           },
@@ -133,6 +148,11 @@ class _KhataScreenState extends State<KhataScreen>
       builder: (context) {
         return AddIncomeBottomSheet(
           onAddIncome: (newIncome) async {
+            final prefs = await SharedPreferences.getInstance();
+            final shopId = prefs.getString('shopId');
+            if (shopId != null && shopId.isNotEmpty) {
+              newIncome['shop_id'] = shopId;
+            }
             await _localDb.insertIncome(newIncome);
             _loadData(showLoading: false);
           },
@@ -173,22 +193,24 @@ class _KhataScreenState extends State<KhataScreen>
           onTap: (_) => setState(() {}),
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
         padding: EdgeInsets.only(bottom: widget.isTab ? 72 : 0),
         child: _tabController.index == 1
-            ? FloatingActionButton.extended(
+            ? FloatingActionButton(
+                heroTag: 'add_income_fab',
                 onPressed: _showAddIncomeModal,
                 backgroundColor: AppTheme.trustGreen,
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text('Record Income', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                tooltip: 'Record Income',
+                child: const Icon(Icons.add, color: Colors.white),
               )
             : _tabController.index == 2
-                ? FloatingActionButton.extended(
+                ? FloatingActionButton(
+                    heroTag: 'add_expense_fab',
                     onPressed: _showAddExpenseModal,
                     backgroundColor: AppTheme.brandPurple,
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    label: const Text('Add Expense', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    tooltip: 'Add Expense',
+                    child: const Icon(Icons.add, color: Colors.white),
                   )
                 : null,
       ),

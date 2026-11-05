@@ -6,6 +6,7 @@ import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/utils/phone_utils.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RepairDashboard extends StatefulWidget {
   const RepairDashboard({super.key});
@@ -50,9 +51,6 @@ class _RepairDashboardState extends State<RepairDashboard> {
 
   Future<void> _showCreateTicketModal() async {
     final theme = Theme.of(context);
-    final nameController = TextEditingController(text: 'Walk-in Customer');
-    final phoneController = TextEditingController();
-    final notesController = TextEditingController();
 
     await showModalBottomSheet(
       context: context,
@@ -61,174 +59,25 @@ class _RepairDashboardState extends State<RepairDashboard> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Create Repair Ticket',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
+      builder: (ctx) => CreateRepairTicketSheet(
+        cart: _cart,
+        totalCost: _totalCost,
+        onTicketCreated: (custName) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Repair ticket created for $custName!'),
+                backgroundColor: AppTheme.trustGreen,
               ),
-              const SizedBox(height: 12),
-              // Items chip summary
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _cart.entries.map((e) {
-                  return Chip(
-                    label: Text('${e.key} x${e.value}'),
-                    backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.12),
-                    side: BorderSide(
-                      color: AppTheme.brandPurple.withValues(alpha: 0.3),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Customer Name',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Mobile Number (Optional)',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Instructions / Notes (e.g. deliver by 5 PM)',
-                  prefixIcon: Icon(Icons.note_alt_outlined),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Total Due',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      Text(
-                        '₹$_totalCost',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: AppTheme.trustGreen,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: PrimaryButton(
-                      text: 'Confirm & Save',
-                      icon: Icons.check,
-                      onPressed: () async {
-                        final now = DateTime.now().millisecondsSinceEpoch;
-                        final cleanPhone = PhoneUtils.sanitizePhoneNumber(phoneController.text.trim());
-                        final custId = 'CUST-WALKIN-${cleanPhone.isNotEmpty ? cleanPhone : now}';
-                        final custName = nameController.text.trim().isEmpty
-                            ? 'Walk-in Customer'
-                            : nameController.text.trim();
-                        final custPhone = cleanPhone; // Keep authentic phone; never fabricate '0000000000'
-
-                        try {
-                          if (custPhone.isNotEmpty) {
-                            await LocalDatabaseService().insertRecord('customers', {
-                              'id': custId,
-                              'name': custName,
-                              'phone': custPhone,
-                              'sync_status': 1,
-                              'updated_at': now,
-                            });
-                          }
-
-                          final serviceTypes = _cart.entries
-                              .map((e) => '${e.key} (x${e.value})')
-                              .join(', ');
-
-                          await LocalDatabaseService().insertRepairJob({
-                            'id': 'REP-$now',
-                            'customer_id': custId,
-                            'customer_name': custName,
-                            'service_type': serviceTypes,
-                            'complexity': 'SIMPLE',
-                            'price': _totalCost.toDouble(),
-                            'status': 'pending',
-                            'created_date': now,
-                            'notes': notesController.text.trim(),
-                            'sync_status': 1,
-                            'updated_at': now,
-                          });
-
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Repair ticket created for $custName!'),
-                                backgroundColor: AppTheme.trustGreen,
-                              ),
-                            );
-                            setState(() {
-                              _cart.clear();
-                              _totalCost = 0;
-                            });
-                          }
-                        } catch (e) {
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text('Error saving ticket: $e'),
-                                backgroundColor: AppTheme.alertRed,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+            );
+            setState(() {
+              _cart.clear();
+              _totalCost = 0;
+            });
+          }
+        },
+      ),
     );
-    nameController.dispose();
-    phoneController.dispose();
-    notesController.dispose();
   }
 
   @override
@@ -438,4 +287,235 @@ class _RepairDashboardState extends State<RepairDashboard> {
       ),
     );
   }
+}
+
+class CreateRepairTicketSheet extends StatefulWidget {
+  final Map<String, int> cart;
+  final int totalCost;
+  final Function(String customerName) onTicketCreated;
+
+  const CreateRepairTicketSheet({
+    super.key,
+    required this.cart,
+    required this.totalCost,
+    required this.onTicketCreated,
+  });
+
+  @override
+  State<CreateRepairTicketSheet> createState() => _CreateRepairTicketSheetState();
+}
+
+class _CreateRepairTicketSheetState extends State<CreateRepairTicketSheet> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _notesController;
+  late final FocusNode _nameFocusNode;
+  late final FocusNode _phoneFocusNode;
+  late final FocusNode _notesFocusNode;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: 'Walk-in Customer');
+    _phoneController = TextEditingController();
+    _notesController = TextEditingController();
+    _nameFocusNode = FocusNode();
+    _phoneFocusNode = FocusNode();
+    _notesFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _notesController.dispose();
+    _nameFocusNode.dispose();
+    _phoneFocusNode.dispose();
+    _notesFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSave() async {
+    if (_isSaving) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final cleanPhone = PhoneUtils.sanitizePhoneNumber(_phoneController.text.trim());
+    final custName = _nameController.text.trim().isEmpty
+        ? 'Walk-in Customer'
+        : _nameController.text.trim();
+    final custPhone = cleanPhone;
+    final notes = _notesController.text.trim();
+    final custId = 'CUST-WALKIN-${cleanPhone.isNotEmpty ? cleanPhone : now}';
+
+    final prefs = await SharedPreferences.getInstance();
+    final shopId = prefs.getString('shopId');
+
+    setState(() => _isSaving = true);
+
+    try {
+      if (custPhone.isNotEmpty) {
+        await LocalDatabaseService().insertRecord('customers', {
+          'id': custId,
+          'name': custName,
+          'phone': custPhone,
+          'shop_id': shopId,
+          'sync_status': 1,
+          'updated_at': now,
+        });
+      }
+
+      if (!mounted) return;
+
+      final serviceTypes = widget.cart.entries
+          .map((e) => '${e.key} (x${e.value})')
+          .join(', ');
+
+      await LocalDatabaseService().insertRepairJob({
+        'id': 'REP-$now',
+        'customer_id': custId,
+        'customer_name': custName,
+        'service_type': serviceTypes,
+        'complexity': 'SIMPLE',
+        'price': widget.totalCost.toDouble(),
+        'status': 'pending',
+        'created_date': now,
+        'notes': notes,
+        'shop_id': shopId,
+        'sync_status': 1,
+        'updated_at': now,
+      });
+
+      if (!mounted) return;
+
+      Navigator.pop(context, true);
+      widget.onTicketCreated(custName);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving ticket: $e'),
+            backgroundColor: AppTheme.alertRed,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return PopScope(
+      canPop: !_isSaving,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Create Repair Ticket',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: _isSaving ? null : () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 12),
+            // Items chip summary
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.cart.entries.map((e) {
+                return Chip(
+                  label: Text('${e.key} x${e.value}'),
+                  backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.12),
+                  side: BorderSide(
+                    color: AppTheme.brandPurple.withValues(alpha: 0.3),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _nameController,
+              focusNode: _nameFocusNode,
+              decoration: const InputDecoration(
+                labelText: 'Customer Name',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _phoneController,
+              focusNode: _phoneFocusNode,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Mobile Number (Optional)',
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _notesController,
+              focusNode: _notesFocusNode,
+              decoration: const InputDecoration(
+                labelText: 'Instructions / Notes (e.g. deliver by 5 PM)',
+                prefixIcon: Icon(Icons.note_alt_outlined),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Due',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    Text(
+                      '₹${widget.totalCost}',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: AppTheme.trustGreen,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: PrimaryButton(
+                    text: _isSaving ? 'Saving...' : 'Confirm & Save',
+                    icon: Icons.check,
+                    isLoading: _isSaving,
+                    onPressed: _isSaving ? () {} : _handleSave,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 }

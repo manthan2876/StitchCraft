@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -8,6 +9,7 @@ import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/services/database_service.dart';
 import 'package:stitchcraft/core/services/notification_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/utils/currency_utils.dart';
@@ -51,10 +53,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _netProfit = 0.0;
   List<String> _graphLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  StreamSubscription<void>? _orderSub;
+  StreamSubscription<void>? _expenseSub;
+
   @override
   void initState() {
     super.initState();
     _fetchDashboardData();
+    _orderSub = DatabaseService.orderSignal.stream.listen((_) {
+      if (mounted) _fetchDashboardData();
+    });
+    _expenseSub = DatabaseService.expenseSignal.stream.listen((_) {
+      if (mounted) _fetchDashboardData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _orderSub?.cancel();
+    _expenseSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchDashboardData() async {
@@ -77,12 +95,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
       offline = true;
     }
 
+    // 0. If online, sync discrete payment transactions from server journal into order_payments
+    final prefs = await SharedPreferences.getInstance();
+    final currentShopId = prefs.getString('shopId');
+
+    if (!offline) {
+      try {
+        final token = await _authService.getToken();
+        if (token != null) {
+          final txResp = await http.get(
+            Uri.parse('${AuthService.baseUrl}/ledger/journal?category=Payments'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          ).timeout(const Duration(seconds: 4));
+
+          if (txResp.statusCode == 200) {
+            final txData = json.decode(txResp.body);
+            if (txData is List) {
+              for (final item in txData) {
+                final refId = (item['referenceId'] ?? item['orderId'] ?? '').toString();
+                final txId = (item['_id'] ?? item['id'] ?? '').toString();
+                final amt = (item['amount'] as num?)?.toDouble() ?? 0.0;
+                final pDate = _extractDate(item['date']);
+                if (amt > 0 && pDate != null && txId.isNotEmpty && refId.isNotEmpty) {
+                  try {
+                    await _localDb.insertPayment({
+                      'id': txId,
+                      'order_id': refId,
+                      'amount': amt,
+                      'payment_method': (item['paymentMethod'] ?? 'Cash').toString(),
+                      'date': pDate.millisecondsSinceEpoch,
+                      'shop_id': currentShopId,
+                      'sync_status': 0,
+                      'updated_at': pDate.millisecondsSinceEpoch,
+                    });
+                  } catch (_) {}
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Journal payments fetch note: $e');
+      }
+    }
+
     try {
-      // Fetch SQLite metrics for orders and expenses
-      final orders = await _localDb.getAllOrders();
-      final expenses = await _localDb.getAllExpenses();
+      // Fetch SQLite metrics strictly scoped to this tailor's shop
+      final orders = await _localDb.getAllOrders(shopId: currentShopId);
+      final expenses = await _localDb.getAllExpenses(shopId: currentShopId);
+      final localPayments = await _localDb.getAllPayments(shopId: currentShopId);
 
       final now = DateTime.now();
+
+      // Identify any outsourced jobs coming from other tailors to ensure they never leak into this tailor's graph
+      final Set<String> outsourcedOrderIds = {};
+      for (final o in orders) {
+        final orderId = (o['id'] ?? o['_id'] ?? '').toString();
+        final bool isPartnerJob = o['isPartnerJob'] == true ||
+            o['isOutsourcedToMe'] == true ||
+            (o['origin_shop_name'] != null && o['origin_shop_name'].toString().isNotEmpty) ||
+            (currentShopId != null &&
+                o['delegated_to_shop_id'] != null &&
+                o['delegated_to_shop_id'].toString() == currentShopId &&
+                o['shop_id'] != null &&
+                o['shop_id'].toString() != currentShopId);
+
+        if (isPartnerJob && orderId.isNotEmpty) {
+          outsourcedOrderIds.add(orderId);
+        }
+      }
 
       // 1. Separate expenses table into manual incomes and actual expenses
       final List<_CashFlowItem> incomeItems = [];
@@ -104,8 +188,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       }
 
-      // 2. Extract income from orders: when payment was collected (cash/online advance or full payment)
+      // 2. Add all discrete payments recorded for this tailor's own orders
+      final Set<String> ordersWithDiscretePayments = {};
+      for (final p in localPayments) {
+        final amt = (p['amount'] as num?)?.toDouble() ?? 0.0;
+        final pDate = _extractDate(p['date'] ?? p['updated_at']);
+        final orderId = (p['order_id'] ?? '').toString();
+        if (amt <= 0 || pDate == null) continue;
+
+        // Disallow payments belonging to outsourced orders of another tailor
+        if (orderId.isNotEmpty && outsourcedOrderIds.contains(orderId)) {
+          continue;
+        }
+
+        if (orderId.isNotEmpty) {
+          ordersWithDiscretePayments.add(orderId);
+        }
+        incomeItems.add(_CashFlowItem(amount: amt, date: pDate));
+      }
+
+      // 3. Extract income from orders that don't yet have discrete records in order_payments
       for (final o in orders) {
+        final orderId = (o['id'] ?? o['_id'] ?? '').toString();
+        if (orderId.isNotEmpty && ordersWithDiscretePayments.contains(orderId)) {
+          // Already accounted for via discrete payments in order_payments
+          continue;
+        }
+
+        // Never populate advance or income from another tailor's outsourced order into this tailor's graph
+        if (orderId.isNotEmpty && outsourcedOrderIds.contains(orderId)) {
+          continue;
+        }
+
         final status = (o['status'] ?? '').toString().toLowerCase();
         if (status == 'cancelled') continue;
 
@@ -118,21 +232,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         final updateDate = _extractDate(o['updated_at']);
 
-        // Determine payment collection billing date:
-        // If an older order was updated today (e.g. payment collected today), attribute to updateDate.
-        DateTime paymentDate = orderDate ?? updateDate ?? now;
-        if (updateDate != null && orderDate != null) {
-          if (!_isSameDay(orderDate, updateDate) || _isSameDay(updateDate, now)) {
-            paymentDate = updateDate;
+        // Check if an older order was updated today with a payment (offline/unmigrated fallback)
+        if (orderDate != null && updateDate != null && !_isSameDay(orderDate, updateDate)) {
+          if (_isSameDay(updateDate, now)) {
+            // Keep booking advance on orderDate (so yesterday keeps its bump),
+            // and attribute the recent payment bump to updateDate
+            final half = collectedAmount / 2.0;
+            incomeItems.add(_CashFlowItem(amount: half, date: orderDate));
+            incomeItems.add(_CashFlowItem(amount: half, date: updateDate));
+          } else {
+            // If updated in the past without discrete payment rows, attribute to booking date
+            incomeItems.add(_CashFlowItem(amount: collectedAmount, date: orderDate));
           }
-        } else if (updateDate != null) {
-          paymentDate = updateDate;
+        } else {
+          final paymentDate = orderDate ?? updateDate ?? now;
+          incomeItems.add(_CashFlowItem(
+            amount: collectedAmount,
+            date: paymentDate,
+          ));
         }
-
-        incomeItems.add(_CashFlowItem(
-          amount: collectedAmount,
-          date: paymentDate,
-        ));
       }
 
       // 3. Bucket both income and expenses based on _timeFilter
@@ -233,7 +351,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             !_isClosedStatus(o['status']);
       }).toList();
 
-      final moneyToCollect = orders.fold<double>(0, (sum, order) {
+      final moneyToCollect = orders.where((order) {
+        final orderId = (order['id'] ?? order['_id'] ?? '').toString();
+        // Never count another tailor's outsourced jobs towards customer Udhar to collect
+        if (orderId.isNotEmpty && outsourcedOrderIds.contains(orderId)) {
+          return false;
+        }
+        return true;
+      }).fold<double>(0, (sum, order) {
         final total = (order['total_amount'] as num?)?.toDouble() ?? 0;
         final advance = (order['advance_amount'] as num?)?.toDouble() ?? 0;
         return sum + (total - advance).clamp(0, double.infinity);

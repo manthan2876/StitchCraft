@@ -7,6 +7,7 @@ import 'package:stitchcraft/core/services/profile_service.dart';
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   final bool showDrawerButton;
+  final bool showNotificationBell;
   final PreferredSizeWidget? bottom;
   final List<Widget>? actions;
   final bool automaticallyImplyLeading;
@@ -16,6 +17,7 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
     super.key,
     required this.title,
     this.showDrawerButton = false,
+    this.showNotificationBell = true,
     this.bottom,
     this.actions,
     this.automaticallyImplyLeading = true,
@@ -120,15 +122,17 @@ class _CustomAppBarState extends State<CustomAppBar> {
               : null),
       actions: [
         if (widget.actions != null) ...widget.actions!,
-        IconButton(
-          icon: const Icon(Icons.notifications_none_rounded),
-          tooltip: 'Notifications',
-          onPressed: () {
-            final currentRoute = ModalRoute.of(context)?.settings.name;
-            if (currentRoute == '/notifications') return;
-            Navigator.pushNamed(context, '/notifications');
-          },
-        ),
+        if (widget.showNotificationBell &&
+            ModalRoute.of(context)?.settings.name != '/notifications')
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded),
+            tooltip: 'Notifications',
+            onPressed: () {
+              final currentRoute = ModalRoute.of(context)?.settings.name;
+              if (currentRoute == '/notifications') return;
+              Navigator.pushNamed(context, '/notifications');
+            },
+          ),
         IconButton(
           icon: _isSyncing
               ? const SizedBox(

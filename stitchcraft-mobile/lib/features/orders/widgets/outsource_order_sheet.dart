@@ -28,6 +28,7 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
   final _searchController = TextEditingController();
   final _manualShopNameController = TextEditingController();
   final _manualPhoneController = TextEditingController();
+  final _agreedCostController = TextEditingController();
   final _notesController = TextEditingController();
 
   bool _isLoading = false;
@@ -41,6 +42,10 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
   void initState() {
     super.initState();
     _fetchPartnerTailors();
+    final existingCost = widget.order['delegated_cost'] ?? widget.order['delegatedCost'];
+    if (existingCost != null && (existingCost as num) > 0) {
+      _agreedCostController.text = existingCost.toString();
+    }
     final existingNotes = widget.order['delegated_notes'] ?? widget.order['delegatedNotes'];
     if (existingNotes != null && existingNotes.toString().isNotEmpty) {
       _notesController.text = existingNotes.toString();
@@ -49,10 +54,18 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _manualShopNameController.dispose();
-    _manualPhoneController.dispose();
-    _notesController.dispose();
+    final searchCtrl = _searchController;
+    final manualShopCtrl = _manualShopNameController;
+    final manualPhoneCtrl = _manualPhoneController;
+    final agreedCostCtrl = _agreedCostController;
+    final notesCtrl = _notesController;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      searchCtrl.dispose();
+      manualShopCtrl.dispose();
+      manualPhoneCtrl.dispose();
+      agreedCostCtrl.dispose();
+      notesCtrl.dispose();
+    });
     super.dispose();
   }
 
@@ -65,6 +78,11 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
     return (status == 'assigned' || status == 'completed') &&
         targetShop != null &&
         targetShop.toString().isNotEmpty;
+  }
+
+  bool get _isOrderCompleted {
+    final status = (widget.order['status'] ?? '').toString().toLowerCase();
+    return status == 'completed' || status == 'delivered' || status == 'ready' || status == 'cancelled';
   }
 
   Future<void> _fetchPartnerTailors([String query = '']) async {
@@ -102,6 +120,11 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
   }
 
   Future<void> _handleDelegate() async {
+    if (_isOrderCompleted) {
+      _showSnack('Cannot outsource an order that is already completed or cancelled', AppTheme.alertRed);
+      return;
+    }
+
     String targetShopId = '';
     String targetShopName = '';
     String targetPhone = '';
@@ -126,6 +149,12 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
 
     final orderId = (widget.order['id'] ?? widget.order['_id'] ?? '').toString();
     final notes = _notesController.text.trim();
+    final agreedCost = double.tryParse(_agreedCostController.text.trim()) ?? 0.0;
+
+    if (agreedCost <= 0) {
+      _showSnack('Please enter a valid agreed outsourcing cost (₹)', AppTheme.alertRed);
+      return;
+    }
 
     setState(() => _isSubmitting = true);
 
@@ -145,6 +174,7 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
             'targetShopName': targetShopName,
             'targetPhone': targetPhone,
             'notes': notes,
+            'agreedCost': agreedCost,
           }),
         ).timeout(const Duration(seconds: 10));
 
@@ -161,6 +191,7 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
         'delegated_to_phone': targetPhone,
         'delegation_status': 'assigned',
         'delegated_notes': notes,
+        'delegated_cost': agreedCost,
         'sync_status': 3,
         'updated_at': now,
       };
@@ -179,6 +210,8 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
       mergedOrder['delegationStatus'] = 'assigned';
       mergedOrder['delegated_notes'] = notes;
       mergedOrder['delegatedNotes'] = notes;
+      mergedOrder['delegated_cost'] = agreedCost;
+      mergedOrder['delegatedCost'] = agreedCost;
 
       widget.onUpdated(mergedOrder);
 
@@ -198,6 +231,11 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
   }
 
   Future<void> _handleRevoke() async {
+    if (_isOrderCompleted) {
+      _showSnack('Cannot recall an order that is already completed or cancelled', AppTheme.alertRed);
+      return;
+    }
+
     final orderId = (widget.order['id'] ?? widget.order['_id'] ?? '').toString();
     setState(() => _isSubmitting = true);
 
@@ -386,6 +424,13 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
                       style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12),
                     ),
                   ],
+                  if (widget.order['delegated_cost'] != null || widget.order['delegatedCost'] != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Agreed Partner Cost: ₹${widget.order['delegated_cost'] ?? widget.order['delegatedCost']}',
+                      style: const TextStyle(color: AppTheme.trustGreen, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
                   if (widget.order['delegated_notes'] != null && widget.order['delegated_notes'].toString().isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
@@ -397,217 +442,261 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.alertRed,
-                side: const BorderSide(color: AppTheme.alertRed),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            if (!_isOrderCompleted) ...[
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.alertRed,
+                  side: const BorderSide(color: AppTheme.alertRed),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: _isSubmitting ? null : _handleRevoke,
+                icon: const Icon(Icons.cancel_outlined, size: 18),
+                label: Text(_isSubmitting ? 'Recalling...' : 'Recall Order to My Shop (પાછો ખેંચો)'),
               ),
-              onPressed: _isSubmitting ? null : _handleRevoke,
-              icon: const Icon(Icons.cancel_outlined, size: 18),
-              label: Text(_isSubmitting ? 'Recalling...' : 'Recall Order to My Shop (પાછો ખેંચો)'),
-            ),
-            const SizedBox(height: 14),
-            const Divider(),
-            const SizedBox(height: 8),
-            Text(
-              'Or Reassign to Another Partner Tailor:',
-              style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 14),
+              const Divider(),
+              const SizedBox(height: 8),
+              Text(
+                'Or Reassign to Another Partner Tailor:',
+                style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
 
-          // Toggle Search Network vs Manual Phone Input
-          Row(
-            children: [
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Partner Network'),
-                  selected: !_isManualInput,
-                  onSelected: (val) => setState(() => _isManualInput = !val),
-                  selectedColor: AppTheme.brandPurple.withValues(alpha: 0.18),
+          if (_isOrderCompleted)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkBg : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Direct Phone Number'),
-                  selected: _isManualInput,
-                  onSelected: (val) => setState(() => _isManualInput = val),
-                  selectedColor: AppTheme.brandPurple.withValues(alpha: 0.18),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Search or Manual Inputs
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!_isManualInput) ...[
-                    // Search partner tailors
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search tailor by shop name or phone...',
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _fetchPartnerTailors();
-                                },
-                              )
-                            : null,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: AppTheme.trustGreen, size: 28),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        'This order has reached its final state and can no longer be outsourced or reassigned.',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
                       ),
-                      onChanged: (val) => _fetchPartnerTailors(val),
                     ),
-                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+            )
+          else ...[
+            // Toggle Search Network vs Manual Phone Input
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('Partner Network'),
+                    selected: !_isManualInput,
+                    onSelected: (val) => setState(() => _isManualInput = !val),
+                    selectedColor: AppTheme.brandPurple.withValues(alpha: 0.18),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('Direct Phone Number'),
+                    selected: _isManualInput,
+                    onSelected: (val) => setState(() => _isManualInput = val),
+                    selectedColor: AppTheme.brandPurple.withValues(alpha: 0.18),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
 
-                    if (_isLoading)
-                      const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-                    else if (_partnerTailors.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkBg : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(10),
+            // Search or Manual Inputs
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!_isManualInput) ...[
+                      // Search partner tailors
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search tailor by shop name or phone...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _fetchPartnerTailors();
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        child: Column(
-                          children: [
-                            const Icon(Icons.storefront_outlined, color: AppTheme.darkGrey, size: 36),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'No registered partner tailors found.',
-                              style: TextStyle(color: AppTheme.darkGrey, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 4),
-                            TextButton(
-                              onPressed: () => setState(() => _isManualInput = true),
-                              child: const Text('Enter Partner Phone Directly →'),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ...List.generate(_partnerTailors.length, (idx) {
-                        final tailor = _partnerTailors[idx];
-                        final isSelected = _selectedTailor != null &&
-                            (_selectedTailor!['_id'] ?? _selectedTailor!['id']) ==
-                                (tailor['_id'] ?? tailor['id']);
-                        final shopName = tailor['shopName'] ?? 'Tailor Shop';
-                        final phone = tailor['phone'] ?? '';
-                        final address = tailor['address'] ?? '';
+                        onChanged: (val) => _fetchPartnerTailors(val),
+                      ),
+                      const SizedBox(height: 10),
 
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: InkWell(
-                            onTap: () => setState(() => _selectedTailor = tailor),
+                      if (_isLoading)
+                        const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                      else if (_partnerTailors.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.darkBg : Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppTheme.brandPurple.withValues(alpha: 0.15)
-                                    : (isDark ? AppTheme.darkBg : Colors.grey.shade100),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: isSelected ? AppTheme.brandPurple : Colors.transparent,
-                                  width: 1.5,
+                          ),
+                          child: Column(
+                            children: [
+                              const Icon(Icons.storefront_outlined, color: AppTheme.darkGrey, size: 36),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'No registered partner tailors found.',
+                                style: TextStyle(color: AppTheme.darkGrey, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              TextButton(
+                                onPressed: () => setState(() => _isManualInput = true),
+                                child: const Text('Enter Partner Phone Directly →'),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        ...List.generate(_partnerTailors.length, (idx) {
+                          final tailor = _partnerTailors[idx];
+                          final isSelected = _selectedTailor != null &&
+                              (_selectedTailor!['_id'] ?? _selectedTailor!['id']) ==
+                                  (tailor['_id'] ?? tailor['id']);
+                          final shopName = tailor['shopName'] ?? 'Tailor Shop';
+                          final phone = tailor['phone'] ?? '';
+                          final address = tailor['address'] ?? '';
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: InkWell(
+                              onTap: () => setState(() => _selectedTailor = tailor),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppTheme.brandPurple.withValues(alpha: 0.15)
+                                      : (isDark ? AppTheme.darkBg : Colors.grey.shade100),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSelected ? AppTheme.brandPurple : Colors.transparent,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.2),
+                                      child: const Icon(Icons.store, color: AppTheme.brandPurple, size: 20),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            shopName,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: theme.colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          if (phone.isNotEmpty)
+                                            Text(
+                                              phone,
+                                              style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12),
+                                            ),
+                                          if (address.isNotEmpty)
+                                            Text(
+                                              address,
+                                              style: const TextStyle(color: AppTheme.darkGrey, fontSize: 11),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      const Icon(Icons.check_circle, color: AppTheme.brandPurple),
+                                  ],
                                 ),
                               ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppTheme.brandPurple.withValues(alpha: 0.2),
-                                    child: const Icon(Icons.store, color: AppTheme.brandPurple, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          shopName,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: theme.colorScheme.onSurface,
-                                          ),
-                                        ),
-                                        if (phone.isNotEmpty)
-                                          Text(
-                                            phone,
-                                            style: const TextStyle(color: AppTheme.darkGrey, fontSize: 12),
-                                          ),
-                                        if (address.isNotEmpty)
-                                          Text(
-                                            address,
-                                            style: const TextStyle(color: AppTheme.darkGrey, fontSize: 11),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (isSelected)
-                                    const Icon(Icons.check_circle, color: AppTheme.brandPurple),
-                                ],
-                              ),
                             ),
-                          ),
-                        );
-                      }),
-                  ] else ...[
-                    // Manual Direct Input
+                          );
+                        }),
+                    ] else ...[
+                      // Manual Direct Input
+                      TextField(
+                        controller: _manualShopNameController,
+                        decoration: InputDecoration(
+                          labelText: 'Partner Tailor / Shop Name *',
+                          hintText: 'e.g. Ramesh Tailors',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _manualPhoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          labelText: 'Partner Tailor Phone Number *',
+                          hintText: 'e.g. 9876543210',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 12),
+                    // Agreed Outsourcing Cost (₹)
                     TextField(
-                      controller: _manualShopNameController,
+                      controller: _agreedCostController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: 'Partner Tailor / Shop Name *',
-                        hintText: 'e.g. Ramesh Tailors',
+                        labelText: 'Agreed Outsourcing Cost / Rate (₹) * (સોંપવાનો ભાવ)',
+                        hintText: 'e.g. 500 (Payable to partner tailor)',
+                        prefixIcon: const Icon(Icons.currency_rupee, size: 20),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
+                    // Tailoring instructions / notes for the partner
                     TextField(
-                      controller: _manualPhoneController,
-                      keyboardType: TextInputType.phone,
+                      controller: _notesController,
+                      maxLines: 2,
                       decoration: InputDecoration(
-                        labelText: 'Partner Tailor Phone Number *',
-                        hintText: 'e.g. 9876543210',
+                        labelText: 'Instructions for Partner Tailor (વિશેષ સૂચના)',
+                        hintText: 'e.g. Please finish collar and sleeves first, urgent delivery...',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ],
-
-                  const SizedBox(height: 12),
-                  // Tailoring instructions / notes for the partner
-                  TextField(
-                    controller: _notesController,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: 'Instructions for Partner Tailor (વિશેષ સૂચના)',
-                      hintText: 'e.g. Please finish collar and sleeves first, urgent delivery...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
 
-          // Submit Button
-          PrimaryButton(
-            text: _isSubmitting
-                ? 'Assigning Order...'
-                : (_isCurrentlyDelegated ? 'Reassign to This Tailor' : 'Give Order to Tailor (ઓર્ડર સોંપો)'),
-            onPressed: _isSubmitting ? () {} : _handleDelegate,
-            isLoading: _isSubmitting,
-          ),
+            // Submit Button
+            PrimaryButton(
+              text: _isSubmitting
+                  ? 'Assigning Order...'
+                  : (_isCurrentlyDelegated ? 'Reassign to This Tailor' : 'Give Order to Tailor (ઓર્ડર સોંપો)'),
+              onPressed: _isSubmitting ? () {} : _handleDelegate,
+              isLoading: _isSubmitting,
+            ),
+          ],
         ],
       ),
     );

@@ -21,7 +21,13 @@ class AuthService {
   static String get baseUrl => ApiConfig.baseUrl;
 
   // Sign Up via Supabase Auth and provision the application profile
-  Future<Map<String, dynamic>?> signUp(String email, String password, String name) async {
+  Future<Map<String, dynamic>?> signUp(
+    String email,
+    String password,
+    String name, {
+    String? shopName,
+    String? phone,
+  }) async {
     try {
       if (email.isEmpty || password.isEmpty) {
         throw Exception('Email and password cannot be empty');
@@ -31,12 +37,20 @@ class AuthService {
       final sbResponse = await Supabase.instance.client.auth.signUp(
         email: email,
         password: password,
-        data: {'name': name},
+        emailRedirectTo: 'io.supabase.stitchcraft://login-callback/',
+        data: {
+          'name': name,
+          if (shopName != null && shopName.isNotEmpty) 'shopName': shopName,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
+        },
       );
 
       final String? token = sbResponse.session?.accessToken;
       if (token == null) {
-        throw Exception('Please verify your email address to complete registration.');
+        return {
+          'requiresVerification': true,
+          'message': 'Account created! Please check your email to verify your account before logging in.',
+        };
       }
 
       // 2. Provision the user profile and default shop through the API
@@ -49,6 +63,8 @@ class AuthService {
         body: json.encode({
           'name': name,
           'email': email,
+          if (shopName != null && shopName.isNotEmpty) 'shopName': shopName,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
         }),
       );
 
@@ -85,6 +101,131 @@ class AuthService {
     } catch (e) {
       developer.log('Sign Up Error: $e', name: 'AuthService');
       rethrow;
+    }
+  }
+
+  // Verify email using 6-digit OTP code or confirmation token received in Gmail
+  Future<Map<String, dynamic>?> verifyEmailOtp(String email, String token) async {
+    try {
+      final cleanEmail = email.trim().toLowerCase();
+      final cleanToken = token.trim();
+      if (cleanEmail.isEmpty || cleanToken.isEmpty) {
+        throw Exception('Email and verification code are required');
+      }
+
+      AuthResponse? authResp;
+      // 1. Try Supabase verification directly
+      try {
+        if (cleanToken.length <= 8 && int.tryParse(cleanToken) != null) {
+          authResp = await Supabase.instance.client.auth.verifyOTP(
+            email: cleanEmail,
+            token: cleanToken,
+            type: OtpType.signup,
+          );
+        } else {
+          String tokenHash = cleanToken;
+          if (cleanToken.contains('token=')) {
+            final uri = Uri.tryParse(cleanToken);
+            tokenHash = uri?.queryParameters['token'] ?? cleanToken;
+          }
+          authResp = await Supabase.instance.client.auth.verifyOTP(
+            tokenHash: tokenHash,
+            type: OtpType.signup,
+          );
+        }
+      } catch (sbErr) {
+        developer.log('Direct Supabase verify note: $sbErr', name: 'AuthService');
+      }
+
+      // 2. Call backend /api/auth/verify to provision user & shop
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': cleanEmail,
+          'token': cleanToken,
+          'type': 'signup',
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final sessionToken = authResp?.session?.accessToken ?? data['token'];
+        if (sessionToken != null) {
+          await _secureStorage.write(key: _tokenKey, value: sessionToken);
+        }
+
+        final userObj = data['user'] ?? data;
+        final String userId = userObj['_id'] ?? userObj['id'] ?? '';
+        final String userName = userObj['name'] ?? '';
+        final String userEmail = userObj['email'] ?? cleanEmail;
+        final String role = userObj['role'] ?? 'owner';
+        final String? shopId = userObj['shopId'] is Map
+            ? userObj['shopId']['_id']
+            : userObj['shopId'];
+
+        final newUser = User(
+          id: userId,
+          name: userName,
+          phone: userEmail,
+          role: UserRole.fromString(role),
+          updatedAt: DateTime.now(),
+        );
+        await _dbService.addUser(newUser);
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.remove('token');
+        if (userId.isNotEmpty) await prefs.setString('userId', userId);
+        if (userName.isNotEmpty) await prefs.setString('userName', userName);
+        await prefs.setString('userRole', role);
+        if (shopId != null && shopId.toString().isNotEmpty) {
+          await prefs.setString('shopId', shopId.toString());
+        }
+
+        return data;
+      } else {
+        if (authResp?.session != null) {
+          final token = authResp!.session!.accessToken;
+          await _secureStorage.write(key: _tokenKey, value: token);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('isLoggedIn', true);
+          return {'verified': true, 'token': token};
+        }
+        throw Exception(data['message'] ?? 'Email verification failed');
+      }
+    } catch (e) {
+      developer.log('Verify Email Error: $e', name: 'AuthService');
+      rethrow;
+    }
+  }
+
+  // Resend verification email via Gmail SMTP
+  Future<void> resendVerificationEmail(String email) async {
+    final cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.isEmpty) {
+      throw Exception('Please enter your email address');
+    }
+
+    try {
+      await Supabase.instance.client.auth.resend(
+        type: OtpType.signup,
+        email: cleanEmail,
+        emailRedirectTo: 'io.supabase.stitchcraft://login-callback/',
+      );
+    } catch (e) {
+      developer.log('Supabase direct resend note: $e', name: 'AuthService');
+      // Fallback: request via backend resend endpoint
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/resend-verification'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': cleanEmail}),
+      );
+      if (res.statusCode != 200) {
+        final body = json.decode(res.body);
+        throw Exception(body['message'] ?? 'Failed to resend verification email');
+      }
     }
   }
 
@@ -138,6 +279,12 @@ class AuthService {
         await _secureStorage.write(key: _tokenKey, value: token);
 
         final prefs = await SharedPreferences.getInstance();
+        final String? previousShopId = prefs.getString('shopId');
+        if (shopId != null && previousShopId != null && previousShopId != shopId) {
+          // If a different shop logs in on the device, clear out old shop data to prevent cross-tailor data leakage
+          await _dbService.clearAllData();
+        }
+
         await prefs.setBool('isLoggedIn', true);
         await prefs.remove('token'); // Clear from plaintext storage
         await prefs.setString('userId', userId);
@@ -176,6 +323,9 @@ class AuthService {
       await prefs.remove('userRole');
       await prefs.remove('userAvatar');
       await prefs.remove('shopId');
+
+      // Clear local database so no tailor's data leaks to another tailor on this device
+      await _dbService.clearAllData();
     } catch (e) {
       developer.log('Logout Error: $e', name: 'AuthService');
       rethrow;

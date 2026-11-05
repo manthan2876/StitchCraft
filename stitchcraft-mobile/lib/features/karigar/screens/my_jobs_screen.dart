@@ -265,7 +265,8 @@ class _MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSt
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: CustomAppBar(
         title: 'Workshop & Partner Jobs',
-        showDrawerButton: widget.isTab,
+        showDrawerButton: false,
+        automaticallyImplyLeading: !widget.isTab,
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppTheme.brandPurple,

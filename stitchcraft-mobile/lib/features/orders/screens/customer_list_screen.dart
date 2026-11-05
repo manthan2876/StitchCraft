@@ -11,6 +11,7 @@ import 'package:stitchcraft/core/services/device_contacts_service.dart';
 import 'package:stitchcraft/core/utils/phone_utils.dart';
 import 'package:http/http.dart' as http;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CustomerListScreen extends StatefulWidget {
   final bool isTab;
@@ -45,7 +46,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   Future<void> _loadCustomers() async {
     setState(() => _isLoading = true);
     try {
-      var list = await _localDb.getRecords('customers');
+      final prefs = await SharedPreferences.getInstance();
+      final shopId = prefs.getString('shopId');
+      var list = await _localDb.getAllCustomers(shopId: shopId);
 
       // Fallback: If local database is empty, fetch from remote API to populate
       if (list.isEmpty) {
@@ -71,12 +74,13 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                 'name': remoteRecord['name'] ?? 'Unknown',
                 'phone': remoteRecord['phone'] ?? '',
                 'email': remoteRecord['email'] ?? '',
+                'shop_id': shopId,
                 'sync_status': 0,
                 'updated_at': DateTime.now().millisecondsSinceEpoch,
               };
               await _localDb.insertRecord('customers', sqliteRecord);
             }
-            list = await _localDb.getRecords('customers');
+            list = await _localDb.getAllCustomers(shopId: shopId);
           }
         }
       }
@@ -318,7 +322,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                           }
 
                           // Save or update in local database
-                          final existingList = await _localDb.getRecords('customers');
+                          final prefs = await SharedPreferences.getInstance();
+                          final shopId = prefs.getString('shopId');
+                          final existingList = await _localDb.getAllCustomers(shopId: shopId);
                           final cleanPhone = PhoneUtils.sanitizePhoneNumber(phone);
                           final existing = existingList.firstWhere(
                             (c) => PhoneUtils.sanitizePhoneNumber(c['phone']?.toString() ?? '') == cleanPhone,
@@ -337,6 +343,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                               'name': name,
                               'phone': phone,
                               'email': email,
+                              'shop_id': shopId,
                               'sync_status': 0,
                               'updated_at': DateTime.now().millisecondsSinceEpoch,
                             });

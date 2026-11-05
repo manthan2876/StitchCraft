@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
@@ -10,7 +11,10 @@ import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/widgets/record_payment_sheet.dart';
 import 'package:stitchcraft/core/services/notification_service.dart';
+import 'package:stitchcraft/core/services/database_service.dart';
+import 'package:uuid/uuid.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DeliveriesScreen extends StatefulWidget {
   const DeliveriesScreen({super.key});
@@ -39,7 +43,9 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
       setState(() => _isLoading = true);
     }
     try {
-      final orders = await _localDb.getAllOrders();
+      final prefs = await SharedPreferences.getInstance();
+      final shopId = prefs.getString('shopId');
+      final orders = await _localDb.getAllOrders(shopId: shopId);
       // Orders that are Ready for pickup / delivery
       final readyOrders = orders.where((o) {
         final status = (o['status'] ?? '').toString().toLowerCase();
@@ -80,6 +86,12 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
       }).toList();
     } else if (_filter == 'unpaid') {
       result = result.where((o) {
+        final bool isPartnerJob = o['isPartnerJob'] == true ||
+            o['isOutsourcedToMe'] == true ||
+            (o['origin_shop_name'] != null && o['origin_shop_name'].toString().isNotEmpty) ||
+            (o['delegation_status'] == 'assigned' && o['origin_shop_name'] != null);
+        if (isPartnerJob) return false;
+
         final total = (o['total_amount'] as num?)?.toDouble() ??
             (o['price'] as num?)?.toDouble() ??
             0.0;
@@ -202,23 +214,51 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
     if (result == null || result.amount <= 0) return;
 
+    final normalizedMethod = result.method.toLowerCase() == 'online' || result.method.toLowerCase() == 'upi'
+        ? 'UPI'
+        : (result.method.toLowerCase() == 'cash' ? 'Cash' : result.method);
+
     final currAdv = (order['advance_amount'] as num?)?.toDouble() ?? 0.0;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
     await _localDb.updateRecord('orders', orderId, {
       'advance_amount': currAdv + result.amount,
+      'payment_method': normalizedMethod,
       'sync_status': 3,
-      'updated_at': DateTime.now().millisecondsSinceEpoch,
+      'updated_at': nowMs,
     });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final shopId = prefs.getString('shopId');
+      await _localDb.insertPayment({
+        'id': const Uuid().v4(),
+        'order_id': orderId,
+        'amount': result.amount,
+        'payment_method': normalizedMethod,
+        'date': nowMs,
+        'shop_id': shopId,
+        'sync_status': 1,
+        'updated_at': nowMs,
+      });
+      DatabaseService.orderSignal.add(null);
+    } catch (e) {
+      developer.log('Deliveries payment record note: $e');
+    }
 
     final token = await _authService.getToken();
     if (token != null) {
-      http.post(
-        Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({'amount': result.amount, 'paymentType': result.method}),
-      );
+      try {
+        await http.post(
+          Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: json.encode({'amount': result.amount, 'paymentType': normalizedMethod}),
+        ).timeout(const Duration(seconds: 10));
+      } catch (netErr) {
+        developer.log('Deliveries payment network note (will sync): $netErr');
+      }
     }
 
     if (mounted) {
@@ -278,7 +318,13 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                             final order = _filteredOrders[index];
                             final id = (order['id'] ?? order['_id'] ?? '').toString();
                             final displayId = id.length > 8 ? id.substring(0, 8) : id;
-                            final customer = (order['customer_name'] ?? 'Customer').toString();
+                            final bool isPartnerJob = order['isPartnerJob'] == true ||
+                                order['isOutsourcedToMe'] == true ||
+                                (order['origin_shop_name'] != null && order['origin_shop_name'].toString().isNotEmpty) ||
+                                (order['delegation_status'] == 'assigned' && order['origin_shop_name'] != null);
+                            final customer = isPartnerJob && order['origin_shop_name'] != null
+                                ? '${order['origin_shop_name']} (Outsourced)'
+                                : (order['customer_name'] ?? 'Customer').toString();
                             final garment = (order['garment_type'] ?? 'Garment').toString();
                             final total = (order['total_amount'] as num?)?.toDouble() ??
                                 (order['price'] as num?)?.toDouble() ??
@@ -337,7 +383,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                                   const SizedBox(height: 14),
                                   Row(
                                     children: [
-                                      if (balance > 0) ...[
+                                      if (balance > 0 && !isPartnerJob) ...[
                                         Expanded(
                                           child: OutlinedButton(
                                             style: OutlinedButton.styleFrom(
@@ -364,9 +410,9 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                                           ),
                                           onPressed: () => _confirmAndDeliver(order),
                                           icon: const Icon(Icons.task_alt, size: 18),
-                                          label: const Text(
-                                            'Deliver',
-                                            style: TextStyle(fontWeight: FontWeight.bold),
+                                          label: Text(
+                                            isPartnerJob ? 'Handover' : 'Deliver',
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ),

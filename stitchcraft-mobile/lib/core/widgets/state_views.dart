@@ -377,8 +377,8 @@ class PrimaryNextAction extends StatelessWidget {
                   Text(
                     label,
                     style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
                     ),
                   ),

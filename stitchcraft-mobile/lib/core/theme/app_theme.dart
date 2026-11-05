@@ -42,8 +42,8 @@ class AppTheme {
   static const double cardBorderRadius = 16.0;
 
   static TextStyle get buttonText => GoogleFonts.outfit(
-    fontSize: 18,
-    fontWeight: FontWeight.bold,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
     color: Colors.white,
   );
 
@@ -53,10 +53,10 @@ class AppTheme {
     headlineMedium: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
     titleLarge: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.white),
     titleMedium: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
-    bodyLarge: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white, height: 1.5),
-    bodyMedium: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.normal, color: Colors.white, height: 1.4),
-    labelLarge: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: brandPurple),
-    labelSmall: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.normal, color: darkGrey),
+    bodyLarge: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white, height: 1.5),
+    bodyMedium: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.normal, color: Colors.white, height: 1.4),
+    labelLarge: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: brandPurple),
+    labelSmall: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.normal, color: darkGrey),
   );
 
   static TextTheme lightTextTheme = TextTheme(
@@ -65,10 +65,10 @@ class AppTheme {
     headlineMedium: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF1D2939)),
     titleLarge: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w600, color: const Color(0xFF1D2939)),
     titleMedium: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w600, color: const Color(0xFF1D2939)),
-    bodyLarge: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w500, color: const Color(0xFF1D2939), height: 1.5),
-    bodyMedium: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.normal, color: const Color(0xFF475467), height: 1.4),
-    labelLarge: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: brandPurple),
-    labelSmall: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.normal, color: const Color(0xFF667085)),
+    bodyLarge: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF1D2939), height: 1.5),
+    bodyMedium: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.normal, color: const Color(0xFF475467), height: 1.4),
+    labelLarge: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: brandPurple),
+    labelSmall: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.normal, color: const Color(0xFF667085)),
   );
 
   static ThemeData get masterjiTheme {
@@ -125,20 +125,44 @@ class AppTheme {
           borderSide: const BorderSide(color: brandPurple, width: 2),
         ),
         labelStyle: const TextStyle(color: Colors.white70),
-        hintStyle: GoogleFonts.outfit(color: darkGrey, fontSize: 18),
+        hintStyle: GoogleFonts.outfit(color: darkGrey, fontSize: 15),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: brandPurple,
           foregroundColor: Colors.white,
-          elevation: 4,
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 32),
+          elevation: 2,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
           ),
           textStyle: GoogleFonts.outfit(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          textStyle: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -205,20 +229,44 @@ class AppTheme {
           borderSide: const BorderSide(color: brandPurple, width: 2),
         ),
         labelStyle: const TextStyle(color: Color(0xFF475467)),
-        hintStyle: GoogleFonts.outfit(color: const Color(0xFF667085), fontSize: 18),
+        hintStyle: GoogleFonts.outfit(color: const Color(0xFF667085), fontSize: 15),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: brandPurple,
           foregroundColor: Colors.white,
           elevation: 2,
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 32),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
           ),
           textStyle: GoogleFonts.outfit(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          textStyle: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
