@@ -114,8 +114,11 @@ export const getOrderById = async (req, res) => {
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
     if (!order.shareToken) {
-      order.shareToken = crypto.randomBytes(16).toString('hex');
+      const rawToken = crypto.randomBytes(24).toString('hex');
+      order.shareToken = rawToken;
+      order.shareTokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
       order.shareTokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      order.shareTokenRevokedAt = null;
       await order.save();
     }
 
@@ -160,85 +163,60 @@ export const getOrderById = async (req, res) => {
 // @access  Public
 export const getOrderByIdPublic = async (req, res) => {
   try {
-    const token = req.params.token || req.params.id;
-    // Find by shareToken, or fallback to _id or orderId
-    let order = await Order.findOne({ shareToken: token }).populate('customer').populate('asterInventoryItem');
-    if (!order) {
-      order = await Order.findOne({ $or: [{ _id: token }, { orderId: token }] }).populate('customer').populate('asterInventoryItem');
+    const rawParam = req.params.token || req.params.id;
+    if (!rawParam || typeof rawParam !== 'string') {
+      return res.status(400).json({ message: 'Invalid or missing share token' });
     }
+    const token = rawParam.trim();
+
+    // STRICT: Look up ONLY by shareTokenHash or shareToken.
+    // ABSOLUTELY NO fallback to _id or orderId (P0-01).
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const order = await Order.findOne({
+      $or: [
+        { shareTokenHash: tokenHash },
+        { shareToken: token },
+      ],
+    }).populate('customer').populate('asterInventoryItem');
 
     if (!order) {
       return res.status(404).json({ message: 'Invoice not found or link is invalid' });
     }
 
-    // Check expiration
-    if (order.shareTokenExpiresAt && new Date() > new Date(order.shareTokenExpiresAt)) {
+    // Check revocation (P0-01)
+    if (order.shareTokenRevokedAt) {
       return res.status(410).json({
-        message: 'This shared invoice link has expired. Please contact the tailor shop for an updated link.'
+        message: 'This shared invoice link has been revoked. Please contact the tailor shop for an updated link.',
       });
     }
 
-    // Ensure token is generated if opened via old id link
-    if (!order.shareToken) {
-      order.shareToken = crypto.randomBytes(16).toString('hex');
-      order.shareTokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      await order.save();
+    // Check expiration (P0-01: 30-day default window)
+    if (order.shareTokenExpiresAt && new Date() > new Date(order.shareTokenExpiresAt)) {
+      return res.status(410).json({
+        message: 'This shared invoice link has expired. Please contact the tailor shop for an updated link.',
+      });
     }
 
     const payment = await Payment.findOne({ orderId: order._id });
     const delivery = await Delivery.findOne({ orderId: order._id });
-    const measurements = order.customer
-      ? await Measurement.findOne({ customerId: order.customer._id })
-      : null;
     const transactions = await Transaction.find({ orderId: order._id }).sort({ date: 1 });
     const shop = await Shop.findById(order.shopId);
 
-    const hasSnapshot = order.measurementsSnapshot &&
-      (order.measurementsSnapshot.shirt || order.measurementsSnapshot.pant || order.measurementsSnapshot.others);
-    const resolvedMeasurements = hasSnapshot ? order.measurementsSnapshot : measurements;
-
-    let customerPhone = order.customerPhone || order.customer?.phone || '';
-    let customerAddress = order.customer?.address || '';
-    if (!customerPhone && order.customer) {
-      try {
-        const custId = order.customer._id || order.customer;
-        const custDoc = await Customer.findById(custId);
-        if (custDoc) {
-          customerPhone = custDoc.phone || '';
-          customerAddress = custDoc.address || '';
-        }
-      } catch (_) {}
-    }
-
-    // Build SANITIZED public invoice payload - STRICTLY stripping internal cost, profit, notes, karigar & machine assignments
+    // Build MINIMAL SANITIZED public invoice payload (INV-06, 07; SEC-02)
+    // Strictly zero leakage: NO phone, NO address, NO measurements, NO internal costs/margins/notes/karigar/machine, NO token echo.
     const publicInvoice = {
-      _id: order._id,
       orderId: order.orderId,
-      customerName: order.customerName,
-      customerPhone: customerPhone,
-      customer: {
-        name: order.customerName,
-        phone: customerPhone,
-        address: customerAddress,
-      },
+      customerName: order.customerName || (order.customer ? order.customer.name : 'Valued Customer'),
       apparelType: order.apparelType,
       fabric: order.fabric || '',
       status: order.status,
+      date: order.createdAt || order.date,
       deliveryDate: order.deliveryDate,
       price: order.price,
       needsAster: Boolean(order.needsAster),
       asterQuantity: order.needsAster ? (order.asterQuantity || 0) : 0,
       asterSellingPrice: order.needsAster ? (order.asterSellingPrice || 0) : 0,
       asterItemName: order.asterInventoryItem?.itemName || order.asterInventoryItem?.name || 'Lining Material',
-      asterInventoryItem: order.asterInventoryItem ? {
-        itemName: order.asterInventoryItem.itemName || order.asterInventoryItem.name || 'Lining Material',
-        unit: order.asterInventoryItem.unit || 'm',
-      } : null,
-      measurementType: order.measurementType,
-      shareToken: order.shareToken,
-      shareTokenExpiresAt: order.shareTokenExpiresAt,
-      measurements: resolvedMeasurements,
-      measurementsSnapshot: resolvedMeasurements,
       items: Array.isArray(order.items)
         ? order.items.map((it) => ({
             id: it.id,
@@ -271,7 +249,6 @@ export const getOrderByIdPublic = async (req, res) => {
         date: tx.date,
       })),
       shop: shop ? {
-        _id: shop._id,
         shopName: shop.shopName,
         phone: shop.phone,
         address: shop.address,
@@ -284,7 +261,7 @@ export const getOrderByIdPublic = async (req, res) => {
 
     res.json(publicInvoice);
   } catch (error) {
-    console.error('Get public order by ID error:', error);
+    console.error('Get public order by token error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -297,8 +274,13 @@ export const generateShareToken = async (req, res) => {
     const order = await findOrderScoped(req.params.id, req.user.shopId);
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
-    order.shareToken = crypto.randomBytes(16).toString('hex');
+    const rawToken = crypto.randomBytes(24).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    order.shareToken = rawToken;
+    order.shareTokenHash = tokenHash;
     order.shareTokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    order.shareTokenRevokedAt = null;
     await order.save();
 
     res.json({
@@ -308,6 +290,27 @@ export const generateShareToken = async (req, res) => {
     });
   } catch (error) {
     console.error('Generate share token error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Revoke public invoice share token
+// @route   POST /api/orders/:id/revoke-share-token
+// @access  Private
+export const revokeShareToken = async (req, res) => {
+  try {
+    const order = await findOrderScoped(req.params.id, req.user.shopId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    order.shareTokenRevokedAt = new Date().toISOString();
+    await order.save();
+
+    res.json({
+      message: 'Share token has been revoked successfully',
+      revokedAt: order.shareTokenRevokedAt,
+    });
+  } catch (error) {
+    console.error('Revoke share token error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -340,6 +343,20 @@ export const recordOrderPayment = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a positive payment amount' });
     }
 
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotencyKey || req.body.clientMutationId;
+    if (idempotencyKey) {
+      const existingTx = await Transaction.findOne({ shopId: req.user.shopId, idempotencyKey });
+      if (existingTx) {
+        const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
+        const result = order.toJSON();
+        result.payment = payment;
+        result.delivery = await Delivery.findOne({ orderId: order._id });
+        result.transaction = existingTx;
+        const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
+        return res.json(sanitized);
+      }
+    }
+
     if (paymentType && typeof paymentType === 'string') {
       const pt = paymentType.trim().toLowerCase();
       if (pt === 'cash') paymentType = 'Cash';
@@ -349,12 +366,14 @@ export const recordOrderPayment = async (req, res) => {
       else if (pt === 'bank') paymentType = 'Bank';
     }
 
-    await Transaction.create({
+    const tx = await Transaction.create({
       shopId: req.user.shopId,
       orderId: order._id,
       amount: Number(amount),
       paymentType: paymentType || 'Cash',
       type: 'Payment',
+      idempotencyKey: idempotencyKey || null,
+      date: new Date().toISOString(),
     });
 
     const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
@@ -371,11 +390,100 @@ export const recordOrderPayment = async (req, res) => {
     const result = order.toJSON();
     result.payment = payment;
     result.delivery = await Delivery.findOne({ orderId: order._id });
+    result.transaction = tx;
 
     const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
     res.json(sanitized);
   } catch (error) {
     console.error('Record payment error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Record an immutable refund/reversal against an order (PAY-03, P0-03)
+// @route   POST /api/orders/:id/refunds
+// @access  Private
+export const recordOrderRefund = async (req, res) => {
+  try {
+    const order = await findOrderScoped(req.params.id, req.user.shopId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    let { amount, reason, paymentType } = req.body;
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'Please provide a positive refund amount' });
+    }
+
+    if (!reason || typeof reason !== 'string' || !reason.trim()) {
+      return res.status(400).json({ message: 'A reason is required to record a refund or reversal' });
+    }
+
+    const currentPayment = await Payment.findOne({ orderId: order._id, shopId: req.user.shopId });
+    if (!currentPayment || (currentPayment.paidAmount || 0) <= 0) {
+      return res.status(400).json({ message: 'Cannot process refund: No payments have been recorded for this order' });
+    }
+
+    if (Number(amount) > Number(currentPayment.paidAmount)) {
+      return res.status(400).json({
+        message: `Refund amount (₹${amount}) exceeds total paid amount (₹${currentPayment.paidAmount})`,
+      });
+    }
+
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotencyKey || req.body.clientMutationId;
+    if (idempotencyKey) {
+      const existingTx = await Transaction.findOne({ shopId: req.user.shopId, idempotencyKey });
+      if (existingTx) {
+        const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
+        const result = order.toJSON();
+        result.payment = payment;
+        result.delivery = await Delivery.findOne({ orderId: order._id });
+        result.refundTransaction = existingTx;
+        const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
+        return res.json(sanitized);
+      }
+    }
+
+    if (paymentType && typeof paymentType === 'string') {
+      const pt = paymentType.trim().toLowerCase();
+      if (pt === 'cash') paymentType = 'Cash';
+      else if (pt === 'upi' || pt === 'online') paymentType = 'UPI';
+      else if (pt === 'card') paymentType = 'Card';
+      else if (pt === 'credit') paymentType = 'Credit';
+      else if (pt === 'bank') paymentType = 'Bank';
+    }
+
+    // Create immutable Refund transaction record (PAY-03)
+    const refundTx = await Transaction.create({
+      shopId: req.user.shopId,
+      orderId: order._id,
+      amount: Number(amount),
+      paymentType: paymentType || 'Cash',
+      type: 'Refund',
+      reason: reason.trim(),
+      processedBy: req.user.name || 'Owner',
+      idempotencyKey: idempotencyKey || null,
+      date: new Date().toISOString(),
+    });
+
+    const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
+
+    await dispatchNotification({
+      shopId: req.user.shopId,
+      customerId: order.customer,
+      orderId: order._id,
+      title: 'Refund Processed',
+      message: `Refund of ₹${amount} recorded for order ${order.orderId}. Reason: ${reason.trim()}. Balance due: ₹${payment.balanceAmount}.`,
+      type: 'payment',
+    });
+
+    const result = order.toJSON();
+    result.payment = payment;
+    result.delivery = await Delivery.findOne({ orderId: order._id });
+    result.refundTransaction = refundTx;
+
+    const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
+    res.json(sanitized);
+  } catch (error) {
+    console.error('Record refund error:', error);
     res.status(500).json({ message: error.message });
   }
 };

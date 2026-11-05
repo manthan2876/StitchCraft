@@ -125,6 +125,12 @@ export const loginUser = async (req, res) => {
       ]
     }).populate('shopId');
 
+    if (user && user.role && user.role.toLowerCase() !== 'owner') {
+      return res.status(403).json({
+        message: `Forbidden: role '${user.role}' is not authorized. StitchCraft is restricted to shop owners only.`,
+      });
+    }
+
     if (!user) {
       const emailLower = supabaseUser.email.toLowerCase();
       const name = supabaseUser.user_metadata?.name || 'Shop Owner';
@@ -297,6 +303,12 @@ export const verifyEmail = async (req, res) => {
         { email: emailLower }
       ]
     }).populate('shopId');
+
+    if (user && user.role && user.role.toLowerCase() !== 'owner') {
+      return res.status(403).json({
+        message: `Forbidden: role '${user.role}' is not authorized. StitchCraft is restricted to shop owners only.`,
+      });
+    }
 
     if (!user) {
       const name = supabaseUser.user_metadata?.name || 'Shop Owner';

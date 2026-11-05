@@ -91,6 +91,17 @@ class SyncService {
         }
       }
 
+      final failedMutations = await _localDb.getFailedMutations();
+      for (final mut in failedMutations) {
+        failedRecords.add({
+          'table': mut['table_name'] ?? 'mutation_outbox',
+          'id': mut['id']?.toString() ?? '',
+          'title': mut['conflict_state'] == 'conflict'
+              ? 'Conflict: ${mut['action']} on ${mut['table_name']}'
+              : 'Failed: ${mut['last_error'] ?? mut['action']}',
+        });
+      }
+
       final prefs = await SharedPreferences.getInstance();
       final lastSyncStr = prefs.getString('lastSyncTime');
       final lastSyncTime = lastSyncStr != null
@@ -122,6 +133,97 @@ class SyncService {
     }
   }
 
+  /// Process queued mutations with exponential backoff and idempotency (P0-04)
+  Future<void> processMutationOutbox(String token) async {
+    final pending = await _localDb.getPendingMutations();
+    if (pending.isEmpty) return;
+
+    developer.log('Processing ${pending.length} outbox mutations...', name: 'SyncService');
+
+    for (final mutation in pending) {
+      final mutationId = mutation['id'].toString();
+      final table = mutation['table_name'].toString();
+      final action = mutation['action'].toString();
+      final recordId = mutation['record_id'].toString();
+      final idempotencyKey = mutation['idempotency_key'].toString();
+      final Map<String, dynamic> payload = json.decode(mutation['payload'] as String);
+
+      final endpoint = table == 'expenses' ? 'ledger/expenses' : table;
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+        'Idempotency-Key': idempotencyKey,
+      };
+
+      try {
+        if (action == 'payment') {
+          final res = await http.post(
+            Uri.parse('$baseUrl/orders/$recordId/payments'),
+            headers: headers,
+            body: json.encode(payload),
+          ).timeout(const Duration(seconds: 15));
+
+          if (res.statusCode == 200 || res.statusCode == 201) {
+            await _localDb.markMutationSuccess(mutationId);
+          } else if (res.statusCode == 409) {
+            await _localDb.markMutationFailure(mutationId, 'Payment conflict: ${res.body}', conflict: true);
+          } else if (res.statusCode >= 400 && res.statusCode < 500) {
+            await _localDb.markMutationFailure(mutationId, 'Validation error: ${res.body}', terminal: true);
+          } else {
+            await _localDb.markMutationFailure(mutationId, 'Server error: ${res.statusCode}');
+          }
+        } else if (action == 'delete') {
+          final res = await http.delete(
+            Uri.parse('$baseUrl/$endpoint/$recordId'),
+            headers: headers,
+          ).timeout(const Duration(seconds: 15));
+
+          if (res.statusCode == 200 || res.statusCode == 204 || res.statusCode == 404) {
+            await _localDb.markMutationSuccess(mutationId);
+          } else {
+            await _localDb.markMutationFailure(mutationId, 'Delete failed: ${res.statusCode}');
+          }
+        } else if (action == 'update') {
+          final res = await http.put(
+            Uri.parse('$baseUrl/$endpoint/$recordId'),
+            headers: headers,
+            body: json.encode(payload),
+          ).timeout(const Duration(seconds: 15));
+
+          if (res.statusCode == 200) {
+            await _localDb.markMutationSuccess(mutationId);
+          } else if (res.statusCode == 409) {
+            await _localDb.markMutationFailure(mutationId, 'Conflict: concurrent modification detected', conflict: true);
+          } else if (res.statusCode >= 400 && res.statusCode < 500) {
+            await _localDb.markMutationFailure(mutationId, 'Validation error: ${res.body}', terminal: true);
+          } else {
+            await _localDb.markMutationFailure(mutationId, 'Server error: ${res.statusCode}');
+          }
+        } else {
+          // create
+          final res = await http.post(
+            Uri.parse('$baseUrl/$endpoint'),
+            headers: headers,
+            body: json.encode(payload),
+          ).timeout(const Duration(seconds: 15));
+
+          if (res.statusCode == 200 || res.statusCode == 201) {
+            await _localDb.markMutationSuccess(mutationId);
+          } else if (res.statusCode == 409) {
+            await _localDb.markMutationFailure(mutationId, 'Duplicate/conflict: record already exists', conflict: true);
+          } else if (res.statusCode >= 400 && res.statusCode < 500) {
+            await _localDb.markMutationFailure(mutationId, 'Validation error: ${res.body}', terminal: true);
+          } else {
+            await _localDb.markMutationFailure(mutationId, 'Server error: ${res.statusCode}');
+          }
+        }
+      } catch (e) {
+        developer.log('Outbox execution error for $mutationId: $e', name: 'SyncService');
+        await _localDb.markMutationFailure(mutationId, e.toString());
+      }
+    }
+  }
+
   /// Sync all tables with progress callback
   Future<void> syncAll({
     Function(String table, int current, int total)? onProgress,
@@ -133,6 +235,13 @@ class SyncService {
       throw StateError('Please sign in to sync your shop data.');
     }
     String token = initialToken;
+
+    // Process queued mutations in durable outbox first (P0-04)
+    try {
+      await processMutationOutbox(token);
+    } catch (outboxErr) {
+      developer.log('Warning: error processing mutation outbox: $outboxErr', name: 'SyncService');
+    }
 
     final tables = ['customers', 'orders', 'expenses', 'inventory'];
     final List<String> errors = [];

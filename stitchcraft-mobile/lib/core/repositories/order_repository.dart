@@ -95,20 +95,63 @@ class OrderRepository {
     final normalizedMethod = method.toLowerCase() == 'online' || method.toLowerCase() == 'upi'
         ? 'UPI'
         : (method.toLowerCase() == 'cash' ? 'Cash' : method);
-    final response = await http.post(
-      Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: json.encode({
-        'amount': amount,
-        'paymentType': normalizedMethod,
-      }),
-    ).timeout(const Duration(seconds: 10));
 
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(json.decode(response.body)['message'] ?? 'Failed to record payment');
+    final String idemKey = 'pay_${orderId}_${DateTime.now().millisecondsSinceEpoch}';
+    final paymentPayload = {
+      'amount': amount,
+      'paymentType': normalizedMethod,
+      'idempotencyKey': idemKey,
+    };
+
+    bool syncedOnline = false;
+
+    if (token != null && token.isNotEmpty) {
+      try {
+        final response = await http.post(
+          Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+            'Idempotency-Key': idemKey,
+          },
+          body: json.encode(paymentPayload),
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          syncedOnline = true;
+        } else if (response.statusCode >= 400 && response.statusCode < 500) {
+          throw Exception(json.decode(response.body)['message'] ?? 'Failed to record payment');
+        }
+      } catch (e) {
+        if (e is Exception && !e.toString().contains('Failed to record payment')) {
+          developer.log('Network unavailable during payment, enqueuing offline mutation: $e', name: 'OrderRepository');
+        } else {
+          rethrow;
+        }
+      }
+    }
+
+    // Record locally in order_payments table
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _localDb.insertRecord('order_payments', {
+      'id': 'pay_loc_$now',
+      'order_id': orderId,
+      'amount': amount,
+      'payment_method': normalizedMethod,
+      'date': now,
+      'sync_status': syncedOnline ? 0 : 1,
+      'updated_at': now,
+    });
+
+    // If offline, enqueue into durable mutation outbox (P0-04)
+    if (!syncedOnline) {
+      await _localDb.enqueueMutation(
+        tableName: 'orders',
+        recordId: orderId,
+        action: 'payment',
+        payload: paymentPayload,
+        idempotencyKey: idemKey,
+      );
     }
   }
 

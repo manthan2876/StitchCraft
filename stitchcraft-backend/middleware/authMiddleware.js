@@ -41,6 +41,14 @@ export const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'Not authorized, account scheduled for deletion' });
       }
 
+      // Enforce single-role Owner-only security policy (P0-02)
+      const userRole = (user.role || 'owner').toLowerCase();
+      if (userRole !== 'owner') {
+        return res.status(403).json({
+          message: `Forbidden: role '${user.role}' is not authorized. StitchCraft is restricted to shop owners only.`,
+        });
+      }
+
       req.user = user;
       next();
     } catch (error) {
@@ -59,10 +67,11 @@ export const authorize = (...roles) => (req, res, next) => {
     return res.status(401).json({ message: 'Not authorized, no authenticated user' });
   }
 
-  const userRole = req.user.role || 'owner';
-  if (roles.length > 0 && !roles.includes(userRole)) {
+  const userRole = (req.user.role || 'owner').toLowerCase();
+  // StitchCraft single-role enforcement (P0-02): Only owner is authorized
+  if (userRole !== 'owner') {
     return res.status(403).json({
-      message: `Forbidden: role '${userRole}' is not authorized to perform this action`
+      message: `Forbidden: role '${userRole}' is not authorized. Owner access required.`,
     });
   }
 

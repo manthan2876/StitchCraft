@@ -180,6 +180,13 @@ export const CustomerDetails = () => {
           <span>{tf('backToCustomers', 'Back to Customers')}</span>
         </Link>
         <div className="flex items-center gap-2">
+          <Link
+            to={`/new-order?customerId=${customer._id}`}
+            className="px-3.5 py-1.5 bg-color-accent-purple hover:bg-color-accent-purple/90 text-white-forced font-bold rounded-xl shadow-lg text-xs cursor-pointer flex items-center gap-1 transition-all"
+          >
+            <MdBookmarkBorder className="w-3.5 h-3.5 text-white-forced" />
+            <span>{tf('newOrderForCustomer', 'Book New Order')}</span>
+          </Link>
           <button onClick={handleOpenEditModal} className="px-3.5 py-1.5 bg-bg-secondary hover:bg-bg-card-hover text-text-main border border-border-medium hover:border-color-accent-purple/50 font-bold rounded-xl shadow-lg text-xs cursor-pointer flex items-center gap-1 transition-all">
             <MdEdit className="w-3.5 h-3.5 text-color-accent-purple" />
             <span>{tf('editProfile', 'Edit Profile')}</span>

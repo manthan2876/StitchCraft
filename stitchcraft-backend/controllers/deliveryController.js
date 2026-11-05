@@ -71,24 +71,51 @@ export const markAsDelivered = async (req, res) => {
       return res.status(404).json({ message: 'Delivery record not found' });
     }
 
-    // Check for outstanding balance
+    // Prevent duplicate delivery (P1-05, DEL-02)
+    if (delivery.status === 'Delivered') {
+      return res.status(400).json({ message: 'Order has already been marked as delivered' });
+    }
+
+    // Check for outstanding balance and require explicit audit reason for credit delivery (DEL-01, DEL-02)
     const payment = await Payment.findOne({ orderId: delivery.orderId, shopId: req.user.shopId });
-    if (payment && payment.balanceAmount > 0 && !req.body.allowCredit) {
-      return res.status(400).json({
-        message: `Order has an outstanding balance of ₹${payment.balanceAmount}. Please collect payment or confirm delivery on credit.`,
-        requiresCreditApproval: true,
-        balanceAmount: payment.balanceAmount,
-      });
+    if (payment && Number(payment.balanceAmount) > 0) {
+      if (!req.body.allowCredit) {
+        return res.status(400).json({
+          message: `Order has an outstanding balance of ₹${payment.balanceAmount}. Please collect payment or confirm delivery on credit.`,
+          requiresCreditApproval: true,
+          balanceAmount: payment.balanceAmount,
+        });
+      }
+
+      const creditReason = (req.body.creditReason || req.body.reason || '').trim();
+      if (!creditReason) {
+        return res.status(400).json({
+          message: 'A reason is required to approve delivery on credit (udhar).',
+        });
+      }
+
+      delivery.allowCredit = true;
+      delivery.creditReason = creditReason;
+      delivery.creditApprovedBy = req.user.name || 'Owner';
+      delivery.creditApprovedAt = new Date().toISOString();
     }
 
     delivery.status = 'Delivered';
     delivery.deliveredBy = req.user.name || 'Owner';
+    delivery.deliveredAt = new Date().toISOString();
     await delivery.save();
 
     // Sync order status
     const order = await Order.findById(delivery.orderId);
     if (order) {
       order.status = 'Delivered';
+      if (delivery.allowCredit) {
+        order.notes = order.notes || [];
+        order.notes.push({
+          text: `Delivered on credit (udhar ₹${payment?.balanceAmount || 0}). Reason: ${delivery.creditReason}`,
+          addedAt: new Date(),
+        });
+      }
       await order.save();
 
       // Create & dispatch notification
@@ -97,7 +124,7 @@ export const markAsDelivered = async (req, res) => {
         customerId: order.customer,
         orderId: order._id,
         title: 'Order Delivered',
-        message: `Order ${order.orderId} marked as Delivered by ${delivery.deliveredBy}.`,
+        message: `Order ${order.orderId} marked as Delivered by ${delivery.deliveredBy}.${delivery.allowCredit ? ' (Delivered on Credit)' : ''}`,
         type: 'order_status',
       });
     }

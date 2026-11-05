@@ -11,17 +11,16 @@ import {
 
 const router = Router();
 
-// Protect all routes with auth token
+// Protect all routes with auth token and enforce owner-only access (P0-02)
 router.use(protect);
+router.use(authorize('owner'));
 
-// Routes accessible by owner & manager
-router.get('/', authorize('owner', 'manager'), getStaff);
-router.post('/', authorize('owner', 'manager'), addStaff);
-router.put('/:id/status', authorize('owner', 'manager'), updateStaffStatus);
-
-// Routes strictly restricted to owner
-router.put('/:id/role', authorize('owner'), updateStaffRole);
-router.delete('/:id', authorize('owner'), removeStaff);
+// Staff management operations (Owner-only)
+router.get('/', getStaff);
+router.post('/', addStaff);
+router.put('/:id/status', updateStaffStatus);
+router.put('/:id/role', updateStaffRole);
+router.delete('/:id', removeStaff);
 
 export default router;
 

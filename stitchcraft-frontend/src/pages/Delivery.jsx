@@ -49,9 +49,9 @@ export const Delivery = () => {
     fetchDeliveries();
   }, [activeTab]);
 
-  const handleMarkDelivered = async (id, allowCredit = false) => {
+  const handleMarkDelivered = async (id, allowCredit = false, creditReason = '') => {
     try {
-      await api.put(`/deliveries/${id}/deliver`, { allowCredit });
+      await api.put(`/deliveries/${id}/deliver`, { allowCredit, creditReason });
       fetchDeliveries();
     } catch (err) {
       if (err.message && err.message.includes('outstanding balance')) {
@@ -59,7 +59,15 @@ export const Delivery = () => {
           `${err.message}\n\nDo you want to confirm delivery on credit (Udhar)?`
         );
         if (confirmCredit) {
-          handleMarkDelivered(id, true);
+          const reason = window.prompt(
+            'Enter reason for credit delivery (required for Udhar audit):',
+            'Trusted customer credit'
+          );
+          if (reason && reason.trim()) {
+            handleMarkDelivered(id, true, reason.trim());
+          } else {
+            alert('Delivery on credit cancelled: Reason is required.');
+          }
         }
       } else {
         console.error('Failed to mark delivered:', err);

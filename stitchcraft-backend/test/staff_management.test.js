@@ -34,17 +34,17 @@ describe('Staff & Roles Management Security Policies', () => {
     assert.equal(res.getStatusCode(), null);
   });
 
-  it('should allow manager to view staff list and toggle basic status', () => {
+  it('should deny manager and non-owner roles from accessing staff management (P0-02)', () => {
     const req = { user: { role: 'manager', shopId: 'shop-1' } };
     const res = createMockRes();
     let nextCalled = false;
     const next = () => { nextCalled = true; };
 
-    const ownerOrManagerMiddleware = authorize('owner', 'manager');
-    ownerOrManagerMiddleware(req, res, next);
+    const ownerMiddleware = authorize('owner');
+    ownerMiddleware(req, res, next);
 
-    assert.equal(nextCalled, true);
-    assert.equal(res.getStatusCode(), null);
+    assert.equal(nextCalled, false);
+    assert.equal(res.getStatusCode(), 403);
   });
 
   it('should block managers from owner-only actions like changing roles or unlinking staff', () => {

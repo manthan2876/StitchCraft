@@ -88,7 +88,8 @@ StitchCraft defines four explicit user roles per shop branch:
 | Data Export / Import / Wiping | ✅ | ❌ | ❌ | ❌ |
 | Account Deletion | ✅ | ❌ | ❌ | ❌ |
 
-- **Staff Management (`/api/shops/:shopId/staff`)**: Shop owners can list, invite, update roles (`owner`, `manager`, `staff`, `karigar`), toggle active status, and unlink members. Managers can view staff but cannot modify roles. Standard staff and karigars are blocked with HTTP 403.
+- **Staff Management (`/api/staff`)**: Mounted at `/api/staff`, allowing shop owners to list, invite, update roles (`owner`, `manager`, `staff`, `karigar`), toggle active status, and unlink members. Managers can view staff but cannot modify roles. Standard staff and karigars are blocked with HTTP 403.
+- **Role Enforcement Status**: While the 4-role matrix (`owner`, `manager`, `staff`, `karigar`) is architecturally defined and verified by unit tests, `authMiddleware.js` currently enforces owner privileges on sensitive mutation endpoints, pending persistent multi-role assignment rollout in the database layer.
 
 ---
 
@@ -153,7 +154,7 @@ sequenceDiagram
 - Managers are permitted day-to-day workshop coordination (orders, customers, inventory, khata, viewing staff) without access to destructive or owner-only settings.
 
 ### Public Receipt & Tokenized Invoice Sanitization
-- Public client invoices accessible via `/api/invoices/public/:token` (or order ID fallback) strictly sanitize all internal workshop data before rendering.
+- Public client invoices accessible via `/api/orders/public/:token` (or order ID fallback) strictly sanitize all internal workshop data before rendering.
 - Strips internal profit margins, wholesale fabric costs, assigned karigar IDs, and internal audit notes.
 - Generates dynamic UPI payment QR codes using the shop's configured `upiId` (VPA) for instant client settlement.
 - Expired or revoked share tokens cleanly display an invalid/expired state without leaking information.
@@ -180,7 +181,7 @@ Payments are **never updated directly**.
 - `syncPaymentFromTransactions()` aggregates all transactions to calculate `paidAmount`, `balanceAmount`, and payment `status` (`Pending`, `Partial`, `Paid`).
 
 ### Udhar & Pending Balances Aggregation
-- Outstanding customer balances are computed on demand across all unpaid or partially paid orders via `/api/shops/:shopId/pending-balances`.
+- Outstanding customer balances are computed on demand across all unpaid or partially paid orders via `/api/customers/pending-balances`.
 - Generates pre-formatted WhatsApp payment reminder messages containing customer name, shop details, total due, and payment prompts for one-tap dispatch.
 
 ### Shop Branding & Invoice Customization
@@ -197,7 +198,8 @@ Payments are **never updated directly**.
 
 ### Offline-First Mobile Architecture & Sync Monitor
 - Mobile app persists data locally in an encrypted SQLite database (`LocalDatabaseService` using `sqflite_sqlcipher`).
-- `SyncWorker` powered by `workmanager` runs background synchronization every 15 minutes to reconcile pending offline mutations with the REST API.
+- Mobile screens perform direct reads and writes to local SQLite, ensuring zero UI latency and offline operation.
+- `SyncWorker` powered by `workmanager` runs background synchronization every 15 minutes via `SyncService().syncAll()` to reconcile customers, orders, expenses, and inventory with the REST API.
 - `SyncStatusScreen` provides visibility into the offline queue (pending orders, customers, inventory), last sync timestamps, and a manual "Sync Now" trigger with retry logic.
 
 ### Customer WhatsApp Integration
@@ -206,7 +208,7 @@ Payments are **never updated directly**.
 ### Full Tri-Lingual Internationalization (i18n)
 - Native localization in **English (`en`)**, **Gujarati (`gu`)**, and **Hindi (`hi`)**.
 - **Web Frontend**: Managed via `LanguageContext` and `translations.js` with 558 synchronized translation keys loaded from locale JSONs. Real-time language switching in the top bar.
-- **Mobile App**: Managed via Flutter ARB files (`app_en.arb`, `app_gu.arb`, `app_hi.arb`) and synchronized `AppLocalizations` delegates with 118 getters across all 3 languages.
+- **Mobile App**: Managed via Flutter ARB files (`app_en.arb`, `app_gu.arb`, `app_hi.arb`) and synchronized `AppLocalizations` delegates with 183 translation keys across all 3 languages.
 
 ---
 
@@ -214,16 +216,18 @@ Payments are **never updated directly**.
 
 StitchCraft maintains automated test suites across all three modules:
 
-### Backend (`node --test`) — 37 Automated Tests Across 14 Suites
-- **`order_lifecycle.test.js`**: Order creation math, aster deductions, status progressions, note appending, and payment calculations.
-- **`ledger_and_expenses.test.js`**: Khata ledger entry aggregation, cash book running balance calculation, and category reporting.
-- **`udhar_balances.test.js`**: Udhar calculation math across orders and pre-filled WhatsApp reminder generation.
+### Backend (`node --test`) — 57 Automated Tests Across 18 Suites
+- **`financial_integrity.test.js`**: Payment idempotency, duplicate transaction prevention, immutable refund records, and credit delivery checks.
+- **`idempotency_and_inventory.test.js`**: Order and customer idempotency keys, single-fire aster stock deduction/restoration, Indian currency formatting, and inventory adjustments.
+- **`ledger_and_expenses.test.js`**: Khata financial summaries, running cash book balance, and category reporting.
+- **`order_lifecycle.test.js`**: Order creation math, aster deductions, status progressions, note appending, and payment transitions.
+- **`pending_balances.test.js`**: Udhar calculation math across orders and pre-filled WhatsApp reminder generation.
+- **`public_invoice_hardening.test.js`**: Opaque share token validation, payload sanitization (phone/address/cost stripping), 410 on revoked/expired links, and rate limiting.
+- **`security_and_scoping.test.js`**: Role authorization, rate-limiting handlers, ReDoS bounds, public receipt sanitization, partner outsource privacy, notification dispatch fallbacks, and identifier validation.
+- **`shop_isolation.test.js`**: Cross-tenant data isolation, identifier leakage prevention, and multi-shop boundary controls.
 - **`staff_management.test.js`**: Multi-role authorization policies, owner vs manager privileges, role updates, and member unlinking.
-- **`security_and_scoping.test.js`**: Role authorization, rate-limiting handlers, ReDoS bounds, public receipt sanitization, notification dispatch fallbacks, and identifier validation.
-- **`shop_isolation.test.js`**: Multi-role permission checks, cross-tenant data isolation, and multi-shop boundary controls.
-- **`auth_and_validation.test.js`**: Customer input validation, forgot/reset password boundaries, and database model layer schema checks.
 
-### Frontend (`node --test`) — 18 Automated Tests
+### Frontend (`node --test`) — 18 Automated Tests Across 11 Suites
 - **`form_validators.test.js`**: Form validation rules, regex edge cases, required fields, and boundary checks.
 - **`formatters.test.js`**: Currency (₹ INR) and date formatting helpers.
 
@@ -238,6 +242,6 @@ StitchCraft maintains automated test suites across all three modules:
 | Service | Hosting Platform | Config File | Notes |
 |---|---|---|---|
 | Backend API | Render Web Service | `render.yaml` | Node.js 22, connects to Supabase via service role |
-| Web Dashboard | Vercel | `vercel.json` | Vite SPA build with client-side routing rewrites |
+| Web Dashboard | Vercel | `vercel.json` | Vite SPA build command and `dist` output configuration |
 | Database & Storage | Supabase | `supabase/migrations/` | PostgreSQL with relational tables & signed storage |
 | Mobile App | Android / iOS | `pubspec.yaml` | Release APK / AppBundle |

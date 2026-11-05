@@ -6,6 +6,7 @@ import {
   getInventoryItemById,
   updateInventoryItem,
   deleteInventoryItem,
+  adjustInventoryItem,
 } from '../controllers/inventoryController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateInventoryRequest } from '../middleware/validationMiddleware.js';
@@ -20,5 +21,7 @@ router.route('/:id')
   .get(getInventoryItemById)
   .put(validateInventoryRequest, updateInventoryItem)
   .delete(deleteInventoryItem);
+
+router.post('/:id/adjust', adjustInventoryItem);
 
 export default router;

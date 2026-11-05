@@ -8,7 +8,7 @@ This guide outlines the local development setup, workflow standards, testing com
 
 - **Node.js**: `v22.x` or newer (`node -v`)
 - **npm**: `v10.x` or newer (`npm -v`)
-- **Flutter SDK**: `v3.10+` compatible with Dart constraint in `pubspec.yaml` (`flutter --version`)
+- **Flutter SDK**: `v3.10+` compatible with Dart constraint in `pubspec.yaml` (`flutter --version`; required for mobile commands; CI provides Flutter via `subosito/flutter-action@v2`)
 - **Supabase Account**: A Supabase project with PostgreSQL, Auth, and Storage enabled
 - **Git**: Configured with proper user details
 
@@ -108,11 +108,11 @@ flutter run --dart-define-from-file=env/dev.json
 
 Always run the verification commands for the modules you touched before submitting a pull request:
 
-### Backend Checks (37 Automated Tests + Syntax Check)
+### Backend Checks (57 Automated Tests across 18 Test Suites + Syntax Check)
 ```bash
 cd stitchcraft-backend
 
-# 1. Run automated test suites (order lifecycle, ledger, udhar balances, staff management, security, shop isolation)
+# 1. Run automated test suites (financial integrity, idempotency & inventory safety, ledger, order lifecycle, udhar balances, public invoice hardening, security & scoping, shop isolation, staff management)
 npm test
 
 # 2. Check JavaScript syntax on backend files

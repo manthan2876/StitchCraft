@@ -207,4 +207,78 @@ describe('Idempotency & Inventory Safety Specifications', () => {
     assert.equal(partialCase.requiresConfirmation, true);
     assert.equal(partialCase.unpaidBalance, 1000);
   });
+
+  it('should support inventory adjustment, wastage recording, and stock-safe limits (P1-04)', () => {
+    const item = {
+      _id: 'inv-item-1',
+      itemName: 'Cotton Lining',
+      quantity: 10.5,
+      unit: 'meters',
+      minQuantity: 5.0,
+      adjustments: [],
+    };
+
+    const processAdjustment = (inv, { adjustmentQuantity, reason, type, user }) => {
+      if (adjustmentQuantity === undefined || isNaN(Number(adjustmentQuantity)) || Number(adjustmentQuantity) === 0) {
+        throw new Error('A non-zero numeric adjustment quantity is required');
+      }
+      if (!reason || !reason.trim()) {
+        throw new Error('A reason is required to record an inventory adjustment or wastage');
+      }
+
+      const adjQty = Number(adjustmentQuantity);
+      const newQty = Math.round((inv.quantity + adjQty) * 100) / 100;
+      if (newQty < 0) {
+        throw new Error(`Adjustment of ${adjQty} exceeds current stock`);
+      }
+
+      inv.quantity = newQty;
+      inv.adjustments.push({
+        date: new Date().toISOString(),
+        adjustmentQuantity: adjQty,
+        resultingQuantity: newQty,
+        type: type || (adjQty < 0 ? 'wastage' : 'restock'),
+        reason: reason.trim(),
+        recordedBy: user || 'Owner',
+      });
+      return inv;
+    };
+
+    // 1. Record wastage of 1.25 meters
+    processAdjustment(item, {
+      adjustmentQuantity: -1.25,
+      reason: 'Edge fraying and salvage scrap during cutting',
+      type: 'wastage',
+      user: 'Masterji',
+    });
+    assert.equal(item.quantity, 9.25);
+    assert.equal(item.adjustments.length, 1);
+    assert.equal(item.adjustments[0].type, 'wastage');
+    assert.equal(item.adjustments[0].adjustmentQuantity, -1.25);
+
+    // 2. Record restock of 15.0 meters
+    processAdjustment(item, {
+      adjustmentQuantity: 15.0,
+      reason: 'New bolt purchase from textile market',
+      type: 'restock',
+      user: 'Masterji',
+    });
+    assert.equal(item.quantity, 24.25);
+
+    // 3. Excess deduction throws stock limit error
+    assert.throws(() => {
+      processAdjustment(item, {
+        adjustmentQuantity: -30.0,
+        reason: 'Over-wastage attempt',
+      });
+    }, /exceeds current stock/);
+
+    // 4. Missing reason throws error
+    assert.throws(() => {
+      processAdjustment(item, {
+        adjustmentQuantity: -1.0,
+        reason: '',
+      });
+    }, /A reason is required/);
+  });
 });

@@ -16,7 +16,7 @@ StitchCraft is a full-stack, multi-tenant tailor shop management platform design
 | **Mobile App** | Flutter, Dart, Supabase Auth, Encrypted SQLite (`sqflite_sqlcipher`), Workmanager, WhatsApp integration, Localizations | [`stitchcraft-mobile/`](./stitchcraft-mobile/) |
 
 - The **Backend API** manages authentication, password recovery, business logic, tenant isolation (`shopId: req.user.shopId`), multi-role access control (`owner`, `manager`, `karigar`, `staff`), shop staff invitation and role delegation, udhar balance aggregation, and transactional database mutations.
-- The **Web Dashboard** offers an administrative workspace with real-time analytics, staff management, udhar recovery with WhatsApp reminders, shop branding & invoice configuration (UPI QR, GSTIN, invoice prefixes), a 3-step order wizard, sanitized tokenized guest public invoices (`/invoice/public/:token`), full i18n (`en`, `gu`, `hi`), and data export/conflict-checked import tools.
+- The **Web Dashboard** offers an administrative workspace with real-time analytics, staff management, udhar recovery with WhatsApp reminders, shop branding & invoice configuration (UPI QR, GSTIN, invoice prefixes), a 3-step order wizard, sanitized tokenized guest public invoices (`/invoice/share/:id`), full i18n (`en`, `gu`, `hi`), and data export/conflict-checked import tools.
 - The **Mobile App** provides workshop-floor tracking, a 5-step order creation wizard with voice notes, an offline AES-encrypted khata ledger, udhar balances with one-tap WhatsApp reminders, cloud sync status monitor, role selection, periodic background sync via `workmanager`, direct customer WhatsApp updates, and PDF receipt printing.
 
 For system boundaries, validation layers, and security architecture, see the [Architecture Guide](./docs/ARCHITECTURE.md).
@@ -34,7 +34,7 @@ For system boundaries, validation layers, and security architecture, see the [Ar
 ├── stitchcraft-mobile/      # Flutter cross-platform mobile application
 ├── supabase/                # PostgreSQL relational database migrations
 ├── render.yaml              # Render backend deployment specification
-└── vercel.json              # Vercel web deployment and SPA rewrite rules
+└── vercel.json              # Vercel web deployment build configuration
 ```
 
 ---
@@ -54,7 +54,7 @@ cd stitchcraft-backend
 npm ci
 cp .env.example .env
 npm run dev     # Starts server on http://localhost:5000
-npm test        # Runs 37 automated tests across 14 test suites
+npm test        # Runs 57 automated tests across 18 test suites
 ```
 
 ### 2. Web Dashboard (`stitchcraft-frontend`)
@@ -86,7 +86,7 @@ flutter test    # Runs unit and widget tests
 All pull requests run automated CI workflows defined in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml). Run these commands locally before submitting:
 
 ```bash
-# 1. Backend verification (syntax check + 37 automated tests)
+# 1. Backend verification (syntax check + 57 automated tests across 18 suites)
 cd stitchcraft-backend
 find . -name node_modules -prune -o -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 npm test
@@ -114,8 +114,8 @@ flutter test
 - **Safe Regular Expressions**: Linear-time, non-backtracking patterns with bounded input lengths to eliminate ReDoS vulnerabilities.
 - **Multi-Tier Rate Limiting**: Strict limits on authentication & password recovery (10 / 15m), file uploads (30 / 15m), destructive actions (10 / 15m; applies to account deletion, data import, and all `DELETE` endpoints), and general API calls (300 / 15m).
 - **Tenant Isolation & Role Delegation**: Every database interaction is scoped by `shopId: req.user.shopId` to prevent cross-tenant data access, with role-based policies (`owner`, `manager`, `staff`, `karigar`).
-- **Data Sanitization**: Guest-accessible public invoice endpoints (`/api/invoices/public/:token`) strictly strip internal profit margins, wholesale fabric costs, and staff assignments while providing dynamic UPI payment QR codes.
-- **Tri-Lingual Localization**: Native English, Gujarati, and Hindi support across Web (558 synchronized translation keys) and Mobile (118 AppLocalizations getters).
+- **Data Sanitization**: Guest-accessible public invoice endpoints (`/api/orders/public/:token`) strictly strip internal profit margins, wholesale fabric costs, and staff assignments while providing dynamic UPI payment QR codes.
+- **Tri-Lingual Localization**: Native English, Gujarati, and Hindi support across Web (558 synchronized translation keys) and Mobile (183 ARB localization keys per language).
 
 For vulnerability reporting guidelines, see [`SECURITY.md`](./SECURITY.md).
 
@@ -123,6 +123,9 @@ For vulnerability reporting guidelines, see [`SECURITY.md`](./SECURITY.md).
 
 ## 📖 Further Documentation
 
+- [Project Requirements Baseline](./docs/PROJECT_REQUIREMENTS.md) — Exhaustive requirements specification across 19 operational domains.
+- [Project Codebase Audit & Gap Analysis](./docs/PROJECT_ANALYSIS.md) — End-to-end verification audit, journey friction analysis, and scorecard.
+- [Project Improvement Plan](./docs/PROJECT_IMPROVEMENT_PLAN.md) — Prioritized remediation roadmap (P0–P4), milestones, and release strategy.
 - [Development Guide](./docs/DEVELOPMENT.md) — Step-by-step setup, coding conventions, and PR guidelines.
 - [Architecture Guide](./docs/ARCHITECTURE.md) — System boundaries, validation pipeline, and deployment topology.
 - [Contributing Guidelines](./CONTRIBUTING.md) — Guidelines for contributing code and improvements.

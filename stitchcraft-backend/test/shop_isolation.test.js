@@ -21,30 +21,31 @@ describe('Multi-Tenant Shop Isolation & Multi-Role Authorization', () => {
       };
     };
 
-    it('should permit owner to access owner-or-manager routes', () => {
+    it('should permit owner to access private routes', () => {
       const req = { user: { role: 'owner' } };
       const res = createMockRes();
       let nextCalled = false;
       const next = () => { nextCalled = true; };
 
-      const middleware = authorize('owner', 'manager');
+      const middleware = authorize('owner');
       middleware(req, res, next);
 
       assert.equal(nextCalled, true);
       assert.equal(res.getStatusCode(), null);
     });
 
-    it('should permit manager to access owner-or-manager routes', () => {
+    it('should deny manager role from accessing private routes under owner-only policy (P0-02)', () => {
       const req = { user: { role: 'manager' } };
       const res = createMockRes();
       let nextCalled = false;
       const next = () => { nextCalled = true; };
 
-      const middleware = authorize('owner', 'manager');
+      const middleware = authorize('owner');
       middleware(req, res, next);
 
-      assert.equal(nextCalled, true);
-      assert.equal(res.getStatusCode(), null);
+      assert.equal(nextCalled, false);
+      assert.equal(res.getStatusCode(), 403);
+      assert.match(res.getJsonBody().message, /forbidden/i);
     });
 
     it('should deny karigar or staff from accessing owner/manager routes with 403', () => {

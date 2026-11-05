@@ -92,7 +92,10 @@ export const InvoiceDetails = () => {
   };
 
   const getGuestInvoiceUrl = () => {
-    return `${window.location.origin}/invoice/share/${order.shareToken || order._id}`;
+    if (!order?.shareToken) {
+      return '';
+    }
+    return `${window.location.origin}/invoice/share/${order.shareToken}`;
   };
 
   // Add this helper function inside the InvoiceDetails component

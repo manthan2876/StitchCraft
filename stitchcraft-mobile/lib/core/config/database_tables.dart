@@ -201,6 +201,26 @@ const List<String> createTableStatements = [
     FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
   )
   ''',
+  // Mutation Outbox Table (P0-04)
+  '''
+  CREATE TABLE IF NOT EXISTS mutation_outbox (
+    id TEXT PRIMARY KEY,
+    table_name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    max_attempts INTEGER DEFAULT 5,
+    next_retry INTEGER NOT NULL,
+    last_error TEXT,
+    base_version INTEGER DEFAULT 1,
+    conflict_state TEXT DEFAULT 'none',
+    status TEXT DEFAULT 'pending',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )
+  ''',
 ];
 
 const Map<int, List<String>> upgradeTableStatements = {
@@ -309,5 +329,26 @@ const Map<int, List<String>> upgradeTableStatements = {
     'ALTER TABLE measurements ADD COLUMN shop_id TEXT',
     'ALTER TABLE lining_items ADD COLUMN shop_id TEXT',
     'ALTER TABLE gallery_items ADD COLUMN shop_id TEXT',
+  ],
+  9: [
+    '''
+    CREATE TABLE IF NOT EXISTS mutation_outbox (
+      id TEXT PRIMARY KEY,
+      table_name TEXT NOT NULL,
+      record_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL,
+      attempts INTEGER DEFAULT 0,
+      max_attempts INTEGER DEFAULT 5,
+      next_retry INTEGER NOT NULL,
+      last_error TEXT,
+      base_version INTEGER DEFAULT 1,
+      conflict_state TEXT DEFAULT 'none',
+      status TEXT DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+    ''',
   ],
 };

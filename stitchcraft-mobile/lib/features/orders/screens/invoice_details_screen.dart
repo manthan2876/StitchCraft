@@ -227,7 +227,10 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         0.0;
     final double balance = (billTotal - paid).clamp(0.0, double.infinity);
 
-    final String guestUrl = '${AppEnv.webInvoiceUrl}/invoice/share/$orderId';
+    final String shareToken = (_order!['shareToken'] ?? '').toString();
+    final String guestUrl = shareToken.isNotEmpty
+        ? '${AppEnv.webInvoiceUrl}/invoice/share/$shareToken'
+        : '';
 
     if (customerPhone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -301,7 +304,10 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         0.0;
     final double balance = (billTotal - paid).clamp(0.0, double.infinity);
 
-    final String guestUrl = '${AppEnv.webInvoiceUrl}/invoice/share/$orderId';
+    final String shareToken = (_order!['shareToken'] ?? '').toString();
+    final String guestUrl = shareToken.isNotEmpty
+        ? '${AppEnv.webInvoiceUrl}/invoice/share/$shareToken'
+        : '';
 
     if (customerPhone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

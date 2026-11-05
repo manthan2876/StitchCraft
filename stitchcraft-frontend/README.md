@@ -43,7 +43,7 @@ stitchcraft-frontend/
 │   │   ├── Ledger.jsx            # Income & expense khata ledger with journal & Udhar tab
 │   │   ├── Invoices.jsx          # Invoice list
 │   │   ├── InvoiceDetails.jsx    # Full printable invoice view
-│   │   ├── PublicInvoice.jsx     # Shareable guest invoice (/invoice/public/:token) with UPI QR
+│   │   ├── PublicInvoice.jsx     # Shareable guest invoice (/invoice/share/:id) with UPI QR
 │   │   ├── Delivery.jsx          # Delivery tracking & completion
 │   │   ├── StaffManagement.jsx   # Team member invitation, role assignment & status toggle
 │   │   ├── Notifications.jsx     # In-app shop alerts
@@ -198,8 +198,8 @@ A streamlined 3-step creation wizard:
 - **Step 2 — Measurements**: Shirt, pant, or custom measurements + maap photo upload.
 - **Step 3 — Material & Assignment**: Fabric type, astar (lining) assignment, karigar assignment.
 
-### Public Invoice (`/invoice/public/:token`)
-- Shareable client-facing invoice link requiring no login.
+### Public Invoice (`/invoice/share/:id`)
+- Shareable client-facing invoice link requiring no login (invokes backend `GET /api/orders/public/:id`).
 - Resolves by secure guest share token or order ID.
 - Strips internal wholesale costs, profit margins, and artisan assignments to present only customer-facing line items and balance.
 - Dynamically generates and displays a UPI payment QR code using the shop's configured UPI VPA for instant customer payment.
@@ -248,7 +248,7 @@ return <button>{t('saveDetails')}</button>;
 
 ## 🚢 Deployment (Vercel)
 
-The repository root includes [`vercel.json`](../vercel.json) for client-side SPA routing rewrites.
+The repository root includes [`vercel.json`](../vercel.json) configuring the frontend build command and `stitchcraft-frontend/dist` output directory.
 
 Set these environment variables in the Vercel Project Settings:
 

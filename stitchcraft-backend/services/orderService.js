@@ -315,6 +315,9 @@ export const createOrderService = async (reqBody, shopId, userId) => {
     ? (effectiveAsterQty * effectiveAsterSellingPrice)
     : totalItemAsterPrice);
 
+  const rawShareToken = crypto.randomBytes(24).toString('hex');
+  const shareTokenHash = crypto.createHash('sha256').update(rawShareToken).digest('hex');
+
   const order = await Order.create({
     customerName: customerObj.name,
     customer: customerObj._id,
@@ -336,8 +339,10 @@ export const createOrderService = async (reqBody, shopId, userId) => {
     measurementsSnapshot,
     items,
     idempotencyKey: idempotencyKey || null,
-    shareToken: crypto.randomBytes(16).toString('hex'),
+    shareToken: rawShareToken,
+    shareTokenHash,
     shareTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    shareTokenRevokedAt: null,
   });
 
   let effectivePaymentType = paymentType || 'Cash';

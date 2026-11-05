@@ -259,7 +259,7 @@ offline records.
 
 #### Five-step create-order wizard
 
-Routes: `/create_order_step1` through `/create_order_step5`.
+Routes: Launched via bottom bar `+` action to `/create_order_customer`, with step routing across `/create_order_customer`, `/create_order_step1`, `/create_order_step3`, `/create_order_step4`, and `/create_order_step5`.
 
 Common frame:
 
@@ -274,11 +274,11 @@ Common frame:
 +---------------------------+
 ```
 
-1. **Customer selection**: search existing customer or create a customer first.
-2. **Garment selection**: add one or more garment categories and item types.
-3. **Measurements**: measurement fields, voice input, notes, and photo attachment.
-4. **Optional details**: fabric, lining/astar, inventory, and karigar assignment.
-5. **Pricing and confirmation**: price, advance, delivery date, running total,
+1. **Customer selection (`/create_order_customer`)**: search existing customer or create a new customer record.
+2. **Garment selection (`/create_order_step1`)**: add one or more garment categories and item types.
+3. **Measurements (`/create_order_step3`)**: measurement fields, voice input, notes, and photo attachment.
+4. **Optional details (`/create_order_step4`)**: fabric, lining/astar, inventory, and karigar assignment.
+5. **Pricing and confirmation (`/create_order_step5`)**: price, advance, delivery date, running total,
    rush flag, and final review.
 
 Each step preserves entered values when navigating backward, supports “use last
@@ -416,10 +416,10 @@ the confirmation state offers WhatsApp receipt sharing.
 - Detail view with contact, assignment, performance, and order history.
 - Add/edit/delete actions according to role.
 
-#### Machines — `/machines`, `/machine_details`
+#### Machines (Web Dashboard only — `/machines`)
 
-- Machine registry with type, serial number, and maintenance state.
-- Detail/edit view and maintenance notes.
+- *Note*: Machine registry and maintenance tracking is currently implemented on the Web Dashboard (`/machines`). It is omitted from the mobile application navigation.
+- Web feature includes machine registry with type, serial number, and maintenance state (`Working`, `Under Maintenance`, `Broken`).
 
 #### Repairs — `/repairs`
 

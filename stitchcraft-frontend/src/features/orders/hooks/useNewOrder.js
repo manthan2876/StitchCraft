@@ -80,6 +80,28 @@ export const useNewOrder = (_tf) => {
     }
   }, [queryCustomerId, rawCustomers, selectedCustomerId]);
 
+  // Preload customer's last valid measurements for one-tap repeat orders (P1-03)
+  useEffect(() => {
+    if (selectedCustomerId && custMode === 'select') {
+      api.get(`/customers/${selectedCustomerId}`)
+        .then(cust => {
+          if (cust && cust.measurements) {
+            const m = cust.measurements;
+            const shirt = m.shirt || {};
+            const pant = m.pant || {};
+            setMeasurements(prev => ({
+              ...prev,
+              ...shirt,
+              ...pant,
+              notes: m.others || prev.notes || '',
+            }));
+            setMeasurementType('Measurements');
+          }
+        })
+        .catch(err => console.warn('Could not preload customer measurements:', err));
+    }
+  }, [selectedCustomerId, custMode]);
+
   const handleApparelTypeChange = (e) => {
     const val = e.target.value;
     setApparelType(val);

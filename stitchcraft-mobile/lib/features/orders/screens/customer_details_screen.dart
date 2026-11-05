@@ -281,6 +281,31 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
       appBar: AppBar(
         title: Text(title),
       ),
+      floatingActionButton: _customerData != null
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                final custId = (_customerData!['_id'] ?? _customerData!['id'] ?? '').toString();
+                final custName = (_customerData!['name'] ?? 'Customer').toString();
+                final custPhone = (_customerData!['phone'] ?? '').toString();
+                Navigator.pushNamed(
+                  context,
+                  '/create_order',
+                  arguments: {
+                    'customerId': custId,
+                    'customerName': custName,
+                    'customerPhone': custPhone,
+                    'measurements': _customerData!['measurements'],
+                  },
+                );
+              },
+              icon: const Icon(Icons.add_shopping_cart, color: Colors.white),
+              label: const Text(
+                'Book New Order',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: AppTheme.brandPurple,
+            )
+          : null,
       body: _isLoading && _customerData == null
           ? const Center(child: CircularProgressIndicator())
           : _customerData == null

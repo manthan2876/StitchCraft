@@ -19,7 +19,7 @@ The Flutter mobile application for **StitchCraft** — a full-featured tailor sh
 | Scanning & Voice | `mobile_scanner` 5.0.0 (QR/barcode) + `speech_to_text` 7.0.0 (voice notes) |
 | Image Compression | `flutter_image_compress` 2.3.0 + `image_picker` 1.0.7 |
 | State & Charts | `provider` 6.0.0 + `fl_chart` 1.3.0 |
-| i18n | Flutter Localizations (English, Hindi, Gujarati via ARB files) |
+| i18n | Flutter Localizations (English, Hindi, Gujarati via ARB files — 183 translation keys per language) |
 | Theme | Custom `AppTheme` (Masterji Dark and Light themes) |
 
 ---
@@ -27,19 +27,19 @@ The Flutter mobile application for **StitchCraft** — a full-featured tailor sh
 ## ✨ Features
 
 - **5-Step Order Creation Wizard**:
-  - **Step 1 — Garment Selection**: Choose apparel category and preset styles.
-  - **Step 2 — Customer Selection**: Select existing client or register a new customer profile.
-  - **Step 3 — Measurement Input**: Body measurements with voice input support (`VoiceTextField`) and photo attachment.
-  - **Step 4 — Material Selection**: Fabric details, lining (astar) assignment, and karigar selection.
-  - **Step 5 — Order Confirmation**: Final pricing, advance payment, delivery date, and urgency settings.
+  - **Customer Selection (`/create_order_customer`)**: Triggered directly from bottom bar `+` action; select existing client or register a new customer profile.
+  - **Garment Selection (`/create_order_step1`)**: Choose apparel category and preset styles.
+  - **Measurement Input (`/create_order_step3`)**: Body measurements with voice input support (`VoiceTextField`) and photo attachment.
+  - **Material Selection (`/create_order_step4`)**: Fabric details, lining (astar) assignment, and karigar selection.
+  - **Order Confirmation (`/create_order_step5`)**: Final pricing, advance payment, delivery date, and urgency settings.
 - **Order Pipeline & Tracking**: Track all 8 stages from *Incoming* to *Delivered*.
 - **Offline-First Khata Ledger & Udhar Tracking**: Local SQLite database with AES encryption (`sqflite_sqlcipher`) for tracking income and expenses even without internet connectivity. Includes a dedicated **Udhar (Pending Balances)** ledger displaying customer dues with one-tap WhatsApp payment reminders.
 - **Cloud Sync Status Monitor**: `SyncStatusScreen` provides visibility into offline queues (orders, customers, expenses, and inventory), last successful sync timestamps, failed mutation details, and a manual "Sync Now" trigger.
-- **Automated Background Sync**: `SyncWorker` is initialized at mobile startup and registers one authenticated, connected periodic task. Failed tasks return failure so the platform can retry.
+- **Automated Background Sync**: `SyncWorker` is initialized at mobile startup and registers one authenticated, connected periodic task running every 15 minutes to reconcile `customers`, `orders`, `expenses`, and `inventory`. Failed tasks return failure so the platform can retry.
 - **Loss-aware synchronization**: pending creates are pushed, local deletions use authenticated DELETE requests, malformed responses and failed HTTP operations are surfaced, and remote pulls never automatically delete local records.
 - **Customer WhatsApp Updates**: Send one-click order confirmations, trial-ready notices, delivery updates, and balance reminders directly to customer WhatsApp numbers.
 - **Invoices & Receipts**: Generate, preview, and print PDF invoices or share via system share sheets.
-- **Shop & Staff Management**: Manage karigars, sewing machines, fabric/aster inventory, alteration/repair jobs, and multi-role access control (`owner`, `manager`, `staff`, `karigar`).
+- **Shop & Karigar Management**: Manage karigars, fabric/aster inventory, alteration/repair jobs, and multi-role access control (`owner`, `manager`, `staff`, `karigar`). (Sewing machine maintenance is managed on the Web dashboard).
 - **Authentication & Security**: Email/password authentication with password visibility toggles, forgot/reset password recovery dialogs, and AES-encrypted local storage.
 - **Multi-Language Support**: Runtime language switching between English (`en`), Hindi (`hi`), and Gujarati (`gu`) using generated localization classes.
 - **Onboarding Flow**: Splash screen → Language picker → Feature introduction carousel → Login/Register → Role & Shop Setup.
@@ -85,7 +85,7 @@ stitchcraft-mobile/
 │   │   │   │   └── step5_details.dart     # Step 5: Confirmation & pricing
 │   │   │   └── screens/                   # OrderListScreen, OrderDetailsScreen, CustomerListScreen, InvoiceDetailsScreen
 │   │   ├── khata/           # KhataScreen, IncomeList, ExpensesList, UdharList (pending balances + WhatsApp reminder)
-│   │   ├── shop/            # ShopHubScreen, ShopSetupScreen, KarigarsScreen, MachinesScreen, InventoryScreen
+│   │   ├── shop/            # ShopHubScreen, ShopSetupScreen, KarigarsScreen, InventoryScreen
 │   │   ├── repairs/         # RepairDashboard
 │   │   ├── profile/         # ProfileScreen (profile, shops, settings, security tabs), SyncStatusScreen
 │   │   ├── notifications/   # NotificationsScreen

@@ -13,8 +13,6 @@ import {
   MdBlock,
   MdDeleteOutline,
   MdAdminPanelSettings,
-  MdWork,
-  MdEngineering,
   MdBadge,
 } from 'react-icons/md';
 

@@ -185,3 +185,65 @@ export const deleteInventoryItem = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Adjust inventory quantity for wastage, reorder, correction or audit (INV-01..04, P1-04)
+// @route   POST /api/inventory/:id/adjust
+// @access  Private
+export const adjustInventoryItem = async (req, res) => {
+  try {
+    const item = await Inventory.findOne({ _id: req.params.id, shopId: req.user.shopId });
+
+    if (!item) {
+      return res.status(404).json({ message: 'Inventory item not found' });
+    }
+
+    const { adjustmentQuantity, reason, type } = req.body;
+
+    if (adjustmentQuantity === undefined || isNaN(Number(adjustmentQuantity)) || Number(adjustmentQuantity) === 0) {
+      return res.status(400).json({ message: 'A non-zero numeric adjustment quantity is required' });
+    }
+
+    if (!reason || typeof reason !== 'string' || !reason.trim()) {
+      return res.status(400).json({ message: 'A reason is required to record an inventory adjustment or wastage' });
+    }
+
+    const adjQty = Number(adjustmentQuantity);
+    const currentQty = Number(item.quantity) || 0;
+    const newQty = Math.round((currentQty + adjQty) * 100) / 100; // 2 decimal precision
+
+    if (newQty < 0) {
+      return res.status(400).json({
+        message: `Adjustment of ${adjQty} exceeds current stock (${currentQty} ${item.unit || 'units'}). Resulting quantity cannot be negative.`,
+      });
+    }
+
+    item.quantity = newQty;
+    item.adjustments = item.adjustments || [];
+    item.adjustments.push({
+      date: new Date().toISOString(),
+      adjustmentQuantity: adjQty,
+      resultingQuantity: newQty,
+      type: type || (adjQty < 0 ? 'wastage' : 'restock'),
+      reason: reason.trim(),
+      recordedBy: req.user.name || 'Owner',
+    });
+
+    const updatedItem = await item.save();
+
+    const threshold = updatedItem.minQuantity !== undefined ? updatedItem.minQuantity : 5;
+    if (updatedItem.quantity <= threshold) {
+      await dispatchNotification({
+        shopId: req.user.shopId,
+        title: '⚠️ Low Stock Alert',
+        message: `${updatedItem.itemName} stock dropped to ${updatedItem.quantity} ${updatedItem.unit || 'units'} (Minimum: ${threshold}).`,
+        type: 'low_stock',
+        sendPush: true,
+      });
+    }
+
+    res.json(updatedItem);
+  } catch (error) {
+    console.error('Adjust inventory error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

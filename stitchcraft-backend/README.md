@@ -95,13 +95,16 @@ stitchcraft-backend/
 │   ├── notificationService.js # In-app notifications & Firebase Cloud Messaging (FCM)
 │   └── orderService.js        # createOrder, updateOrder, deleteOrder, syncPayment
 │
-├── test/                      # Automated test suites (37 tests across 14 suites)
-│   ├── ledger_and_expenses.test.js  # Ledger aggregation & balance tests
-│   ├── order_lifecycle.test.js      # Order status transitions & financial math
-│   ├── pending_balances.test.js     # Udhar balance aggregation & WhatsApp reminders
-│   ├── security_and_scoping.test.js # Auth, reset password, rate limiting & input tests
-│   ├── shop_isolation.test.js       # Multi-tenant cross-shop boundary tests
-│   └── staff_management.test.js     # Multi-role policies & staff assignment tests
+├── test/                      # Automated test suites (57 tests across 18 suites)
+│   ├── financial_integrity.test.js      # Payment idempotency, duplicate prevention, refund logging
+│   ├── idempotency_and_inventory.test.js# Order/customer idempotency & single-fire inventory deduction
+│   ├── ledger_and_expenses.test.js      # Ledger aggregation & balance tests
+│   ├── order_lifecycle.test.js          # Order status transitions & financial math
+│   ├── pending_balances.test.js         # Udhar balance aggregation & WhatsApp reminders
+│   ├── public_invoice_hardening.test.js # Opaque token enforcement & sensitive data stripping
+│   ├── security_and_scoping.test.js     # Auth, reset password, rate limiting & input tests
+│   ├── shop_isolation.test.js           # Multi-tenant cross-shop boundary tests
+│   └── staff_management.test.js         # Multi-role policies & staff assignment tests
 │
 ├── utils/
 │   ├── identifiers.js         # UUID & ObjectId validation
@@ -180,8 +183,10 @@ Configured using `express-rate-limit` to prevent abuse and denial-of-service:
 - **File Uploads**: 30 requests per 15-minute window per IP (`/api/upload/*`).
 - **Destructive Actions**: 10 requests per 15-minute window per IP (`/api/auth/account/*`, `/api/auth/update-password`, `/api/auth/verify-password`, and **all HTTP `DELETE` requests** routed through `/api`).
 
-### 3. Multi-Tenant Shop Isolation
+### 3. Multi-Tenant Shop Isolation & Role Enforcement
 All operational collections (`Order`, `Customer`, `Karigar`, `Inventory`, `Machine`, `LedgerEntry`, `Payment`, `Transaction`, `Delivery`) enforce strict tenant boundaries by filtering on `shopId: req.user.shopId`. The `protect` middleware ensures users can only access records belonging to their active shop. Users can switch their active shop context via `PUT /api/auth/switch-shop/:id`.
+
+*Role Enforcement Status*: While 4 explicit user roles (`owner`, `manager`, `staff`, `karigar`) are architecturally modeled and verified in unit tests, `authMiddleware.js` currently restricts sensitive write and administrative routes to `owner` with HTTP 403 for non-owners, pending persistent tenant role assignment rollout.
 
 ### 4. Safe Regular Expressions (ReDoS Protection)
 All regex patterns (such as email and phone validation) use bounded lengths and deterministic, non-backtracking patterns:
@@ -345,3 +350,6 @@ The `/api/customers/pending-balances` endpoint aggregates outstanding balances a
 
 ### Tokenized Public Guest Invoices
 Guest invoices accessible via `/api/orders/public/:id` (using shareToken or Order ID) strictly strip wholesale fabric costs, profit margins, internal karigar assignments, and audit logs. The response provides sanitized customer-facing order items, financial balances, and shop UPI details for instant QR settlement.
+
+### JSONB Document Storage & Relational Migration
+The backend currently stores documents in a centralized PostgreSQL `app_records` table via the `SupabaseModel` adapter (`config/supabaseModel.js`). Each record stores `shop_id`, `collection_name`, and a `data` JSONB payload with GIN indexing. A transition script (`scripts/migrate_to_relational.js`) and database migrations (`supabase/migrations/`) are available for normalizing records into dedicated typed relational tables.
