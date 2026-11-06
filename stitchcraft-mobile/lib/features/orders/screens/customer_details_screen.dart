@@ -289,12 +289,13 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                 final custPhone = (_customerData!['phone'] ?? '').toString();
                 Navigator.pushNamed(
                   context,
-                  '/create_order',
+                  '/create_order_step1',
                   arguments: {
                     'customerId': custId,
                     'customerName': custName,
                     'customerPhone': custPhone,
-                    'measurements': _customerData!['measurements'],
+                    'customer': _customerData,
+                    'measurements': _customerData?['measurements'],
                   },
                 );
               },

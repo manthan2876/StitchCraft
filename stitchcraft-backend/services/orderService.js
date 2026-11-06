@@ -445,6 +445,55 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
   const newStatus = status;
 
   if (newStatus && newStatus !== order.status) {
+    // Enforce delivery credit requirements when transitioning to Delivered (5.3)
+    if (newStatus === 'Delivered') {
+      const payment = await Payment.findOne({ orderId: order._id, shopId });
+      if (payment && Number(payment.balanceAmount) > 0) {
+        if (!reqBody.allowCredit) {
+          const err = new Error(
+            `Order has an outstanding balance of ₹${payment.balanceAmount}. Please collect payment or confirm delivery on credit.`
+          );
+          err.statusCode = 400;
+          err.requiresCreditApproval = true;
+          err.balanceAmount = payment.balanceAmount;
+          throw err;
+        }
+
+        const creditReason = (reqBody.creditReason || reqBody.reason || '').trim();
+        if (!creditReason) {
+          const err = new Error('A reason is required to approve delivery on credit (udhar).');
+          err.statusCode = 400;
+          throw err;
+        }
+
+        let delivery = await Delivery.findOne({ orderId: order._id, shopId });
+        if (delivery) {
+          delivery.allowCredit = true;
+          delivery.creditReason = creditReason;
+          delivery.creditApprovedBy = userName || 'Owner';
+          delivery.creditApprovedAt = new Date().toISOString();
+          delivery.status = 'Delivered';
+          delivery.deliveredBy = userName || 'Owner';
+          delivery.deliveredAt = new Date().toISOString();
+          await delivery.save();
+        }
+
+        order.notes = order.notes || [];
+        order.notes.push({
+          text: `Delivered on credit (udhar ₹${payment.balanceAmount}). Reason: ${creditReason}`,
+          addedAt: new Date(),
+        });
+      } else {
+        let delivery = await Delivery.findOne({ orderId: order._id, shopId });
+        if (delivery) {
+          delivery.status = 'Delivered';
+          delivery.deliveredBy = userName || 'Owner';
+          delivery.deliveredAt = new Date().toISOString();
+          await delivery.save();
+        }
+      }
+    }
+
     await handleAstarStockAdjustment(order, newStatus, shopId);
     order.status = newStatus;
     statusChanged = true;
@@ -479,10 +528,6 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
     }
 
     if (status === 'Delivered') {
-      await Delivery.updateOne(
-        { orderId: order._id },
-        { status: 'Delivered', deliveredBy: userName || 'Owner' }
-      );
       await dispatchNotification({
         shopId: order.shopId,
         customerId: order.customer,

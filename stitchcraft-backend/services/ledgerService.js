@@ -4,6 +4,29 @@ import Order from '../models/Order.js';
 import Transaction from '../models/Transaction.js';
 import LedgerEntry from '../models/LedgerEntry.js';
 
+/**
+ * Deterministically resolve an entry date using createdAt with fallback, ensuring valid ISO format
+ */
+export const resolveEntryDate = (primary, fallback) => {
+  if (primary) {
+    const d = new Date(primary);
+    if (!isNaN(d.getTime())) return d.toISOString();
+  }
+  if (fallback) {
+    const fb = new Date(fallback);
+    if (!isNaN(fb.getTime())) return fb.toISOString();
+  }
+  return new Date(0).toISOString();
+};
+
+/**
+ * Return millisecond timestamp or 0 for invalid dates to avoid NaN sort comparisons
+ */
+export const getTimestamp = (dateVal) => {
+  const t = new Date(dateVal).getTime();
+  return isNaN(t) ? 0 : t;
+};
+
 export const computeLedgerSummary = async (shopId) => {
   const orders = await Order.find({ shopId }).populate('asterInventoryItem');
   const totalSales = orders.reduce((sum, o) => {
@@ -54,7 +77,7 @@ export const fetchJournalEntries = async (shopId, category, search) => {
   const ledgerEntries = await LedgerEntry.find({ shopId });
   const journalLedger = ledgerEntries.map(e => ({
     _id: e._id,
-    date: e.date,
+    date: resolveEntryDate(e.createdAt, e.date),
     type: 'Expense',
     referenceId: e.referenceId || e._id,
     description: e.description || `${e.category} Expense`,
@@ -72,7 +95,7 @@ export const fetchJournalEntries = async (shopId, category, search) => {
     const order = tx.orderId || {};
     return {
       _id: tx._id,
-      date: tx.date,
+      date: resolveEntryDate(tx.createdAt, tx.date),
       type: tx.type === 'Payment' ? 'Payment' : 'Refund',
       referenceId: order._id || tx.orderId,
       description: tx.type === 'Payment'
@@ -91,7 +114,7 @@ export const fetchJournalEntries = async (shopId, category, search) => {
     const isReverted = o.status === 'Cancelled';
     return {
       _id: o._id,
-      date: o.date,
+      date: resolveEntryDate(o.createdAt, o.date),
       type: 'Sales',
       referenceId: o._id,
       description: `${isReverted ? '[Reverted] ' : ''}Order Booked: ${o.orderId} - ${o.apparelType} (${o.customerName})`,
@@ -113,7 +136,7 @@ export const fetchJournalEntries = async (shopId, category, search) => {
       if (totalCost > 0) {
         journalConsumption.push({
           _id: o._id + '-cost',
-          date: o.date,
+          date: resolveEntryDate(o.inventoryDeductedAt, o.createdAt || o.date),
           type: 'Material Consumption',
           referenceId: o._id,
           description: `Lining Consumed: ${o.asterQuantity} ${o.asterInventoryItem?.unit || 'units'} of ${o.asterInventoryItem?.itemName || 'Material'} for ${o.orderId}`,
@@ -133,8 +156,9 @@ export const fetchJournalEntries = async (shopId, category, search) => {
     ...journalConsumption
   ];
 
+  // Deterministic chronological ascending sort for running balance calculation
   allEntries.sort((a, b) => {
-    const diff = new Date(a.date) - new Date(b.date);
+    const diff = getTimestamp(a.date) - getTimestamp(b.date);
     if (diff !== 0) return diff;
     return String(a._id).localeCompare(String(b._id));
   });
@@ -171,10 +195,11 @@ export const fetchJournalEntries = async (shopId, category, search) => {
     );
   }
 
+  // Deterministic reverse-chronological descending sort for user display
   allEntries.sort((a, b) => {
-    const diff = new Date(b.date) - new Date(a.date);
+    const diff = getTimestamp(b.date) - getTimestamp(a.date);
     if (diff !== 0) return diff;
-    return String(b._id).localeCompare(String(b._id));
+    return String(b._id).localeCompare(String(a._id));
   });
 
   return allEntries;
@@ -219,6 +244,6 @@ export const fetchTransactionsList = async (shopId, type, search) => {
     );
   }
 
-  results.sort((a, b) => new Date(b.date) - new Date(a.date));
+  results.sort((a, b) => getTimestamp(b.date) - getTimestamp(a.date));
   return results;
 };

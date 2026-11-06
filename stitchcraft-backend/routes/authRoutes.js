@@ -35,13 +35,20 @@ router.post('/login', authLimiter, loginUser);
 router.post('/verify', authLimiter, verifyEmail);
 router.post('/resend-verification', authLimiter, resendVerification);
 router.post('/forgot-password', authLimiter, validateForgotPasswordRequest, forgotPassword);
-router.post('/reset-password', protect, authLimiter, validateResetPasswordRequest, resetPassword);
+// Reset password allows recovery session token directly without requiring prior session login
+router.post('/reset-password', authLimiter, validateResetPasswordRequest, resetPassword);
+
+// Profile and active shop switching
 router.route('/profile')
   .get(protect, getUserProfile)
   .put(protect, updateUserProfile);
 router.put('/switch-shop/:id', protect, switchActiveShop);
+
+// Password verification and changes for logged-in sessions
 router.put('/update-password', protect, destructiveLimiter, updatePassword);
 router.post('/verify-password', protect, destructiveLimiter, verifyPasswordOnly);
+
+// Destructive account-level actions strictly restricted to shop owners
 router.post('/account/download-data', protect, authorize('owner'), destructiveLimiter, downloadAllData);
 router.post('/account/delete-all-data', protect, authorize('owner'), destructiveLimiter, deleteAllData);
 router.post('/account/delete-account', protect, authorize('owner'), destructiveLimiter, deleteAccountRequest);

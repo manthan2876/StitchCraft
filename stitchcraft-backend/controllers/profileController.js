@@ -45,7 +45,7 @@ export const updateUserProfile = async (req, res) => {
     if (avatar !== undefined) user.avatar = avatar;
 
     const updatedUser = await user.save();
-    
+
     // Populate shop details if linked
     const populated = await User.findById(updatedUser._id).populate('shopId');
 
@@ -64,14 +64,23 @@ export const updateUserProfile = async (req, res) => {
   }
 };
 
-// @desc    Switch active shop and return new token
+// @desc    Switch active shop and return updated profile
 // @route   PUT /api/auth/switch-shop/:id
 // @access  Private
 export const switchActiveShop = async (req, res) => {
   try {
-    const shop = await Shop.findOne({ _id: req.params.id, ownerId: req.user._id });
+    const targetShopId = req.params.id;
+    const shop = await Shop.findById(targetShopId);
     if (!shop) {
-      return res.status(404).json({ message: 'Shop not found or access denied' });
+      return res.status(404).json({ message: 'Shop not found' });
+    }
+
+    // Verify authorized membership: user must be the shop owner or an assigned member of this shop
+    const isOwner = String(shop.ownerId) === String(req.user._id);
+    const isMember = req.user.shopId && String(req.user.shopId) === String(shop._id);
+
+    if (!isOwner && !isMember) {
+      return res.status(403).json({ message: 'Access denied. You are not authorized for this shop.' });
     }
 
     const user = await User.findById(req.user._id);

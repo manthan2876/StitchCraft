@@ -148,6 +148,8 @@ class StitchCraftApp extends StatelessWidget {
                 '/more': (context) => const MoreHubScreen(),
 
                 // Order Wizard
+                '/create_order': (context) =>
+                    const GarmentSelectionScreen(),
                 '/create_order_step1': (context) =>
                     const GarmentSelectionScreen(),
                 '/create_order_customer': (context) =>

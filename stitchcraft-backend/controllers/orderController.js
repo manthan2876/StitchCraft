@@ -326,7 +326,11 @@ export const updateOrder = async (req, res) => {
     res.json(sanitized);
   } catch (error) {
     console.error('Update order error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({
+      message: error.message,
+      requiresCreditApproval: error.requiresCreditApproval || false,
+      balanceAmount: error.balanceAmount,
+    });
   }
 };
 

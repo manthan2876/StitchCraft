@@ -181,16 +181,34 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     if (_order == null) return;
     final orderId = _order!['_id'] ?? _order!['id'];
 
+    String? creditReason;
     if (newStatus == 'Delivered') {
       final balance = _balanceAmount;
 
       if (balance > 0.01) {
+        final reasonController = TextEditingController(text: 'Customer promised to settle by next visit');
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Deliver with Unpaid Balance?'),
-            content: Text(
-              'This order has an outstanding balance of ${CurrencyUtils.formatINR(balance)}.\n\nDo you want to confirm delivery and keep this balance in Khata (Udhar)?',
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This order has an outstanding balance of ${CurrencyUtils.formatINR(balance)}.\n\nTo confirm delivery on credit (Udhar), please provide an audit reason:',
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: reasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'Credit Approval Reason',
+                    hintText: 'e.g. Regular customer, promised payment tomorrow',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
             ),
             actions: [
               TextButton(
@@ -202,13 +220,29 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   backgroundColor: AppTheme.warmAmber,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Confirm Delivery'),
+                onPressed: () {
+                  if (reasonController.text.trim().isEmpty) {
+                    return;
+                  }
+                  creditReason = reasonController.text.trim();
+                  Navigator.pop(ctx, true);
+                },
+                child: const Text('Confirm Delivery on Credit'),
               ),
             ],
           ),
         );
-        if (confirmed != true) return;
+        if (confirmed != true || creditReason == null || creditReason!.isEmpty) {
+          if (mounted && confirmed == true && (creditReason == null || creditReason!.isEmpty)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('A reason is required to approve delivery on credit (Udhar).'),
+                backgroundColor: AppTheme.warmAmber,
+              ),
+            );
+          }
+          return;
+        }
       }
     }
 
@@ -217,13 +251,18 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final token = await _authService.getToken();
+      final Map<String, dynamic> updatePayload = {'status': newStatus};
+      if (newStatus == 'Delivered' && creditReason != null) {
+        updatePayload['allowCredit'] = true;
+        updatePayload['creditReason'] = creditReason;
+      }
       final response = await http.put(
         Uri.parse('${AuthService.baseUrl}/orders/$orderId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: json.encode({'status': newStatus}),
+        body: json.encode(updatePayload),
       );
 
       if (response.statusCode == 200) {

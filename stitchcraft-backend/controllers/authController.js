@@ -125,12 +125,7 @@ export const loginUser = async (req, res) => {
       ]
     }).populate('shopId');
 
-    if (user && user.role && user.role.toLowerCase() !== 'owner') {
-      return res.status(403).json({
-        message: `Forbidden: role '${user.role}' is not authorized. StitchCraft is restricted to shop owners only.`,
-      });
-    }
-
+    // Multi-role enablement: All valid active roles (owner, manager, karigar, staff) are admitted
     if (!user) {
       const emailLower = supabaseUser.email.toLowerCase();
       const name = supabaseUser.user_metadata?.name || 'Shop Owner';
@@ -304,12 +299,7 @@ export const verifyEmail = async (req, res) => {
       ]
     }).populate('shopId');
 
-    if (user && user.role && user.role.toLowerCase() !== 'owner') {
-      return res.status(403).json({
-        message: `Forbidden: role '${user.role}' is not authorized. StitchCraft is restricted to shop owners only.`,
-      });
-    }
-
+    // Multi-role enablement: All roles (including invited staff, managers, and karigars) can complete verification
     if (!user) {
       const name = supabaseUser.user_metadata?.name || 'Shop Owner';
       const shopName = supabaseUser.user_metadata?.shopName || `${name}'s Shop`;
@@ -413,18 +403,40 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// @desc    Reset password using authenticated recovery session
+// @desc    Reset password using recovery session token or bearer authorization
 // @route   POST /api/auth/reset-password
-// @access  Private (recovery session token)
+// @access  Public / Recovery session
 export const resetPassword = async (req, res) => {
   try {
-    const { password } = req.body;
+    const { password, accessToken } = req.body;
     if (!password || password.length < 6) {
       return res.status(400).json({ message: 'New password must be at least 6 characters long' });
     }
 
+    let targetUserId = req.user?.supabaseId;
+
+    // If not authenticated via req.user, authenticate via Bearer token or accessToken in body
+    if (!targetUserId) {
+      const authHeader = req.headers.authorization;
+      const token = (authHeader && authHeader.startsWith('Bearer '))
+        ? authHeader.split(' ')[1]
+        : accessToken;
+
+      if (token) {
+        const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+        if (error || !supabaseUser) {
+          return res.status(401).json({ message: 'Invalid or expired password reset token' });
+        }
+        targetUserId = supabaseUser.id;
+      }
+    }
+
+    if (!targetUserId) {
+      return res.status(401).json({ message: 'Recovery session token or authorization required to reset password' });
+    }
+
     const { error } = await supabase.auth.admin.updateUserById(
-      req.user.supabaseId,
+      targetUserId,
       { password }
     );
     if (error) throw error;

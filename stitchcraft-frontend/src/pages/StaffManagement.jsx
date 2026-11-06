@@ -33,11 +33,11 @@ export const StaffManagement = () => {
     name: '',
     email: '',
     phone: '',
-    role: 'admin',
+    role: 'staff',
   });
 
   const isOwner = user?.role === 'owner';
-  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'manager';
+  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'manager';
 
   const fetchStaff = async () => {
     setLoading(true);
@@ -116,23 +116,29 @@ export const StaffManagement = () => {
   });
 
   const getRoleBadge = (role) => {
-    switch (role) {
+    switch (role?.toLowerCase()) {
       case 'owner':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-600 border border-amber-500/20">
             <MdAdminPanelSettings className="w-3.5 h-3.5" /> {t('roleOwner')}
           </span>
         );
-      case 'admin':
+      case 'manager':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-color-accent-purple/15 text-color-accent-purple border border-color-accent-purple/20">
-            <MdAdminPanelSettings className="w-3.5 h-3.5" /> Admin
+            <MdAdminPanelSettings className="w-3.5 h-3.5" /> Manager
+          </span>
+        );
+      case 'karigar':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">
+            <MdBadge className="w-3.5 h-3.5" /> Karigar
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-sky-500/15 text-sky-600 border border-sky-500/20">
-            <MdBadge className="w-3.5 h-3.5" /> {role}
+            <MdBadge className="w-3.5 h-3.5" /> Staff
           </span>
         );
     }
@@ -141,7 +147,9 @@ export const StaffManagement = () => {
   const getRoleFilterLabel = (r) => {
     if (r === 'ALL') return t('all');
     if (r === 'owner') return t('roleOwner');
-    if (r === 'admin') return 'Admin';
+    if (r === 'manager') return 'Manager';
+    if (r === 'karigar') return 'Karigar';
+    if (r === 'staff') return 'Staff';
     return r;
   };
 
@@ -162,7 +170,7 @@ export const StaffManagement = () => {
         {isManagerOrOwner && (
           <button
             onClick={() => {
-              setNewStaff({ name: '', email: '', phone: '', role: 'admin' });
+              setNewStaff({ name: '', email: '', phone: '', role: 'staff' });
               setModalError('');
               setIsAddModalOpen(true);
             }}
@@ -188,7 +196,7 @@ export const StaffManagement = () => {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
-          {['ALL', 'owner', 'admin'].map((role) => (
+          {['ALL', 'owner', 'manager', 'karigar', 'staff'].map((role) => (
             <button
               key={role}
               onClick={() => setRoleFilter(role)}
@@ -263,8 +271,9 @@ export const StaffManagement = () => {
                             onChange={(e) => handleRoleChange(member._id, e.target.value)}
                             className="bg-bg-input border border-border-subtle rounded-lg px-2.5 py-1 text-xs font-bold text-text-main outline-none focus:border-color-accent-purple cursor-pointer"
                           >
-                            <option value="admin">Admin</option>
-                            <option value="owner">{t('roleOwner')}</option>
+                            <option value="manager">Manager</option>
+                            <option value="karigar">Karigar</option>
+                            <option value="staff">Staff</option>
                           </select>
                         ) : (
                           getRoleBadge(member.role)
@@ -384,8 +393,9 @@ export const StaffManagement = () => {
                   onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
                   className="w-full px-4 py-2.5 bg-bg-input border border-border-medium rounded-xl text-text-main outline-none focus:border-color-accent-purple text-sm transition-all font-bold cursor-pointer"
                 >
-                  <option value="admin">Admin (Dashboard Administrator)</option>
-                  {isOwner && <option value="owner">{t('roleOwner')}</option>}
+                  <option value="manager">Manager (Operations Supervisor)</option>
+                  <option value="karigar">Karigar / Master Tailor</option>
+                  <option value="staff">Staff Member</option>
                 </select>
               </div>
 

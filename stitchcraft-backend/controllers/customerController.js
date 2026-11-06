@@ -37,7 +37,7 @@ export const getCustomers = async (req, res) => {
   try {
     const search = typeof req.query.search === 'string' ? req.query.search.slice(0, 100) : '';
     const escapedSearch = escapeRegex(search);
-    const filter = { shopId: req.user.shopId };
+    const filter = { shopId: req.user.shopId, isDeleted: { $ne: true } };
 
     if (search) {
       filter.$or = [
@@ -100,17 +100,17 @@ export const updateCustomer = async (req, res) => {
   }
 };
 
-// @desc    Permanently delete a customer profile and associated measurements
+// @desc    Soft delete a customer profile while preserving measurements and order histories (5.4)
 // @route   DELETE /api/customers/:id
 // @access  Private
 export const deleteCustomer = async (req, res) => {
   try {
-    const success = await deleteCustomerService(req.params.id, req.user.shopId);
-    if (!success) return res.status(404).json({ message: 'Customer not found' });
-    res.json({ message: 'Customer profile and measurements deleted successfully' });
+    const result = await deleteCustomerService(req.params.id, req.user.shopId);
+    if (!result || result.notFound) return res.status(404).json({ message: 'Customer not found' });
+    res.json({ message: 'Customer archived successfully while preserving order history and measurements' });
   } catch (error) {
     console.error('Delete customer error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 

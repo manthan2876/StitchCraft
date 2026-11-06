@@ -122,6 +122,12 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    String? creditReason;
+    if (balance > 0.01) {
+      final reasonController = TextEditingController(text: 'Customer promised to settle by next visit');
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
           title: Row(
             children: [
               const Icon(Icons.warning_amber_rounded, color: AppTheme.warmAmber, size: 28),
@@ -129,8 +135,24 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               Text(context.loc.deliver_unpaid_warning),
             ],
           ),
-          content: Text(
-            'This order has an outstanding balance of ${CurrencyUtils.formatINR(balance)}.\n\nDelivering this order will keep the balance recorded in Khata (Udhar). Do you want to proceed?',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This order has an outstanding balance of ${CurrencyUtils.formatINR(balance)}.\n\nTo confirm delivery on credit (Udhar), please enter a reason:',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                  labelText: 'Credit Approval Reason',
+                  hintText: 'e.g. Regular customer, balance in Khata',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -142,13 +164,27 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                 backgroundColor: AppTheme.trustGreen,
                 foregroundColor: Colors.white,
               ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Confirm Delivery', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () {
+                if (reasonController.text.trim().isEmpty) return;
+                creditReason = reasonController.text.trim();
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Confirm Delivery on Credit', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
       );
-      if (confirmed != true) return;
+      if (confirmed != true || creditReason == null || creditReason!.isEmpty) {
+        if (mounted && confirmed == true && (creditReason == null || creditReason!.isEmpty)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('A reason is required to approve delivery on credit (Udhar).'),
+              backgroundColor: AppTheme.warmAmber,
+            ),
+          );
+        }
+        return;
+      }
     }
 
     try {
@@ -163,13 +199,18 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
       // 2. Put to backend if online
       final token = await _authService.getToken();
       if (token != null) {
+        final Map<String, dynamic> deliveryPayload = {'status': 'Delivered'};
+        if (creditReason != null) {
+          deliveryPayload['allowCredit'] = true;
+          deliveryPayload['creditReason'] = creditReason;
+        }
         http.put(
           Uri.parse('${AuthService.baseUrl}/orders/$orderId'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $token',
           },
-          body: json.encode({'status': 'Delivered'}),
+          body: json.encode(deliveryPayload),
         );
       }
 

@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import Card from '../components/common/Card';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
+import { buildCSV, filterByDateRange } from '../utils/csv';
 import PendingBalancesTab from '../features/ledger/components/PendingBalancesTab';
 import {
   MdSearch as SearchIcon,
@@ -31,6 +32,8 @@ export const Ledger = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All'); // 'All', 'Sales', 'Payments', 'Expenses', 'Material Cost'
   const [activeSubTab, setActiveSubTab] = useState('cashbook'); // 'cashbook' | 'udhar'
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Helper with fallbacks for translations
   const tf = (key, fallback) => {
@@ -69,23 +72,28 @@ export const Ledger = () => {
     fetchJournal();
   }, [filterCategory, searchTerm]);
 
-  // Export to CSV Feature
+  // Filter journal records by selected date range
+  const displayedJournal = filterByDateRange(journal, 'date', startDate, endDate);
+
+  // Export to CSV Feature with strict RFC 4180 escaping and date range filtering
   const downloadCSV = () => {
-    const headers = ['Date', 'Type', 'Description', 'Amount', 'Flow', 'Method'];
-    const csvData = journal.map(entry => [
-      new Date(entry.date).toLocaleDateString(),
-      entry.type,
-      entry.description,
-      entry.amount,
-      entry.flow,
-      entry.paymentMethod,
+    const headers = ['Date', 'Type', 'Description', 'Amount', 'Flow', 'Method', 'Running Balance'];
+    const rows = displayedJournal.map(entry => [
+      formatDate(entry.date),
+      entry.type || '',
+      entry.description || '',
+      entry.amount !== undefined ? entry.amount : 0,
+      entry.flow || 'None',
+      entry.paymentMethod || 'N/A',
+      entry.runningBalance !== undefined ? entry.runningBalance : '',
     ]);
 
-    const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+    const csvContent = buildCSV(headers, rows);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `StitchCraft_Ultimate_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
+    const dateSuffix = startDate || endDate ? `_${startDate || 'start'}_to_${endDate || 'today'}` : `_${new Date().toISOString().split('T')[0]}`;
+    link.download = `StitchCraft_Ultimate_Ledger${dateSuffix}.csv`;
     link.click();
   };
 
@@ -217,21 +225,52 @@ export const Ledger = () => {
       </div>
 
       {/* Filters Card */}
-      <Card className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-4 px-6 print:hidden">
-        {/* Search */}
-        <div className="w-full md:w-[300px] relative">
-          <input
-            type="text"
-            placeholder={tf('searchLedgerPlaceholder', 'Search ledger entries...')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-bg-input border border-border-subtle text-xs rounded-xl px-3 py-2.5 pl-9 text-text-main placeholder:text-text-muted/50 outline-none focus:border-color-accent-purple/50 transition-all text-sm"
-          />
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted w-4 h-4" />
+      <Card className="flex flex-col gap-4 py-4 px-6 print:hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Search */}
+          <div className="w-full md:w-[300px] relative">
+            <input
+              type="text"
+              placeholder={tf('searchLedgerPlaceholder', 'Search ledger entries...')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-bg-input border border-border-subtle text-xs rounded-xl px-3 py-2.5 pl-9 text-text-main placeholder:text-text-muted/50 outline-none focus:border-color-accent-purple/50 transition-all text-sm"
+            />
+            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted w-4 h-4" />
+          </div>
+
+          {/* Date Range Filtering */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{tf('dateRange', 'Date Range')}:</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-bg-input border border-border-subtle text-xs rounded-lg px-2.5 py-1.5 text-text-main outline-none focus:border-color-accent-purple"
+              aria-label="Start Date"
+            />
+            <span className="text-xs text-text-muted">to</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-bg-input border border-border-subtle text-xs rounded-lg px-2.5 py-1.5 text-text-main outline-none focus:border-color-accent-purple"
+              aria-label="End Date"
+            />
+            {(startDate || endDate) && (
+              <button
+                type="button"
+                onClick={() => { setStartDate(''); setEndDate(''); }}
+                className="text-xs text-rose-500 hover:underline px-1 font-semibold cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Category Filters */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border-subtle">
           <FilterIcon className="text-text-muted w-4 h-4 mr-1 hidden sm:block" />
           {[
             { key: 'All', label: 'All' },
@@ -276,14 +315,14 @@ export const Ledger = () => {
                     {tf('syncingLedger', 'Syncing ledger audit entries...')}
                   </td>
                 </tr>
-              ) : journal.length === 0 ? (
+              ) : displayedJournal.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="px-6 py-12 text-center text-sm text-text-muted">
                     {tf('noLedgerRecords', 'No ledger journal entries found.')}
                   </td>
                 </tr>
               ) : (
-                journal.map((entry) => (
+                displayedJournal.map((entry) => (
                   <tr key={entry._id} className="hover:bg-bg-hover transition-colors">
                     <td style={{ whiteSpace: 'nowrap' }} className="px-6 py-4 text-sm font-semibold text-text-main">
                       {formatDate(entry.date)}

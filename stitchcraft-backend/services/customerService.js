@@ -95,7 +95,7 @@ export const createCustomerService = async (reqBody, shopId) => {
 
 export const getCustomerProfileService = async (customerId, shopId) => {
   const customer = await findCustomerScoped(customerId, shopId);
-  if (!customer) return null;
+  if (!customer || customer.isDeleted) return null;
 
   const custId = customer._id || customer.id;
   const cleanPhone = (customer.phone || '').replace(/\D/g, '').slice(-10);
@@ -191,15 +191,33 @@ export const updateCustomerService = async (customerId, reqBody, shopId) => {
 
 export const deleteCustomerService = async (customerId, shopId) => {
   const customer = await findCustomerScoped(customerId, shopId);
-  if (!customer) return false;
+  if (!customer || customer.isDeleted) return { success: false, notFound: true };
 
-  await Customer.deleteOne({ _id: customer._id });
-  await Measurement.deleteOne({ customerId: customer._id });
+  const custId = customer._id || customer.id;
 
-  await Order.updateMany(
-    { customer: customer._id, shopId },
-    { $unset: { customer: "" }, customerName: `${customer.name} (Deleted)` }
-  );
+  // Protect ongoing workshop operations: prevent deletion if customer has active in-progress orders
+  const activeOrders = await Order.find({
+    shopId,
+    status: { $nin: ['Delivered', 'Cancelled'] },
+    $or: [
+      { customer: custId },
+      { customerId: custId },
+    ],
+  });
 
-  return true;
+  if (activeOrders.length > 0) {
+    const err = new Error(
+      `Cannot delete customer '${customer.name}' with ${activeOrders.length} active order(s). Please complete or cancel orders before deleting.`
+    );
+    err.statusCode = 400;
+    err.hasActiveOrders = true;
+    throw err;
+  }
+
+  // Soft delete customer to preserve historical audit trail, measurements, and order links (5.4)
+  customer.isDeleted = true;
+  customer.deletedAt = new Date().toISOString();
+  await customer.save();
+
+  return { success: true, customer };
 };

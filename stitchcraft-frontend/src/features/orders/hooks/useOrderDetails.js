@@ -106,13 +106,36 @@ export const useOrderDetails = () => {
     }
   };
 
-  const handleStatusChange = async (newStatus) => {
+  const handleStatusChange = async (newStatus, allowCredit = false, creditReason = '') => {
     try {
-      const updatedOrder = await api.put(`/orders/${id}`, { status: newStatus });
+      const payload = { status: newStatus };
+      if (allowCredit) {
+        payload.allowCredit = true;
+        payload.creditReason = creditReason;
+      }
+      const updatedOrder = await api.put(`/orders/${id}`, payload);
       setOrder(updatedOrder);
     } catch (err) {
+      if (newStatus === 'Delivered' && (err.requiresCreditApproval || err.message?.includes('outstanding balance'))) {
+        const confirmCredit = window.confirm(
+          `${err.message}\n\nDo you want to confirm delivery on credit (Udhar)?`
+        );
+        if (confirmCredit) {
+          const reason = window.prompt(
+            'Enter reason for credit delivery (required for Udhar audit):',
+            'Customer promised to settle by next visit'
+          );
+          if (reason && reason.trim()) {
+            handleStatusChange(newStatus, true, reason.trim());
+            return;
+          } else {
+            alert('A reason is required to approve delivery on credit.');
+            return;
+          }
+        }
+      }
       console.error('Failed to update status:', err);
-      alert('Failed to update status.');
+      alert(err.message || 'Failed to update status.');
     }
   };
 

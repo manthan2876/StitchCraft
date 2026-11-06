@@ -21,7 +21,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
 
-  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'manager';
+  const isManagerOrOwner = user?.role === 'owner' || user?.role === 'manager';
 
   const menuItems = [
     { name: t('dashboard'), path: '/dashboard', icon: <MdDashboard className="w-5 h-5" /> },
