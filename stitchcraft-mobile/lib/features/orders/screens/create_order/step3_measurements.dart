@@ -77,12 +77,20 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
   void _initFields() {
     final garment =
         _wizardData?['garmentType']?.toString().toLowerCase() ?? 'shirt';
-    if (garment.contains('shirt')) {
-      _fields = ['Length', 'Chest', 'Waist', 'Shoulder', 'Sleeve', 'Neck'];
+    if (garment.contains('blouse')) {
+      _fields = ['Length', 'Chest', 'Waist', 'Shoulder', 'Sleeve', 'Front Neck', 'Back Neck'];
+    } else if (garment.contains('kurti') || garment.contains('kameez')) {
+      _fields = ['Length', 'Chest', 'Waist', 'Hip', 'Shoulder', 'Sleeve', 'Armhole'];
+    } else if (garment.contains('salwar') || garment.contains('chudidar') || garment.contains('palazzo')) {
+      _fields = ['Length', 'Waist', 'Hip', 'Thigh', 'Knee', 'Bottom'];
+    } else if (garment.contains('lehenga') || garment.contains('skirt')) {
+      _fields = ['Length', 'Waist', 'Hip', 'Flare'];
     } else if (garment.contains('pant') || garment.contains('trouser')) {
       _fields = ['Length', 'Waist', 'Hip', 'Inseam', 'Thigh', 'Bottom'];
-    } else if (garment.contains('suit') || garment.contains('kurta')) {
+    } else if (garment.contains('suit') || garment.contains('safari')) {
       _fields = ['Length', 'Shoulder', 'Chest', 'Waist', 'Sleeve', 'Collar'];
+    } else if (garment.contains('shirt') || garment.contains('kurta')) {
+      _fields = ['Length', 'Chest', 'Waist', 'Shoulder', 'Sleeve', 'Neck'];
     } else {
       _fields = ['Length', 'Shoulder', 'Chest', 'Waist', 'Sleeve'];
     }
@@ -91,10 +99,35 @@ class _MeasurementInputScreenState extends State<MeasurementInputScreen> {
 
     // Pre-populate if customer has saved measurements (UX-08 Repeat Customer Shortcut)
     if (_wizardData?['measurements'] is Map) {
-      final prev = _wizardData!['measurements'] as Map;
-      prev.forEach((k, v) {
+      final raw = _wizardData!['measurements'] as Map;
+      Map<dynamic, dynamic>? sourceMap;
+      final cleanKey = garment.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+
+      if (raw[cleanKey] is Map) {
+        sourceMap = raw[cleanKey] as Map;
+      } else if (cleanKey.contains('shirt') && raw['shirt'] is Map) {
+        sourceMap = raw['shirt'] as Map;
+      } else if ((cleanKey.contains('pant') || cleanKey.contains('salwar') || cleanKey.contains('trouser')) && raw['pant'] is Map) {
+        sourceMap = raw['pant'] as Map;
+      } else if (cleanKey.contains('blouse') && raw['blouse'] is Map) {
+        sourceMap = raw['blouse'] as Map;
+      } else if (cleanKey.contains('kurti') && raw['kurti'] is Map) {
+        sourceMap = raw['kurti'] as Map;
+      } else {
+        // Search inside submaps
+        for (final entry in raw.entries) {
+          if (entry.value is Map && cleanKey.contains(entry.key.toString().toLowerCase())) {
+            sourceMap = entry.value as Map;
+            break;
+          }
+        }
+        sourceMap ??= raw;
+      }
+
+      sourceMap.forEach((k, v) {
+        final normK = k.toString().replaceAll(RegExp(r'[\s\-_]'), '').toLowerCase();
         final fieldKey = _fields.firstWhere(
-          (f) => f.toLowerCase() == k.toString().toLowerCase(),
+          (f) => f.replaceAll(RegExp(r'[\s\-_]'), '').toLowerCase() == normK,
           orElse: () => '',
         );
         if (fieldKey.isNotEmpty && v != null && v.toString().isNotEmpty) {

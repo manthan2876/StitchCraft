@@ -183,18 +183,23 @@ export const updateCustomerService = async (customerId, reqBody, shopId) => {
     });
   }
 
-  if (measurements) {
-    if (measurements.shirt) {
-      measurementsRecord.shirt = {
-        ...(measurementsRecord.shirt?.toObject?.() || measurementsRecord.shirt || {}),
-        ...measurements.shirt,
-      };
+  if (measurements && typeof measurements === 'object') {
+    const standardTemplates = ['shirt', 'pant', 'blouse', 'kurti', 'salwar', 'suit', 'lehenga'];
+    for (const t of standardTemplates) {
+      if (measurements[t] && typeof measurements[t] === 'object') {
+        measurementsRecord[t] = {
+          ...(measurementsRecord[t]?.toObject?.() || measurementsRecord[t] || {}),
+          ...measurements[t],
+        };
+      }
     }
-    if (measurements.pant) {
-      measurementsRecord.pant = {
-        ...(measurementsRecord.pant?.toObject?.() || measurementsRecord.pant || {}),
-        ...measurements.pant,
-      };
+    for (const [key, value] of Object.entries(measurements)) {
+      if (typeof value === 'object' && value !== null && !standardTemplates.includes(key) && key !== 'others') {
+        measurementsRecord[key] = {
+          ...(measurementsRecord[key]?.toObject?.() || measurementsRecord[key] || {}),
+          ...value,
+        };
+      }
     }
     if (measurements.others !== undefined) {
       measurementsRecord.others = measurements.others;

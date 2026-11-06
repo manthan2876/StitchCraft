@@ -159,6 +159,9 @@ export const SYNC_REGISTRY = {
 export const getUploadPriority = (entityType) => {
   if (!entityType) return 99;
   const key = String(entityType).trim().toLowerCase();
+  if (key === 'repairs') return SYNC_REGISTRY.repair_jobs?.priority ?? 4;
+  if (key === 'shops' || key === 'shop_settings') return SYNC_REGISTRY.shop?.priority ?? 1;
+  if (key === 'karigar_assignments') return 6;
   return SYNC_REGISTRY[key]?.priority ?? 99;
 };
 

@@ -47,6 +47,9 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
       _wizardData = arguments is Map<String, dynamic>
           ? Map<String, dynamic>.from(arguments)
           : <String, dynamic>{};
+      if (_wizardData?['customer'] is Map) {
+        _selectedCustomer = Map<String, dynamic>.from(_wizardData!['customer']);
+      }
       _loadCustomers();
       _checkSavedDraft();
     }

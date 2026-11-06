@@ -14,6 +14,8 @@ import {
   addNoteToOrder,
   delegateOrder,
   revokeDelegation,
+  submitPublicPaymentProof,
+  reconcilePaymentProof,
 } from '../controllers/orderController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 import { enforceMutationIdempotency } from '../middleware/mutationMiddleware.js';
@@ -30,6 +32,7 @@ import {
 
 // Public guest invoice details route (strictly by opaque shareToken only - P0-01)
 router.get('/public/:token', publicInvoiceLimiter, validateShareTokenParam('token'), getOrderByIdPublic);
+router.post('/public/:token/proof', publicInvoiceLimiter, validateShareTokenParam('token'), submitPublicPaymentProof);
 
 router.use(protect); // Secure remaining routes in this module
 router.use(enforceMutationIdempotency('orders'));
@@ -52,5 +55,6 @@ router.post('/:id/revoke-share-token', revokeShareToken);
 router.post('/:id/share-token/revoke', revokeShareToken);
 router.post('/:id/delegate', delegateOrder);
 router.post('/:id/revoke-delegation', revokeDelegation);
+router.post('/:id/reconcile-proof', authorize('owner', 'manager'), reconcilePaymentProof);
 
 export default router;

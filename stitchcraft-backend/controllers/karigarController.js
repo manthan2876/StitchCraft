@@ -1,5 +1,10 @@
 import Karigar from '../models/Karigar.js';
 import Order from '../models/Order.js';
+import {
+  accrueKarigarWage,
+  recordKarigarPayout,
+  getKarigarWageSummary,
+} from '../services/karigarWageService.js';
 
 // @desc    Create a new Karigar (artisan)
 // @route   POST /api/karigars
@@ -159,6 +164,86 @@ export const deleteKarigar = async (req, res) => {
     res.json({ message: 'Karigar deleted successfully and unassigned from active jobs' });
   } catch (error) {
     console.error('Delete karigar error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get piece-rate wage summary and transaction history for a Karigar (Phase 7, 11.7)
+// @route   GET /api/karigars/:id/wages
+// @access  Private (Owner, Manager, or Assigned Karigar)
+export const getKarigarWages = async (req, res) => {
+  try {
+    const karigarId = req.params.id;
+    const userRole = (req.user.role || 'staff').toLowerCase();
+    const isKarigar = userRole === 'karigar' || userRole === 'tailor';
+
+    // Karigar can only see their own wages
+    if (isKarigar) {
+      const myKarigarId = String(req.user.karigarId || req.user._id);
+      if (String(karigarId) !== myKarigarId) {
+        return res.status(403).json({ message: 'Forbidden: You can only view your own wages.' });
+      }
+    }
+
+    const summary = await getKarigarWageSummary({
+      shopId: req.user.shopId,
+      karigarId,
+    });
+
+    res.json(summary);
+  } catch (error) {
+    console.error('Get karigar wages error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Accrue piece-rate wage for a completed order
+// @route   POST /api/karigars/:id/wages/accrue
+// @access  Private (Owner, Manager)
+export const accrueWage = async (req, res) => {
+  try {
+    const { orderId, garmentName, customRate } = req.body;
+    if (!orderId) return res.status(400).json({ message: 'orderId is required' });
+
+    const result = await accrueKarigarWage({
+      shopId: req.user.shopId,
+      karigarId: req.params.id,
+      orderId,
+      garmentName,
+      customRate,
+      recordedBy: req.user.name || 'Owner',
+    });
+
+    res.status(result.accrued ? 201 : 200).json(result);
+  } catch (error) {
+    console.error('Accrue wage error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Record wage payout settlement to Karigar
+// @route   POST /api/karigars/:id/wages/payout
+// @access  Private (Owner, Manager)
+export const recordPayout = async (req, res) => {
+  try {
+    const { amount, paymentMode, referenceNote } = req.body;
+    if (!amount) return res.status(400).json({ message: 'amount is required' });
+
+    const entry = await recordKarigarPayout({
+      shopId: req.user.shopId,
+      karigarId: req.params.id,
+      amount,
+      paymentMode,
+      referenceNote,
+      recordedBy: req.user.name || 'Owner',
+    });
+
+    res.status(201).json({
+      message: 'Payout recorded successfully',
+      entry,
+    });
+  } catch (error) {
+    console.error('Record payout error:', error);
     res.status(500).json({ message: error.message });
   }
 };

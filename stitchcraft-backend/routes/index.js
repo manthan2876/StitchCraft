@@ -15,6 +15,7 @@ import staffRoutes from './staffRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
 import repairRoutes from './repairRoutes.js';
 import syncRoutes from './syncRoutes.js';
+import reportRoutes from './reportRoutes.js';
 import { destructiveLimiter } from '../middleware/securityMiddleware.js';
 
 const router = Router();
@@ -45,5 +46,6 @@ router.use('/staff', staffRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/repairs', repairRoutes);
 router.use('/sync', syncRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

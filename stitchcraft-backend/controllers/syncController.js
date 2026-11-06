@@ -1,5 +1,7 @@
 import Customer from '../models/Customer.js';
 import Order from '../models/Order.js';
+import Shop from '../models/Shop.js';
+import Repair from '../models/Repair.js';
 import Inventory from '../models/Inventory.js';
 import InventoryMovement from '../models/InventoryMovement.js';
 import LedgerEntry from '../models/LedgerEntry.js';
@@ -64,8 +66,18 @@ export const pushMutations = async (req, res) => {
       try {
         let resultData = null;
 
+        // 0. Shop Settings (Priority 0)
+        if (entityType === 'shops' || entityType === 'shop_settings') {
+          const shop = await Shop.findById(shopId);
+          if (shop) {
+            Object.assign(shop, payload);
+            shop.version = Number(shop.version || 1) + 1;
+            resultData = await shop.save();
+          }
+        }
+
         // 1. Customers (Priority 2)
-        if (entityType === 'customers') {
+        else if (entityType === 'customers') {
           if (operation === 'create') {
             resultData = await createCustomerService({ ...payload, idempotencyKey: mutationId, shopId });
           } else if (operation === 'update') {
@@ -149,6 +161,29 @@ export const pushMutations = async (req, res) => {
           }
         }
 
+        // 5b. Repairs (Priority 4, sibling of orders)
+        else if (entityType === 'repairs') {
+          if (operation === 'create') {
+            resultData = await Repair.create({ ...payload, shopId, version: 1 });
+          } else if (operation === 'update') {
+            const rep = await Repair.findOne({ _id: entityId, shopId });
+            if (!rep) throw Object.assign(new Error('Repair record not found'), { statusCode: 404 });
+            if (baseVersion !== undefined && baseVersion !== null && Number(rep.version || 1) !== Number(baseVersion)) {
+              throw Object.assign(new Error('Conflict: concurrent modification detected'), {
+                statusCode: 409,
+                serverVersion: rep.version || 1,
+                currentData: rep.toJSON ? rep.toJSON() : rep,
+              });
+            }
+            Object.assign(rep, payload);
+            rep.version = Number(rep.version || 1) + 1;
+            resultData = await rep.save();
+          } else if (operation === 'delete') {
+            await Repair.deleteOne({ _id: entityId, shopId });
+            resultData = { deleted: true };
+          }
+        }
+
         // 6. Payments / Order Payments (Priority 5, immutable event)
         else if (entityType === 'order_payments' || entityType === 'payments') {
           if (operation === 'create' || operation === 'payment') {
@@ -212,6 +247,16 @@ export const pushMutations = async (req, res) => {
               allowCredit: Boolean(payload.allowCredit),
               creditReason: payload.creditReason || '',
             });
+          }
+        }
+
+        // 10. Karigar Assignments (Priority 6)
+        else if (entityType === 'karigar_assignments') {
+          const targetOrder = await Order.findOne({ _id: payload.orderId || entityId, shopId });
+          if (targetOrder) {
+            targetOrder.assignedKarigar = payload.karigarId || null;
+            targetOrder.version = Number(targetOrder.version || 1) + 1;
+            resultData = await targetOrder.save();
           }
         }
 

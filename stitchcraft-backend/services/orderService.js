@@ -102,18 +102,25 @@ export const updateCustomerMeasurements = async (customerId, measurements, shopI
     });
   }
 
-  if (measurements.shirt) {
-    measurementRecord.shirt = {
-      ...(measurementRecord.shirt?.toObject?.() || measurementRecord.shirt || {}),
-      ...measurements.shirt,
-    };
+  const standardTemplates = ['shirt', 'pant', 'blouse', 'kurti', 'salwar', 'suit', 'lehenga'];
+  for (const t of standardTemplates) {
+    if (measurements[t] && typeof measurements[t] === 'object') {
+      measurementRecord[t] = {
+        ...(measurementRecord[t]?.toObject?.() || measurementRecord[t] || {}),
+        ...measurements[t],
+      };
+    }
   }
-  if (measurements.pant) {
-    measurementRecord.pant = {
-      ...(measurementRecord.pant?.toObject?.() || measurementRecord.pant || {}),
-      ...measurements.pant,
-    };
+
+  for (const [key, value] of Object.entries(measurements)) {
+    if (typeof value === 'object' && value !== null && !standardTemplates.includes(key) && key !== 'others') {
+      measurementRecord[key] = {
+        ...(measurementRecord[key]?.toObject?.() || measurementRecord[key] || {}),
+        ...value,
+      };
+    }
   }
+
   if (measurements.others !== undefined) {
     measurementRecord.others = measurements.others;
   }
@@ -233,20 +240,28 @@ export const createOrderService = async (reqBody, shopId, userId) => {
   }
 
   let measurementsSnapshot = null;
-  if (measurements) {
+  if (measurements && typeof measurements === 'object') {
     measurementsSnapshot = {
       shirt: measurements.shirt || null,
       pant: measurements.pant || null,
+      blouse: measurements.blouse || null,
+      kurti: measurements.kurti || null,
+      salwar: measurements.salwar || null,
+      suit: measurements.suit || null,
+      lehenga: measurements.lehenga || null,
       others: measurements.others || '',
+      ...measurements,
     };
   } else {
     const template = await Measurement.findOne({ customerId: customerObj._id });
     if (template) {
+      const templateObj = typeof template.toObject === 'function' ? template.toObject() : template;
       measurementsSnapshot = {
-        shirt: template.shirt ? (typeof template.shirt.toObject === 'function' ? template.shirt.toObject() : template.shirt) : null,
-        pant: template.pant ? (typeof template.pant.toObject === 'function' ? template.pant.toObject() : template.pant) : null,
-        others: template.others || '',
+        ...templateObj,
       };
+      delete measurementsSnapshot._id;
+      delete measurementsSnapshot.shopId;
+      delete measurementsSnapshot.customerId;
     }
   }
 

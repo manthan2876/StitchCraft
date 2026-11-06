@@ -352,6 +352,181 @@ export const getOrderByIdPublic = async (req, res) => {
   }
 };
 
+// @desc    Submit payment proof (UTR / screenshot) through public invoice for manual reconciliation (Phase 7, 11.3)
+// @route   POST /api/orders/invoice/public/:token/proof
+// @access  Public
+export const submitPublicPaymentProof = async (req, res) => {
+  try {
+    const rawParam = req.params.token || req.params.id;
+    if (!rawParam || typeof rawParam !== 'string') {
+      return res.status(400).json({ message: 'Invalid or missing share token' });
+    }
+    const token = rawParam.trim();
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const order = await Order.findOne({
+      $or: [
+        { shareTokenHash: tokenHash },
+        { shareToken: token },
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Invoice not found or link is invalid' });
+    }
+
+    if (order.shareTokenRevokedAt) {
+      return res.status(410).json({ message: 'This shared invoice link has been revoked.' });
+    }
+
+    if (order.shareTokenExpiresAt && new Date() > new Date(order.shareTokenExpiresAt)) {
+      return res.status(410).json({ message: 'This shared invoice link has expired.' });
+    }
+
+    const { utr, amount, paymentMode, screenshotUrl, notes } = req.body;
+
+    if (!utr || typeof utr !== 'string' || utr.trim().length < 6) {
+      return res.status(400).json({ message: 'A valid Transaction Reference / UTR (minimum 6 characters) is required.' });
+    }
+
+    const numericAmount = Number(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ message: 'A valid positive payment amount is required.' });
+    }
+
+    const payment = await Payment.findOne({ orderId: order._id });
+    if (payment && numericAmount > (payment.balanceAmount || 0)) {
+      return res.status(400).json({
+        message: `Submitted amount (₹${numericAmount}) exceeds outstanding balance (₹${payment.balanceAmount}).`,
+      });
+    }
+
+    const cleanUtr = utr.trim();
+    const proofId = `proof_${crypto.randomUUID().slice(0, 10)}`;
+
+    const newProof = {
+      proofId,
+      utr: cleanUtr,
+      amount: numericAmount,
+      paymentMode: paymentMode || 'UPI',
+      screenshotUrl: screenshotUrl || '',
+      notes: notes || '',
+      submittedAt: new Date().toISOString(),
+      status: 'pending_reconciliation',
+    };
+
+    const existingProofs = Array.isArray(order.paymentProofs) ? order.paymentProofs : [];
+    // Prevent duplicate UTR submission
+    if (existingProofs.some((p) => p.utr === cleanUtr && p.status !== 'rejected')) {
+      return res.status(409).json({ message: `A payment proof with UTR '${cleanUtr}' is already pending verification or approved.` });
+    }
+
+    order.paymentProofs = [...existingProofs, newProof];
+
+    // Append internal audit note
+    const orderNotes = Array.isArray(order.notes) ? [...order.notes] : [];
+    orderNotes.push({
+      text: `Customer submitted payment proof via public link (UTR: ${cleanUtr}, ₹${numericAmount}) for verification.`,
+      createdAt: new Date().toISOString(),
+      author: 'Customer',
+    });
+    order.notes = orderNotes;
+
+    await order.save();
+
+    res.status(201).json({
+      message: 'Payment proof submitted successfully and queued for shop reconciliation.',
+      proofId,
+      utr: cleanUtr,
+      amount: numericAmount,
+      status: 'pending_reconciliation',
+    });
+  } catch (error) {
+    console.error('Submit payment proof error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Reconcile (Approve or Reject) customer-submitted payment proof (Phase 7, 11.3)
+// @route   POST /api/orders/:id/reconcile-proof
+// @access  Private (Owner, Manager)
+export const reconcilePaymentProof = async (req, res) => {
+  try {
+    const order = await findOrderScoped(req.params.id, req.user.shopId);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    const { proofId, action, rejectionReason, notes } = req.body;
+    if (!proofId) return res.status(400).json({ message: 'proofId is required' });
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: "action must be either 'approve' or 'reject'" });
+    }
+
+    const proofs = Array.isArray(order.paymentProofs) ? [...order.paymentProofs] : [];
+    const targetIdx = proofs.findIndex((p) => p.proofId === proofId);
+    if (targetIdx === -1) {
+      return res.status(404).json({ message: 'Payment proof record not found' });
+    }
+
+    const targetProof = { ...proofs[targetIdx] };
+    if (targetProof.status !== 'pending_reconciliation') {
+      return res.status(400).json({
+        message: `Proof has already been reconciled with status '${targetProof.status}'.`,
+      });
+    }
+
+    const reconciledAt = new Date().toISOString();
+    const orderNotes = Array.isArray(order.notes) ? [...order.notes] : [];
+
+    if (action === 'approve') {
+      // Authoritatively record immutable payment event atomically
+      await recordOrderPaymentAtomic({
+        shopId: req.user.shopId,
+        orderId: order._id,
+        amount: targetProof.amount,
+        paymentType: targetProof.paymentMode || 'UPI',
+        reference: targetProof.utr,
+        idempotencyKey: `reconcile_${targetProof.proofId}`,
+        recordedBy: req.user.name || 'Owner',
+      });
+
+      targetProof.status = 'approved';
+      targetProof.reconciledAt = reconciledAt;
+      targetProof.reconciledBy = req.user.name || 'Owner';
+      targetProof.reconciliationNotes = notes || '';
+
+      orderNotes.push({
+        text: `Payment proof approved by ${req.user.name || 'Owner'} (UTR: ${targetProof.utr}, ₹${targetProof.amount}). Payment recorded.`,
+        createdAt: reconciledAt,
+        author: req.user.name || 'Owner',
+      });
+    } else {
+      targetProof.status = 'rejected';
+      targetProof.reconciledAt = reconciledAt;
+      targetProof.reconciledBy = req.user.name || 'Owner';
+      targetProof.rejectionReason = rejectionReason || 'Invalid reference or funds not received';
+
+      orderNotes.push({
+        text: `Payment proof rejected by ${req.user.name || 'Owner'} (UTR: ${targetProof.utr}). Reason: ${targetProof.rejectionReason}`,
+        createdAt: reconciledAt,
+        author: req.user.name || 'Owner',
+      });
+    }
+
+    proofs[targetIdx] = targetProof;
+    order.paymentProofs = proofs;
+    order.notes = orderNotes;
+    await order.save();
+
+    res.json({
+      message: `Payment proof ${action === 'approve' ? 'approved and credited' : 'rejected'} successfully.`,
+      proof: targetProof,
+    });
+  } catch (error) {
+    console.error('Reconcile payment proof error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Generate or renew public invoice share token
 // @route   POST /api/orders/:id/share-token
 // @access  Private
