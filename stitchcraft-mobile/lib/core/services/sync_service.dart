@@ -6,6 +6,7 @@ import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/config/api_config.dart';
+import 'package:stitchcraft/core/config/sync_registry.dart';
 import 'dart:developer' as developer;
 
 class SyncService {
@@ -42,11 +43,23 @@ class SyncService {
   Future<Map<String, dynamic>> getSyncStatus() async {
     try {
       int totalPending = 0;
-      final tables = ['customers', 'orders', 'expenses', 'inventory'];
+      final tables = [
+        'customers',
+        'measurements',
+        'inventory',
+        'orders',
+        'order_payments',
+        'expenses',
+        'inventory_movements',
+      ];
       for (final table in tables) {
         final unsynced = await _localDb.getUnsyncedRecords(table);
         totalPending += unsynced.length;
       }
+
+      // Also count pending mutations from outbox
+      final pendingMutations = await _localDb.getPendingMutations();
+      totalPending += pendingMutations.length;
 
       final prefs = await SharedPreferences.getInstance();
       final lastSyncStr = prefs.getString('lastSyncTime');
@@ -64,10 +77,20 @@ class SyncService {
   /// Get detailed breakdown of pending items and failed records for the sync status screen
   Future<Map<String, dynamic>> getDetailedSyncBreakdown() async {
     try {
-      final tables = ['orders', 'customers', 'expenses', 'inventory'];
+      final tables = [
+        'customers',
+        'measurements',
+        'inventory',
+        'orders',
+        'order_payments',
+        'expenses',
+        'inventory_movements',
+      ];
       final Map<String, int> pendingByTable = {};
       final List<Map<String, dynamic>> failedRecords = [];
       int totalPending = 0;
+      int conflictCount = 0;
+      int failedCount = 0;
 
       for (final table in tables) {
         final unsynced = await _localDb.getUnsyncedRecords(table);
@@ -76,6 +99,7 @@ class SyncService {
         for (final rec in unsynced) {
           if (rec['sync_status'] == 2 || rec['sync_status'] == 4) {
             final isValidationError = rec['sync_status'] == 4;
+            failedCount++;
             failedRecords.add({
               'table': table,
               'id': rec['id']?.toString() ?? '',
@@ -86,6 +110,8 @@ class SyncService {
                       rec['category']?.toString() ??
                       rec['id']?.toString() ??
                       'Pending Delete'),
+              'error': isValidationError ? 'Validation error' : 'Pending delete',
+              'canRetry': true,
             });
           }
         }
@@ -93,14 +119,24 @@ class SyncService {
 
       final failedMutations = await _localDb.getFailedMutations();
       for (final mut in failedMutations) {
+        final isConflict = mut['conflict_state'] == 'conflict' || mut['status'] == 'conflict';
+        if (isConflict) conflictCount++;
+        else failedCount++;
+
         failedRecords.add({
-          'table': mut['table_name'] ?? 'mutation_outbox',
-          'id': mut['id']?.toString() ?? '',
-          'title': mut['conflict_state'] == 'conflict'
-              ? 'Conflict: ${mut['action']} on ${mut['table_name']}'
-              : 'Failed: ${mut['last_error'] ?? mut['action']}',
+          'table': mut['entity_type'] ?? mut['table_name'] ?? 'mutation_outbox',
+          'id': mut['client_mutation_id'] ?? mut['id']?.toString() ?? '',
+          'title': isConflict
+              ? 'Conflict on ${mut['entity_type'] ?? mut['table_name']}'
+              : 'Failed: ${mut['last_error'] ?? mut['operation'] ?? mut['action']}',
+          'error': mut['last_error'] ?? 'Sync failed',
+          'isConflict': isConflict,
+          'canRetry': true,
         });
       }
+
+      final pendingMutations = await _localDb.getPendingMutations();
+      totalPending += pendingMutations.length;
 
       final prefs = await SharedPreferences.getInstance();
       final lastSyncStr = prefs.getString('lastSyncTime');
@@ -112,6 +148,8 @@ class SyncService {
         'totalPending': totalPending,
         'pendingByTable': pendingByTable,
         'failedRecords': failedRecords,
+        'failedCount': failedCount,
+        'conflictCount': conflictCount,
         'lastSyncTime': lastSyncTime,
       };
     } catch (e) {
@@ -121,24 +159,24 @@ class SyncService {
       );
       return {
         'totalPending': 0,
-        'pendingByTable': {
-          'orders': 0,
-          'customers': 0,
-          'expenses': 0,
-          'inventory': 0,
-        },
+        'pendingByTable': <String, int>{},
         'failedRecords': <Map<String, dynamic>>[],
+        'failedCount': 0,
+        'conflictCount': 0,
         'lastSyncTime': null,
       };
     }
   }
 
-  /// Process queued mutations with exponential backoff and idempotency (Phase 2, 6.4)
+  /// Process queued mutations with exponential backoff and idempotency (Phase 2, 6.4 & Phase 5, 9.2)
   Future<void> processMutationOutbox(String token) async {
-    final pending = await _localDb.getPendingMutations();
-    if (pending.isEmpty) return;
+    final pendingRaw = await _localDb.getPendingMutations();
+    if (pendingRaw.isEmpty) return;
 
-    developer.log('Processing ${pending.length} outbox mutations grouped by dependency...', name: 'SyncService');
+    // Strict upload ordering: Shop -> Customers/Karigars -> Measurements/Inventory -> Orders/Repairs -> Payments/Expenses -> Deliveries/Movements
+    final pending = SyncRegistry.sortMutations(pendingRaw);
+
+    developer.log('Processing ${pending.length} outbox mutations grouped by dependency order...', name: 'SyncService');
 
     for (final mutation in pending) {
       final mutationId = (mutation['client_mutation_id'] ?? mutation['id']).toString();
@@ -260,7 +298,16 @@ class SyncService {
       developer.log('Warning: error processing mutation outbox: $outboxErr', name: 'SyncService');
     }
 
-    final tables = ['customers', 'orders', 'expenses', 'inventory'];
+    // Strict upload ordering: Customers/Karigars -> Measurements/Inventory -> Orders/Repairs -> Payments/Expenses -> Movements
+    final tables = [
+      'customers',
+      'measurements',
+      'inventory',
+      'orders',
+      'order_payments',
+      'expenses',
+      'inventory_movements',
+    ];
     final List<String> errors = [];
 
     for (int i = 0; i < tables.length; i++) {

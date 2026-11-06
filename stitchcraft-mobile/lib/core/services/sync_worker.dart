@@ -21,6 +21,9 @@ void callbackDispatcher() {
   });
 }
 
+/// Background Sync Worker (Phase 5, 9.2)
+/// NOTE: Mobile background execution is best-effort and not a real-time guarantee.
+/// OS-level Doze mode, App Standby, and OEM battery optimizations control actual execution windows.
 class SyncWorker {
   static const String syncTaskName = "com.stitchcraft.sync_task";
 
@@ -28,6 +31,7 @@ class SyncWorker {
     await Workmanager().initialize(callbackDispatcher);
   }
 
+  /// Schedule periodic best-effort synchronization every 15 minutes when connected to network
   static Future<bool> schedulePeriodicSync() async {
     final token = await AuthService().getToken();
     if (token == null || token.isEmpty) {

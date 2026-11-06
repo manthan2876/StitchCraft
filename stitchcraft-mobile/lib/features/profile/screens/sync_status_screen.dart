@@ -17,15 +17,22 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
   bool _isSyncing = false;
   String _syncProgressMessage = '';
   int _totalPending = 0;
+  int _failedCount = 0;
+  int _conflictCount = 0;
   Map<String, int> _pendingByTable = {
     'orders': 0,
     'customers': 0,
-    'expenses': 0,
+    'measurements': 0,
     'inventory': 0,
+    'order_payments': 0,
+    'expenses': 0,
+    'inventory_movements': 0,
   };
   List<Map<String, dynamic>> _failedRecords = [];
   DateTime? _lastSyncTime;
   String? _syncError;
+
+  bool get _hasUnresolved => _totalPending > 0 || _failedRecords.isNotEmpty || _conflictCount > 0;
 
   @override
   void initState() {
@@ -40,6 +47,8 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
 
     setState(() {
       _totalPending = data['totalPending'] as int? ?? 0;
+      _failedCount = data['failedCount'] as int? ?? 0;
+      _conflictCount = data['conflictCount'] as int? ?? 0;
       _pendingByTable = Map<String, int>.from(
         data['pendingByTable'] as Map? ?? {},
       );
@@ -151,39 +160,51 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: _totalPending == 0
-                          ? AppTheme.trustGreen.withValues(alpha: 0.12)
-                          : AppTheme.safetyOrange.withValues(alpha: 0.12),
+                      color: _hasUnresolved
+                          ? (_failedRecords.isNotEmpty
+                              ? AppTheme.alertRed.withValues(alpha: 0.12)
+                              : AppTheme.safetyOrange.withValues(alpha: 0.12))
+                          : AppTheme.trustGreen.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: _totalPending == 0
-                            ? AppTheme.trustGreen.withValues(alpha: 0.3)
-                            : AppTheme.safetyOrange.withValues(alpha: 0.3),
+                        color: _hasUnresolved
+                            ? (_failedRecords.isNotEmpty
+                                ? AppTheme.alertRed.withValues(alpha: 0.3)
+                                : AppTheme.safetyOrange.withValues(alpha: 0.3))
+                            : AppTheme.trustGreen.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Column(
                       children: [
                         Icon(
-                          _totalPending == 0
-                              ? Icons.cloud_done
-                              : Icons.cloud_upload,
+                          _hasUnresolved
+                              ? (_failedRecords.isNotEmpty
+                                  ? Icons.error_outline
+                                  : Icons.cloud_upload)
+                              : Icons.cloud_done,
                           size: 48,
-                          color: _totalPending == 0
-                              ? AppTheme.trustGreen
-                              : AppTheme.safetyOrange,
+                          color: _hasUnresolved
+                              ? (_failedRecords.isNotEmpty
+                                  ? AppTheme.alertRed
+                                  : AppTheme.safetyOrange)
+                              : AppTheme.trustGreen,
                         ),
                         const SizedBox(height: 12),
                         Text(
                           _syncError != null
                               ? _syncError!
-                              : _totalPending == 0
-                              ? context.loc.all_changes_synced
-                              : '$_totalPending ${context.loc.pending_local_changes}',
+                              : _failedRecords.isNotEmpty
+                              ? '${_failedRecords.length} records require attention'
+                              : _totalPending > 0
+                              ? '$_totalPending ${context.loc.pending_local_changes}'
+                              : context.loc.all_changes_synced,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: _totalPending == 0
-                                ? AppTheme.trustGreen
-                                : AppTheme.safetyOrange,
+                            color: _hasUnresolved
+                                ? (_failedRecords.isNotEmpty
+                                    ? AppTheme.alertRed
+                                    : AppTheme.safetyOrange)
+                                : AppTheme.trustGreen,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -269,15 +290,33 @@ class _SyncStatusScreenState extends State<SyncStatusScreen> {
                   ),
                   const SizedBox(height: 8),
                   _buildQueueTile(
-                    icon: Icons.receipt_long,
-                    label: context.loc.expenses_khata,
-                    count: _pendingByTable['expenses'] ?? 0,
+                    icon: Icons.straighten,
+                    label: 'Measurements',
+                    count: _pendingByTable['measurements'] ?? 0,
                   ),
                   const SizedBox(height: 8),
                   _buildQueueTile(
                     icon: Icons.inventory_2,
                     label: context.loc.inventory_materials,
                     count: _pendingByTable['inventory'] ?? 0,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildQueueTile(
+                    icon: Icons.payments,
+                    label: 'Payments',
+                    count: _pendingByTable['order_payments'] ?? 0,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildQueueTile(
+                    icon: Icons.receipt_long,
+                    label: context.loc.expenses_khata,
+                    count: _pendingByTable['expenses'] ?? 0,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildQueueTile(
+                    icon: Icons.history,
+                    label: 'Stock Movements',
+                    count: _pendingByTable['inventory_movements'] ?? 0,
                   ),
 
                   // Failed Records Section
