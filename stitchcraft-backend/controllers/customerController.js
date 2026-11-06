@@ -110,6 +110,9 @@ export const updateCustomer = async (req, res) => {
 // @access  Private
 export const deleteCustomer = async (req, res) => {
   try {
+    if (req.user?.role !== 'owner') {
+      return res.status(403).json({ message: 'Forbidden: only shop owners can delete customers' });
+    }
     const result = await deleteCustomerService(req.params.id, req.user.shopId);
     if (!result || result.notFound) return res.status(404).json({ message: 'Customer not found' });
     res.json({ message: 'Customer archived successfully while preserving order history and measurements' });

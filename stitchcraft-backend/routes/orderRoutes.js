@@ -15,7 +15,7 @@ import {
   delegateOrder,
   revokeDelegation,
 } from '../controllers/orderController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 import { enforceMutationIdempotency } from '../middleware/mutationMiddleware.js';
 import {
   validateObjectIdParam,
@@ -41,11 +41,11 @@ router.route('/')
 router.route('/:id')
   .get(getOrderById)
   .put(validateOrderUpdateRequest, updateOrder)
-  .delete(deleteOrder);
+  .delete(authorize('owner'), deleteOrder);
 
 router.post('/:id/payments', validatePaymentRequest, recordOrderPayment);
-router.post('/:id/refunds', recordOrderRefund);
-router.post('/:id/payments/refund', recordOrderRefund);
+router.post('/:id/refunds', authorize('owner', 'manager'), recordOrderRefund);
+router.post('/:id/payments/refund', authorize('owner', 'manager'), recordOrderRefund);
 router.post('/:id/notes', addNoteToOrder);
 router.post('/:id/share-token', generateShareToken);
 router.post('/:id/revoke-share-token', revokeShareToken);

@@ -221,6 +221,9 @@ export const updateInventoryItem = async (req, res) => {
 // @access  Private
 export const deleteInventoryItem = async (req, res) => {
   try {
+    if (req.user?.role !== 'owner') {
+      return res.status(403).json({ message: 'Forbidden: only shop owners can delete inventory items' });
+    }
     const item = await Inventory.findOne({ _id: req.params.id, shopId: req.user.shopId });
 
     if (!item) {

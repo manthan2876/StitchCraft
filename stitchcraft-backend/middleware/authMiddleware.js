@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase.js';
 import User from '../models/User.js';
 import Shop from '../models/Shop.js';
+import { PERMISSIONS, ROLE_PERMISSIONS, hasPermission } from '../config/permissions.js';
 
 /**
  * Authentication middleware
@@ -45,6 +46,10 @@ export const protect = async (req, res, next) => {
 
       if (user.status === 'deleting') {
         return res.status(401).json({ message: 'Not authorized, account scheduled for deletion' });
+      }
+
+      if (user.isActive === false || user.status === 'revoked' || user.status === 'inactive') {
+        return res.status(401).json({ message: 'Not authorized, user membership is inactive or has been revoked' });
       }
 
       // Verify active shop membership context and prevent cross-shop tenant boundary leaks
@@ -98,6 +103,71 @@ export const authorize = (...roles) => (req, res, next) => {
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
     return res.status(403).json({
       message: `Forbidden: role '${userRole}' is not authorized. Required: [${roles.join(', ')}].`,
+    });
+  }
+
+  next();
+};
+
+/**
+ * Permission-based Authorization Middleware (Phase 4, 8.1)
+ * Enforces that user's role has ALL required permissions.
+ * Owner role with '*' is universally granted access.
+ */
+export const requirePermission = (...permissions) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authorized, no authenticated user' });
+  }
+
+  if (req.user.isActive === false || req.user.status === 'revoked' || req.user.status === 'inactive' || req.user.status === 'deleting') {
+    return res.status(403).json({
+      message: 'Forbidden: your membership in this shop is inactive or has been revoked.',
+    });
+  }
+
+  const role = (req.user.role || 'staff').toLowerCase();
+  const userPermissions = ROLE_PERMISSIONS[role] || [];
+
+  if (userPermissions.includes('*')) {
+    return next();
+  }
+
+  const missingPermissions = permissions.filter((perm) => !userPermissions.includes(perm));
+  if (missingPermissions.length > 0) {
+    return res.status(403).json({
+      message: `Forbidden: role '${role}' lacks required permission [${missingPermissions.join(', ')}].`,
+    });
+  }
+
+  next();
+};
+
+/**
+ * Disjunctive Permission-based Authorization Middleware (Phase 4, 8.1)
+ * Enforces that user's role has AT LEAST ONE of the required permissions.
+ */
+export const requireAnyPermission = (...permissions) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authorized, no authenticated user' });
+  }
+
+  if (req.user.isActive === false || req.user.status === 'revoked' || req.user.status === 'inactive' || req.user.status === 'deleting') {
+    return res.status(403).json({
+      message: 'Forbidden: your membership in this shop is inactive or has been revoked.',
+    });
+  }
+
+  const role = (req.user.role || 'staff').toLowerCase();
+  const userPermissions = ROLE_PERMISSIONS[role] || [];
+
+  if (userPermissions.includes('*')) {
+    return next();
+  }
+
+  const hasAny = permissions.some((perm) => userPermissions.includes(perm));
+  if (!hasAny) {
+    return res.status(403).json({
+      message: `Forbidden: role '${role}' lacks required permissions [${permissions.join(' or ')}].`,
     });
   }
 

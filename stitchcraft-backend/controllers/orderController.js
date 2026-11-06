@@ -22,6 +22,7 @@ import {
   recordOrderPaymentAtomic,
   recordOrderRefundAtomic,
 } from '../services/financialService.js';
+import { serializeOrderForRole } from '../services/serializerService.js';
 
 // @desc    Create a new order
 // @route   POST /api/orders
@@ -53,11 +54,20 @@ export const createOrder = async (req, res) => {
 // @access  Private
 export const getOrders = async (req, res) => {
   try {
+    const userRole = (req.user.role || 'staff').toLowerCase();
+    const isKarigar = userRole === 'karigar' || userRole === 'tailor';
     const { status, urgency, type } = req.query;
     let filter;
 
-    // Support fetching jobs delegated from other tailor shops to this shop
-    if (type === 'partner_jobs' || type === 'external_jobs') {
+    if (isKarigar) {
+      // Karigars strictly see only jobs assigned to them within the shop
+      const karigarIdentifier = req.user.karigarId || req.user._id;
+      filter = {
+        shopId: req.user.shopId,
+        assignedKarigar: karigarIdentifier,
+        isDeleted: { $ne: true },
+      };
+    } else if (type === 'partner_jobs' || type === 'external_jobs') {
       filter = { delegatedToShopId: req.user.shopId, isDeleted: { $ne: true } };
     } else if (type === 'my_delegated') {
       filter = { shopId: req.user.shopId, delegationStatus: 'assigned', isDeleted: { $ne: true } };
@@ -97,9 +107,10 @@ export const getOrders = async (req, res) => {
       item.payment = payment;
       item.delivery = delivery;
 
-      // Authoritative privacy & sanitization for partner tailors
-      const sanitized = sanitizeOrderForPartnerTailor(item, req.user.shopId);
-      populatedOrders.push(sanitized);
+      // Authoritative privacy & sanitization for partner tailors and roles
+      const sanitizedPartner = sanitizeOrderForPartnerTailor(item, req.user.shopId);
+      const sanitizedRole = serializeOrderForRole(sanitizedPartner, userRole);
+      populatedOrders.push(sanitizedRole);
     }
 
     res.json(populatedOrders);
@@ -116,6 +127,19 @@ export const getOrderById = async (req, res) => {
   try {
     const order = await findOrderScoped(req.params.id, req.user.shopId);
     if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    const userRole = (req.user.role || 'staff').toLowerCase();
+    const isKarigar = userRole === 'karigar' || userRole === 'tailor';
+
+    if (isKarigar) {
+      const karigarIdentifier = String(req.user.karigarId || req.user._id);
+      const orderKarigar = order.assignedKarigar?._id || order.assignedKarigar;
+      if (!orderKarigar || String(orderKarigar) !== karigarIdentifier) {
+        return res.status(403).json({
+          message: 'Forbidden: Karigars can only access orders assigned to them.',
+        });
+      }
+    }
 
     if (!order.shareToken) {
       const rawToken = crypto.randomBytes(24).toString('hex');
@@ -155,7 +179,8 @@ export const getOrderById = async (req, res) => {
     result.asterCostPrice = costPrice;
 
     const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
-    res.json(sanitized);
+    const finalResult = serializeOrderForRole(sanitized, userRole);
+    res.json(finalResult);
   } catch (error) {
     console.error('Get order by ID error:', error);
     res.status(500).json({ message: error.message });
@@ -324,10 +349,34 @@ export const revokeShareToken = async (req, res) => {
 // @access  Private
 export const updateOrder = async (req, res) => {
   try {
+    const userRole = (req.user?.role || 'staff').toLowerCase();
+    const isKarigar = userRole === 'karigar' || userRole === 'tailor';
+
+    if (isKarigar) {
+      // Verify karigar is assigned to this order
+      const existingOrder = await findOrderScoped(req.params.id, req.user.shopId);
+      if (!existingOrder) return res.status(404).json({ message: 'Order not found' });
+
+      const karigarIdentifier = String(req.user.karigarId || req.user._id);
+      const orderKarigar = existingOrder.assignedKarigar?._id || existingOrder.assignedKarigar;
+      if (!orderKarigar || String(orderKarigar) !== karigarIdentifier) {
+        return res.status(403).json({
+          message: 'Forbidden: Karigars can only update orders assigned to them.',
+        });
+      }
+
+      // Karigars cannot alter financial, pricing, or assignment fields
+      const restrictedFields = ['price', 'items', 'customer', 'customerName', 'assignedKarigar', 'assignedMachine', 'delegatedToShopId', 'advance_amount'];
+      for (const field of restrictedFields) {
+        delete req.body[field];
+      }
+    }
+
     const result = await updateOrderService(req.params.id, req.body, req.user.shopId, req.user.name);
     if (!result) return res.status(404).json({ message: 'Order not found' });
     const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
-    res.json(sanitized);
+    const finalResult = serializeOrderForRole(sanitized, userRole);
+    res.json(finalResult);
   } catch (error) {
     console.error('Update order error:', error);
     res.status(error.statusCode || 500).json({
@@ -389,6 +438,9 @@ export const recordOrderRefund = async (req, res) => {
 // @access  Private
 export const deleteOrder = async (req, res) => {
   try {
+    if (req.user?.role !== 'owner') {
+      return res.status(403).json({ message: 'Forbidden: only shop owners can delete orders' });
+    }
     const success = await deleteOrderService(req.params.id, req.user.shopId);
     if (!success) return res.status(404).json({ message: 'Order not found' });
     res.json({ message: 'Order and associated records deleted successfully' });

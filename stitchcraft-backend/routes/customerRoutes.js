@@ -8,7 +8,7 @@ import {
   deleteCustomer,
   getPendingBalances,
 } from '../controllers/customerController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 import { validateCustomerRequest } from '../middleware/validationMiddleware.js';
 import { enforceMutationIdempotency } from '../middleware/mutationMiddleware.js';
 
@@ -28,6 +28,6 @@ router.route('/')
 router.route('/:id')
   .get(getCustomerById)
   .put(validateCustomerRequest, updateCustomer)
-  .delete(deleteCustomer);
+  .delete(authorize('owner'), deleteCustomer);
 
 export default router;

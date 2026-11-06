@@ -10,7 +10,7 @@ import {
   getInventoryItemMovements,
   reconcileInventoryItem,
 } from '../controllers/inventoryController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 import { validateInventoryRequest } from '../middleware/validationMiddleware.js';
 import { enforceMutationIdempotency } from '../middleware/mutationMiddleware.js';
 
@@ -24,7 +24,7 @@ router.route('/')
 router.route('/:id')
   .get(getInventoryItemById)
   .put(validateInventoryRequest, updateInventoryItem)
-  .delete(deleteInventoryItem);
+  .delete(authorize('owner'), deleteInventoryItem);
 
 router.post('/:id/adjust', adjustInventoryItem);
 router.get('/:id/movements', getInventoryItemMovements);
