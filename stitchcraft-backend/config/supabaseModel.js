@@ -1,6 +1,15 @@
 import crypto from 'node:crypto';
 import { supabase } from './supabase.js';
 import { validateDocument } from '../utils/tableValidators.js';
+import {
+  recordQueryMetric,
+  DEFAULT_MAX_QUERY_LIMIT,
+} from '../services/queryMetrics.js';
+import {
+  isDualWriteEnabled,
+  recordDualWrite,
+  recordDualDelete,
+} from '../services/dualWriteService.js';
 
 const clone = (value, seen = new WeakSet()) => {
   if (value === null || typeof value !== 'object') return value;
@@ -139,11 +148,15 @@ class SupabaseQuery {
             );
             if (comparison !== 0) return comparison * Number(direction);
           }
-          return 0;
+          // Deterministic secondary tie-breaker
+          const leftId = String(left?._id ?? left?.id ?? '');
+          const rightId = String(right?._id ?? right?.id ?? '');
+          return leftId.localeCompare(rightId, undefined, { numeric: true });
         });
       }
-      if (this.limitCount !== null && Array.isArray(value)) {
-        value = value.slice(0, this.limitCount);
+      const effectiveLimit = this.limitCount !== null ? this.limitCount : (this.single ? 1 : DEFAULT_MAX_QUERY_LIMIT);
+      if (effectiveLimit !== null && Array.isArray(value)) {
+        value = value.slice(0, effectiveLimit);
       }
       if (this.populateFields.length) {
         for (const field of this.populateFields) {
@@ -171,20 +184,94 @@ class SupabaseQuery {
 
 export const createDocumentModel = (collection) => {
   const load = async (query = {}) => {
+    const startTime = performance.now();
+    const pushedFilters = {};
+    let hasTenantPredicate = false;
+
     let builder = supabase
       .from('app_records')
       .select('source_id,document,created_at,updated_at')
       .eq('collection', collection);
 
+    // Push down tenant boundaries & indexed predicates to Supabase PostgREST
     if (query?.shopId && typeof query.shopId === 'string') {
       builder = builder.filter('document->>shopId', 'eq', query.shopId);
-    } else if (query?._id && typeof query._id === 'string') {
-      builder = builder.eq('source_id', String(query._id));
+      pushedFilters.shopId = query.shopId;
+      hasTenantPredicate = true;
+    } else if (query?.delegatedToShopId && typeof query.delegatedToShopId === 'string') {
+      builder = builder.filter('document->>delegatedToShopId', 'eq', query.delegatedToShopId);
+      pushedFilters.delegatedToShopId = query.delegatedToShopId;
+      hasTenantPredicate = true;
+    }
+
+    if (query?._id) {
+      if (typeof query._id === 'string') {
+        builder = builder.eq('source_id', String(query._id));
+        pushedFilters._id = query._id;
+      } else if (query._id?.$in && Array.isArray(query._id.$in)) {
+        builder = builder.in('source_id', query._id.$in.map(String));
+        pushedFilters._id_in = query._id.$in.length;
+      }
+    }
+
+    if (query?.orderId) {
+      if (typeof query.orderId === 'string') {
+        builder = builder.filter('document->>orderId', 'eq', query.orderId);
+        pushedFilters.orderId = query.orderId;
+      } else if (query.orderId?.$in && Array.isArray(query.orderId.$in)) {
+        builder = builder.filter('document->>orderId', 'in', `(${query.orderId.$in.map(String).join(',')})`);
+        pushedFilters.orderId_in = query.orderId.$in.length;
+      }
+    }
+
+    if (query?.phone && typeof query.phone === 'string') {
+      builder = builder.filter('document->>phone', 'eq', query.phone);
+      pushedFilters.phone = query.phone;
+    }
+
+    if (query?.status && typeof query.status === 'string') {
+      builder = builder.filter('document->>status', 'eq', query.status);
+      pushedFilters.status = query.status;
+    }
+
+    // Push down $or when containing tenant predicates
+    if (Array.isArray(query?.$or) && query.$or.length > 0) {
+      const orParts = [];
+      for (const cond of query.$or) {
+        if (cond.shopId) {
+          orParts.push(`document->>shopId.eq.${cond.shopId}`);
+          hasTenantPredicate = true;
+        } else if (cond.delegatedToShopId) {
+          orParts.push(`document->>delegatedToShopId.eq.${cond.delegatedToShopId}`);
+          hasTenantPredicate = true;
+        }
+      }
+      if (orParts.length > 0 && typeof builder.or === 'function') {
+        try {
+          builder = builder.or(orParts.join(','));
+          pushedFilters.$or = orParts.join(',');
+        } catch {
+          // If mock or builder doesn't support or, fallback to in-memory filter
+        }
+      }
     }
 
     const { data, error } = await builder;
     if (error) throw new Error(`Supabase ${collection} read failed: ${error.message}`);
-    return (data ?? []).map(hydrate);
+
+    const durationMs = performance.now() - startTime;
+    const hydratedRows = (data ?? []).map(hydrate);
+
+    recordQueryMetric({
+      collection,
+      operation: 'load',
+      durationMs,
+      resultCount: hydratedRows.length,
+      pushedFilters,
+      hasTenantPredicate,
+    });
+
+    return hydratedRows;
   };
 
   const persist = async (document) => {
@@ -218,7 +305,15 @@ export const createDocumentModel = (collection) => {
       .select('source_id,document,created_at,updated_at')
       .single();
     if (error) throw new Error(`Supabase ${collection} write failed: ${error.message}`);
-    return hydrate(data);
+
+    const hydratedResult = hydrate(data);
+
+    // If dual write is active, also persist to normalized domain table
+    if (isDualWriteEnabled()) {
+      await recordDualWrite(collection, { ...value, _id: sourceId });
+    }
+
+    return hydratedResult;
   };
 
   const hydrate = (row) => ({
@@ -329,6 +424,9 @@ export const createDocumentModel = (collection) => {
     const { error } = await supabase.from('app_records')
       .delete().eq('collection', collection).eq('source_id', String(id));
     if (error) throw error;
+    if (isDualWriteEnabled()) {
+      await recordDualDelete(collection, id);
+    }
     return existing;
   }, true);
   Document.deleteOne = async (query = {}) => {
@@ -337,6 +435,9 @@ export const createDocumentModel = (collection) => {
     const { error } = await supabase.from('app_records')
       .delete().eq('collection', collection).eq('source_id', String(existing._id));
     if (error) throw new Error(`Supabase ${collection} delete failed: ${error.message}`);
+    if (isDualWriteEnabled() && existing._id) {
+      await recordDualDelete(collection, existing._id);
+    }
     return { deletedCount: 1 };
   };
   Document.deleteMany = async (query = {}) => {

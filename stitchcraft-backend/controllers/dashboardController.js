@@ -45,26 +45,32 @@ export const getDashboardStats = async (req, res) => {
     const payments = await Payment.find({ shopId });
     const totalRevenue = payments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
 
-    // 6. Recent Orders (Latest 5 orders)
+    // 6. Recent Orders (Latest 5 orders) - Batch-fetched payment details
     const recentOrders = await Order.find({ shopId })
       .sort({ createdAt: -1 })
       .limit(5);
 
-    // Populate payment details for recent orders
-    const recentOrdersWithPayments = [];
-    for (let o of recentOrders) {
-      const payment = await Payment.findOne({ orderId: o._id });
-      const item = o.toJSON();
-      item.payment = payment;
-      recentOrdersWithPayments.push(item);
+    const recentOrderIds = recentOrders.map((o) => o._id);
+    let recentPayments = [];
+    if (recentOrderIds.length > 0) {
+      recentPayments = await Payment.find({ orderId: { $in: recentOrderIds }, shopId });
     }
+    const recentPaymentMap = new Map();
+    for (const p of recentPayments) {
+      recentPaymentMap.set(String(p.orderId), p);
+    }
+    const recentOrdersWithPayments = recentOrders.map((o) => {
+      const item = typeof o.toJSON === 'function' ? o.toJSON() : { ...o };
+      item.payment = recentPaymentMap.get(String(o._id)) || null;
+      return item;
+    });
 
     // 7. Today Reminders / Alerts (Latest 5 alerts)
     const reminders = await Notification.find({ shopId })
       .sort({ createdAt: -1 })
       .limit(5);
 
-    // 8. Daily Stitching Distribution (sum of prices of completed orders per day this week)
+    // 8. Daily Stitching Distribution (Single-query weekly window aggregation)
     const current = new Date();
     const currentDay = current.getDay();
     const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
@@ -73,28 +79,42 @@ export const getDashboardStats = async (req, res) => {
     monday.setDate(current.getDate() + diffToMonday);
     monday.setHours(0, 0, 0, 0);
 
-    const dailyStitching = [];
-    for (let i = 0; i < 7; i++) {
-      const dayStart = new Date(monday);
-      dayStart.setDate(monday.getDate() + i);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setHours(23, 59, 59, 999);
+    const sundayEnd = new Date(monday);
+    sundayEnd.setDate(monday.getDate() + 7);
+    sundayEnd.setMilliseconds(sundayEnd.getMilliseconds() - 1);
 
-      const completedOrders = await Order.find({
-        shopId,
-        status: { $in: ['Ready', 'Delivered'] },
-        updatedAt: { $gte: dayStart, $lte: dayEnd }
-      });
-      const daySum = completedOrders.reduce((sum, o) => sum + (o.price || 0), 0);
-      dailyStitching.push(daySum);
+    const weekCompletedOrders = await Order.find({
+      shopId,
+      status: { $in: ['Ready', 'Delivered'] },
+      updatedAt: { $gte: monday, $lte: sundayEnd },
+    });
+
+    const dailyStitching = [0, 0, 0, 0, 0, 0, 0];
+    for (const order of weekCompletedOrders) {
+      const orderDate = new Date(order.updatedAt || order.createdAt);
+      const dayOffset = Math.floor((orderDate - monday) / (24 * 60 * 60 * 1000));
+      if (dayOffset >= 0 && dayOffset < 7) {
+        dailyStitching[dayOffset] += Number(order.price || 0);
+      }
     }
 
-    // 9. Karigar performance metrics
-    const karigars = await Karigar.find({ shopId });
-    const karigarPerformance = [];
+    // 9. Karigar performance metrics (Batch-fetched karigar orders)
+    const [karigars, allKarigarOrders] = await Promise.all([
+      Karigar.find({ shopId }),
+      Order.find({ shopId }),
+    ]);
 
-    for (let k of karigars) {
-      const kOrders = await Order.find({ assignedKarigar: k._id, shopId });
+    const karigarOrderMap = new Map();
+    for (const o of allKarigarOrders) {
+      if (o.assignedKarigar) {
+        const kid = String(o.assignedKarigar?._id || o.assignedKarigar);
+        if (!karigarOrderMap.has(kid)) karigarOrderMap.set(kid, []);
+        karigarOrderMap.get(kid).push(o);
+      }
+    }
+
+    const karigarPerformance = karigars.map((k) => {
+      const kOrders = karigarOrderMap.get(String(k._id)) || [];
       let activeCount = 0;
       let completedCount = 0;
       let completedValue = 0;
@@ -116,7 +136,7 @@ export const getDashboardStats = async (req, res) => {
         ? Math.round((onTimeCompleted / completedCount) * 100)
         : 100;
 
-      karigarPerformance.push({
+      return {
         _id: k._id,
         name: k.name,
         specialization: k.specialization,
@@ -124,9 +144,9 @@ export const getDashboardStats = async (req, res) => {
         activeCount,
         completedCount,
         completedValue,
-        onTimeRate
-      });
-    }
+        onTimeRate,
+      };
+    });
 
     // Sort by value created/completed orders
     karigarPerformance.sort((a, b) => b.completedValue - a.completedValue || b.completedCount - a.completedCount);

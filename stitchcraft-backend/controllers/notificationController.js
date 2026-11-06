@@ -22,17 +22,14 @@ export const getNotifications = async (req, res) => {
 // @access  Private
 export const markAllAsRead = async (req, res) => {
   try {
-    const notifications = await Notification.find({ shopId: req.user.shopId });
-    const unreadNotifications = notifications.filter((notification) => !notification.read);
-
-    for (const notification of unreadNotifications) {
-      notification.read = true;
-      await notification.save();
-    }
+    const result = await Notification.updateMany(
+      { shopId: req.user.shopId, read: { $ne: true } },
+      { $set: { read: true } },
+    );
 
     res.json({
       message: 'All notifications marked as read',
-      updatedCount: unreadNotifications.length,
+      updatedCount: result?.modifiedCount || 0,
     });
   } catch (error) {
     console.error('Mark all read error:', error);

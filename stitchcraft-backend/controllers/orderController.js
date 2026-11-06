@@ -57,61 +57,118 @@ export const getOrders = async (req, res) => {
     const userRole = (req.user.role || 'staff').toLowerCase();
     const isKarigar = userRole === 'karigar' || userRole === 'tailor';
     const { status, urgency, type } = req.query;
-    let filter;
+
+    const additionalCriteria = { isDeleted: { $ne: true } };
+    if (status) additionalCriteria.status = status;
+    if (urgency === 'high') {
+      const threeDaysLater = new Date();
+      threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+      additionalCriteria.deliveryDate = { $lte: threeDaysLater };
+      additionalCriteria.status = { $ne: 'Delivered' };
+    }
+
+    let orders = [];
 
     if (isKarigar) {
       // Karigars strictly see only jobs assigned to them within the shop
       const karigarIdentifier = req.user.karigarId || req.user._id;
-      filter = {
+      orders = await Order.find({
         shopId: req.user.shopId,
         assignedKarigar: karigarIdentifier,
-        isDeleted: { $ne: true },
-      };
+        ...additionalCriteria,
+      })
+        .populate('assignedKarigar')
+        .populate('assignedMachine')
+        .populate('asterInventoryItem')
+        .sort({ deliveryDate: 1 });
     } else if (type === 'partner_jobs' || type === 'external_jobs') {
-      filter = { delegatedToShopId: req.user.shopId, isDeleted: { $ne: true } };
+      orders = await Order.find({
+        delegatedToShopId: req.user.shopId,
+        ...additionalCriteria,
+      })
+        .populate('assignedKarigar')
+        .populate('assignedMachine')
+        .populate('asterInventoryItem')
+        .sort({ deliveryDate: 1 });
     } else if (type === 'my_delegated') {
-      filter = { shopId: req.user.shopId, delegationStatus: 'assigned', isDeleted: { $ne: true } };
+      orders = await Order.find({
+        shopId: req.user.shopId,
+        delegationStatus: 'assigned',
+        ...additionalCriteria,
+      })
+        .populate('assignedKarigar')
+        .populate('assignedMachine')
+        .populate('asterInventoryItem')
+        .sort({ deliveryDate: 1 });
     } else if (type === 'own' || type === 'in_house') {
-      filter = { shopId: req.user.shopId, isDeleted: { $ne: true } };
+      orders = await Order.find({
+        shopId: req.user.shopId,
+        ...additionalCriteria,
+      })
+        .populate('assignedKarigar')
+        .populate('assignedMachine')
+        .populate('asterInventoryItem')
+        .sort({ deliveryDate: 1 });
     } else {
-      // By default, include orders originating in this shop OR outsourced to this shop
-      filter = {
-        $or: [
-          { shopId: req.user.shopId },
-          { delegatedToShopId: req.user.shopId },
-        ],
-        isDeleted: { $ne: true },
-      };
+      // By default, fetch orders originating in this shop AND outsourced to this shop
+      // using direct indexed tenant predicates (eliminating unfiltered $or query shapes)
+      const [ownOrders, delegatedOrders] = await Promise.all([
+        Order.find({
+          shopId: req.user.shopId,
+          ...additionalCriteria,
+        })
+          .populate('assignedKarigar')
+          .populate('assignedMachine')
+          .populate('asterInventoryItem'),
+        Order.find({
+          delegatedToShopId: req.user.shopId,
+          ...additionalCriteria,
+        })
+          .populate('assignedKarigar')
+          .populate('assignedMachine')
+          .populate('asterInventoryItem'),
+      ]);
+
+      const orderMap = new Map();
+      for (const o of ownOrders) orderMap.set(String(o._id), o);
+      for (const o of delegatedOrders) orderMap.set(String(o._id), o);
+      orders = Array.from(orderMap.values());
+      orders.sort((a, b) => new Date(a.deliveryDate || 0) - new Date(b.deliveryDate || 0));
     }
 
-    if (status) filter.status = status;
+    // Eliminate N+1 queries: Batch-fetch payment and delivery records in O(1) database trips
+    const orderIds = orders.map((o) => o._id);
+    let payments = [];
+    let deliveries = [];
 
-    if (urgency === 'high') {
-      const threeDaysLater = new Date();
-      threeDaysLater.setDate(threeDaysLater.getDate() + 3);
-      filter.deliveryDate = { $lte: threeDaysLater };
-      filter.status = { $ne: 'Delivered' };
+    if (orderIds.length > 0) {
+      [payments, deliveries] = await Promise.all([
+        Payment.find({ orderId: { $in: orderIds } }),
+        Delivery.find({ orderId: { $in: orderIds } }),
+      ]);
     }
 
-    const orders = await Order.find(filter)
-      .populate('assignedKarigar')
-      .populate('assignedMachine')
-      .populate('asterInventoryItem')
-      .sort({ deliveryDate: 1 });
+    const paymentMap = new Map();
+    for (const p of payments) {
+      paymentMap.set(String(p.orderId), p);
+    }
 
-    const populatedOrders = [];
-    for (let o of orders) {
-      const payment = await Payment.findOne({ orderId: o._id });
-      const delivery = await Delivery.findOne({ orderId: o._id });
-      const item = o.toJSON();
+    const deliveryMap = new Map();
+    for (const d of deliveries) {
+      deliveryMap.set(String(d.orderId), d);
+    }
+
+    const populatedOrders = orders.map((o) => {
+      const payment = paymentMap.get(String(o._id)) || null;
+      const delivery = deliveryMap.get(String(o._id)) || null;
+      const item = typeof o.toJSON === 'function' ? o.toJSON() : { ...o };
       item.payment = payment;
       item.delivery = delivery;
 
       // Authoritative privacy & sanitization for partner tailors and roles
       const sanitizedPartner = sanitizeOrderForPartnerTailor(item, req.user.shopId);
-      const sanitizedRole = serializeOrderForRole(sanitizedPartner, userRole);
-      populatedOrders.push(sanitizedRole);
-    }
+      return serializeOrderForRole(sanitizedPartner, userRole);
+    });
 
     res.json(populatedOrders);
   } catch (error) {
