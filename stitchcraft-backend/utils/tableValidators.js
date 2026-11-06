@@ -209,6 +209,21 @@ export const validateDocument = (collection, doc) => {
       break;
     }
 
+    case 'inventory_movements': {
+      if (!doc.shopId) errors.shopId = 'Inventory movement must be linked to a shop';
+      if (!doc.inventoryItemId) errors.inventoryItemId = 'Inventory item ID is required';
+      if (!doc.movementType || !['Purchase', 'Return', 'Consumption', 'Adjustment', 'Reservation', 'Release'].includes(doc.movementType)) {
+        errors.movementType = 'Valid movement type is required (Purchase, Return, Consumption, Adjustment, Reservation, Release)';
+      }
+      if (doc.quantity === undefined || typeof doc.quantity !== 'number' || doc.quantity === 0) {
+        errors.quantity = 'A non-zero numeric movement quantity is required';
+      }
+      if (doc.movementType === 'Adjustment' && (!doc.reason || typeof doc.reason !== 'string' || !doc.reason.trim())) {
+        errors.reason = 'A reason is required for manual inventory adjustments';
+      }
+      break;
+    }
+
     case 'karigars': {
       if (!doc.shopId) errors.shopId = 'Karigar must be linked to a shop';
       if (!doc.name || typeof doc.name !== 'string' || doc.name.trim().length < 2) {

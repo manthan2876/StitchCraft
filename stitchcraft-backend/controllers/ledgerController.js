@@ -4,6 +4,7 @@ import {
   fetchJournalEntries,
   fetchTransactionsList,
 } from '../services/ledgerService.js';
+import { generateReconciliationReport } from '../services/reconciliationService.js';
 
 // @desc    Get payments summary (total sales, received payments, outstanding collections)
 // @route   GET /api/ledger/summary
@@ -42,6 +43,19 @@ export const getTransactions = async (req, res) => {
     res.json(transactions);
   } catch (error) {
     console.error('Get payments list error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Generate financial and inventory reconciliation audit report (Phase 3, 7.4)
+// @route   GET /api/ledger/reconciliation
+// @access  Private (Owner/Manager)
+export const getReconciliationReport = async (req, res) => {
+  try {
+    const report = await generateReconciliationReport(req.user.shopId);
+    res.json(report);
+  } catch (error) {
+    console.error('Get reconciliation report error:', error);
     res.status(500).json({ message: error.message });
   }
 };

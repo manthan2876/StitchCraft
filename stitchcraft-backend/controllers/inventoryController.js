@@ -1,8 +1,15 @@
 import Inventory from '../models/Inventory.js';
+import InventoryMovement from '../models/InventoryMovement.js';
 import LedgerEntry from '../models/LedgerEntry.js';
 import Order from '../models/Order.js';
 import { escapeRegex } from '../middleware/securityMiddleware.js';
 import { dispatchNotification } from '../services/notificationService.js';
+import {
+  recordInventoryMovement,
+  getItemMovements,
+  reconcileItemStock,
+  MOVEMENT_TYPES,
+} from '../services/inventoryService.js';
 
 // @desc    Create a new inventory item
 // @route   POST /api/inventory
@@ -37,6 +44,21 @@ export const createInventoryItem = async (req, res) => {
     }
 
     const item = await Inventory.create(itemData);
+
+    if (item.quantity > 0) {
+      await InventoryMovement.create({
+        shopId: req.user.shopId,
+        inventoryItemId: item._id,
+        movementType: MOVEMENT_TYPES.PURCHASE,
+        quantity: item.quantity,
+        previousBalance: 0,
+        newBalance: item.quantity,
+        reference: 'Initial intake',
+        reason: description || `Initial stock intake for ${item.itemName}`,
+        recordedBy: req.user.name || 'Owner',
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     if (pAmount > 0) {
       await LedgerEntry.create({
@@ -131,6 +153,7 @@ export const updateInventoryItem = async (req, res) => {
 
     const { itemName, itemType, quantity, unit, minQuantity, purchaseAmount, description, costPerUnit } = req.body;
 
+    const oldQty = Number(item.quantity) || 0;
     if (itemName) item.itemName = itemName;
     if (itemType) item.itemType = itemType;
     if (quantity !== undefined) item.quantity = Number(quantity);
@@ -138,13 +161,32 @@ export const updateInventoryItem = async (req, res) => {
     if (minQuantity !== undefined) item.minQuantity = Number(minQuantity);
     if (costPerUnit !== undefined) item.costPerUnit = Number(costPerUnit);
 
+    const newQty = Number(item.quantity) || 0;
+    const diffQty = Math.round((newQty - oldQty) * 100) / 100;
+
     const pAmount = purchaseAmount !== undefined ? Number(purchaseAmount) : 0;
     if (pAmount > 0) {
       item.lastPurchaseAmount = pAmount;
+      item.purchaseHistory = item.purchaseHistory || [];
       item.purchaseHistory.push({ amount: pAmount, date: new Date() });
     }
 
     const updatedItem = await item.save();
+
+    if (diffQty !== 0) {
+      await InventoryMovement.create({
+        shopId: req.user.shopId,
+        inventoryItemId: updatedItem._id,
+        movementType: pAmount > 0 ? MOVEMENT_TYPES.PURCHASE : MOVEMENT_TYPES.ADJUSTMENT,
+        quantity: diffQty,
+        previousBalance: oldQty,
+        newBalance: newQty,
+        reference: pAmount > 0 ? 'Purchase restock' : 'Manual update',
+        reason: description || (pAmount > 0 ? `Restocked ${updatedItem.itemName}` : 'Updated quantity'),
+        recordedBy: req.user.name || 'Owner',
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     const threshold = updatedItem.minQuantity !== undefined ? updatedItem.minQuantity : 5;
     if (updatedItem.quantity <= threshold) {
@@ -246,42 +288,59 @@ export const adjustInventoryItem = async (req, res) => {
     }
 
     const adjQty = Number(adjustmentQuantity);
-    const currentQty = Number(item.quantity) || 0;
-    const newQty = Math.round((currentQty + adjQty) * 100) / 100; // 2 decimal precision
 
-    if (newQty < 0) {
-      return res.status(400).json({
-        message: `Adjustment of ${adjQty} exceeds current stock (${currentQty} ${item.unit || 'units'}). Resulting quantity cannot be negative.`,
-      });
-    }
-
-    item.quantity = newQty;
-    item.adjustments = item.adjustments || [];
-    item.adjustments.push({
-      date: new Date().toISOString(),
-      adjustmentQuantity: adjQty,
-      resultingQuantity: newQty,
-      type: type || (adjQty < 0 ? 'wastage' : 'restock'),
+    const { item: updatedItem } = await recordInventoryMovement({
+      shopId: req.user.shopId,
+      inventoryItemId: item._id,
+      movementType: MOVEMENT_TYPES.ADJUSTMENT,
+      quantity: adjQty,
       reason: reason.trim(),
       recordedBy: req.user.name || 'Owner',
     });
 
-    const updatedItem = await item.save();
-
-    const threshold = updatedItem.minQuantity !== undefined ? updatedItem.minQuantity : 5;
-    if (updatedItem.quantity <= threshold) {
-      await dispatchNotification({
-        shopId: req.user.shopId,
-        title: '⚠️ Low Stock Alert',
-        message: `${updatedItem.itemName} stock dropped to ${updatedItem.quantity} ${updatedItem.unit || 'units'} (Minimum: ${threshold}).`,
-        type: 'low_stock',
-        sendPush: true,
-      });
-    }
+    updatedItem.adjustments = updatedItem.adjustments || [];
+    updatedItem.adjustments.push({
+      date: new Date().toISOString(),
+      adjustmentQuantity: adjQty,
+      resultingQuantity: updatedItem.quantity,
+      type: type || (adjQty < 0 ? 'wastage' : 'restock'),
+      reason: reason.trim(),
+      recordedBy: req.user.name || 'Owner',
+    });
+    await updatedItem.save();
 
     res.json(updatedItem);
   } catch (error) {
     console.error('Adjust inventory error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
+// @desc    Get chronological movements for an inventory item
+// @route   GET /api/inventory/:id/movements
+// @access  Private
+export const getInventoryItemMovements = async (req, res) => {
+  try {
+    const movements = await getItemMovements(req.params.id, req.user.shopId);
+    res.json(movements);
+  } catch (error) {
+    console.error('Get inventory item movements error:', error);
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
+// @desc    Reconcile an inventory item's stock balance against its movement history
+// @route   GET /api/inventory/:id/reconciliation
+// @access  Private
+export const reconcileInventoryItem = async (req, res) => {
+  try {
+    const report = await reconcileItemStock(req.params.id, req.user.shopId);
+    if (!report) {
+      return res.status(404).json({ message: 'Inventory item not found' });
+    }
+    res.json(report);
+  } catch (error) {
+    console.error('Reconcile inventory item error:', error);
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };

@@ -7,6 +7,8 @@ import {
   updateInventoryItem,
   deleteInventoryItem,
   adjustInventoryItem,
+  getInventoryItemMovements,
+  reconcileInventoryItem,
 } from '../controllers/inventoryController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateInventoryRequest } from '../middleware/validationMiddleware.js';
@@ -25,5 +27,7 @@ router.route('/:id')
   .delete(deleteInventoryItem);
 
 router.post('/:id/adjust', adjustInventoryItem);
+router.get('/:id/movements', getInventoryItemMovements);
+router.get('/:id/reconciliation', reconcileInventoryItem);
 
 export default router;

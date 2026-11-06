@@ -233,6 +233,26 @@ const List<String> createTableStatements = [
     conflict_state TEXT DEFAULT 'none'
   )
   ''',
+  // Inventory Movements Table (Phase 3, 7.3)
+  '''
+  CREATE TABLE IF NOT EXISTS inventory_movements (
+    id TEXT PRIMARY KEY,
+    shop_id TEXT NOT NULL,
+    inventory_item_id TEXT NOT NULL,
+    order_id TEXT,
+    movement_type TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    previous_balance REAL NOT NULL,
+    new_balance REAL NOT NULL,
+    reference TEXT,
+    reason TEXT,
+    recorded_by TEXT,
+    created_at TEXT NOT NULL,
+    sync_status INTEGER DEFAULT 1,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (inventory_item_id) REFERENCES inventory (id) ON DELETE CASCADE
+  )
+  ''',
 ];
 
 const Map<int, List<String>> upgradeTableStatements = {

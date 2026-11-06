@@ -37,6 +37,7 @@ class LocalDatabaseService {
       'lining_items',
       'gallery_items',
       'inventory',
+      'inventory_movements',
       'order_payments',
       'mutation_outbox',
     ];
@@ -238,6 +239,25 @@ class LocalDatabaseService {
           max_attempts INTEGER DEFAULT 5,
           next_retry INTEGER,
           conflict_state TEXT DEFAULT 'none'
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS inventory_movements (
+          id TEXT PRIMARY KEY,
+          shop_id TEXT NOT NULL,
+          inventory_item_id TEXT NOT NULL,
+          order_id TEXT,
+          movement_type TEXT NOT NULL,
+          quantity REAL NOT NULL,
+          previous_balance REAL NOT NULL,
+          new_balance REAL NOT NULL,
+          reference TEXT,
+          reason TEXT,
+          recorded_by TEXT,
+          created_at TEXT NOT NULL,
+          sync_status INTEGER DEFAULT 1,
+          updated_at INTEGER NOT NULL
         )
       ''');
 

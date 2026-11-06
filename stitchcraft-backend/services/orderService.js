@@ -10,6 +10,7 @@ import Inventory from '../models/Inventory.js';
 import Transaction from '../models/Transaction.js';
 import { isValidIdentifier } from '../utils/identifiers.js';
 import { dispatchNotification } from './notificationService.js';
+import { recordInventoryMovement, MOVEMENT_TYPES } from './inventoryService.js';
 
 // Deduct inventory when order reaches production workshop stages
 export const ASTAR_DEDUCT_STATUSES = ['Stitching', 'Checking', 'Ready', 'Delivered'];
@@ -127,41 +128,29 @@ export const handleAstarStockAdjustment = async (order, newStatus, shopId) => {
   // 1. Top-level Aster inventory item
   if (order.needsAster && order.asterQuantity > 0 && order.asterInventoryItem) {
     if (willDeduct && !wasDeducted) {
-      const invItem = await Inventory.findOne({ _id: order.asterInventoryItem, shopId });
-      if (invItem) {
-        invItem.quantity = Math.max(0, invItem.quantity - order.asterQuantity);
-        await invItem.save();
-        order.asterDeducted = true;
-        order.inventoryDeductedAt = new Date().toISOString();
-        await dispatchNotification({
-          shopId,
-          orderId: order._id,
-          title: 'Stock Updated',
-          message: `Astar stock reduced by ${order.asterQuantity} ${invItem.unit} for order ${order.orderId} (${invItem.itemName}).`,
-          type: 'inventory',
-        });
-
-        // Trigger device push if stock reaches or drops below minimum threshold
-        const threshold = invItem.minQuantity !== undefined ? invItem.minQuantity : 5;
-        if (invItem.quantity <= threshold) {
-          await dispatchNotification({
-            shopId,
-            orderId: order._id,
-            title: '⚠️ Low Stock Alert',
-            message: `${invItem.itemName} is running low! Remaining: ${invItem.quantity} ${invItem.unit} (Minimum: ${threshold} ${invItem.unit}).`,
-            type: 'low_stock',
-            sendPush: true,
-          });
-        }
-      }
+      await recordInventoryMovement({
+        shopId,
+        inventoryItemId: order.asterInventoryItem,
+        orderId: order._id,
+        movementType: MOVEMENT_TYPES.CONSUMPTION,
+        quantity: order.asterQuantity,
+        reference: order.orderId || order._id,
+        reason: `Lining consumption for order production (${order.apparelType || order.customerName})`,
+      });
+      order.asterDeducted = true;
+      order.inventoryDeductedAt = new Date().toISOString();
     } else if (!willDeduct && wasDeducted) {
-      const invItem = await Inventory.findOne({ _id: order.asterInventoryItem, shopId });
-      if (invItem) {
-        invItem.quantity = invItem.quantity + order.asterQuantity;
-        await invItem.save();
-        order.asterDeducted = false;
-        order.inventoryDeductedAt = null;
-      }
+      await recordInventoryMovement({
+        shopId,
+        inventoryItemId: order.asterInventoryItem,
+        orderId: order._id,
+        movementType: MOVEMENT_TYPES.RETURN,
+        quantity: order.asterQuantity,
+        reference: order.orderId || order._id,
+        reason: `Lining restored: order stage reverted from production (${order.apparelType || order.customerName})`,
+      });
+      order.asterDeducted = false;
+      order.inventoryDeductedAt = null;
     }
   }
 
@@ -171,21 +160,29 @@ export const handleAstarStockAdjustment = async (order, newStatus, shopId) => {
       if (item.needsAster && item.asterQuantity > 0 && item.asterInventoryItem) {
         const itemQty = (item.quantity || 1) * item.asterQuantity;
         if (willDeduct && !item.asterDeducted) {
-          const invItem = await Inventory.findOne({ _id: item.asterInventoryItem, shopId });
-          if (invItem) {
-            invItem.quantity = Math.max(0, invItem.quantity - itemQty);
-            await invItem.save();
-            item.asterDeducted = true;
-            item.inventoryDeductedAt = new Date().toISOString();
-          }
+          await recordInventoryMovement({
+            shopId,
+            inventoryItemId: item.asterInventoryItem,
+            orderId: order._id,
+            movementType: MOVEMENT_TYPES.CONSUMPTION,
+            quantity: itemQty,
+            reference: order.orderId || order._id,
+            reason: `Lining consumption for ${item.name || item.apparelType}`,
+          });
+          item.asterDeducted = true;
+          item.inventoryDeductedAt = new Date().toISOString();
         } else if (!willDeduct && item.asterDeducted) {
-          const invItem = await Inventory.findOne({ _id: item.asterInventoryItem, shopId });
-          if (invItem) {
-            invItem.quantity = invItem.quantity + itemQty;
-            await invItem.save();
-            item.asterDeducted = false;
-            item.inventoryDeductedAt = null;
-          }
+          await recordInventoryMovement({
+            shopId,
+            inventoryItemId: item.asterInventoryItem,
+            orderId: order._id,
+            movementType: MOVEMENT_TYPES.RETURN,
+            quantity: itemQty,
+            reference: order.orderId || order._id,
+            reason: `Lining returned for ${item.name || item.apparelType}`,
+          });
+          item.asterDeducted = false;
+          item.inventoryDeductedAt = null;
         }
       }
     }

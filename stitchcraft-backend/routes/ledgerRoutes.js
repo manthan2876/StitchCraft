@@ -4,6 +4,7 @@ import {
   getLedgerSummary,
   getTransactions,
   getJournalEntries,
+  getReconciliationReport,
 } from '../controllers/ledgerController.js';
 import {
   getExpenses,
@@ -17,6 +18,7 @@ import { validateExpenseRequest } from '../middleware/validationMiddleware.js';
 router.use(protect); // Secure all routes in this module
 
 router.get('/summary', getLedgerSummary);
+router.get('/reconciliation', authorize('owner', 'manager'), getReconciliationReport);
 router.get('/journal', getJournalEntries);
 router.get('/transactions', getTransactions);
 router.get('/expenses', getExpenses);

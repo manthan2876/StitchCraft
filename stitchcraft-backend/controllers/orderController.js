@@ -18,6 +18,10 @@ import {
   revokeDelegationService,
   sanitizeOrderForPartnerTailor,
 } from '../services/orderService.js';
+import {
+  recordOrderPaymentAtomic,
+  recordOrderRefundAtomic,
+} from '../services/financialService.js';
 
 // @desc    Create a new order
 // @route   POST /api/orders
@@ -337,161 +341,46 @@ export const updateOrder = async (req, res) => {
   }
 };
 
-// @desc    Receive payment against an order
+// @desc    Receive payment against an order (atomic - Phase 3, 7.2)
 // @route   POST /api/orders/:id/payments
 // @access  Private
 export const recordOrderPayment = async (req, res) => {
   try {
-    const order = await findOrderScoped(req.params.id, req.user.shopId);
-    if (!order) return res.status(404).json({ message: 'Order not found' });
-
-    let { amount, paymentType } = req.body;
-    if (!amount || Number(amount) <= 0) {
-      return res.status(400).json({ message: 'Please provide a positive payment amount' });
-    }
-
     const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotencyKey || req.body.clientMutationId;
-    if (idempotencyKey) {
-      const existingTx = await Transaction.findOne({ shopId: req.user.shopId, idempotencyKey });
-      if (existingTx) {
-        const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
-        const result = order.toJSON();
-        result.payment = payment;
-        result.delivery = await Delivery.findOne({ orderId: order._id });
-        result.transaction = existingTx;
-        const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
-        return res.json(sanitized);
-      }
-    }
-
-    if (paymentType && typeof paymentType === 'string') {
-      const pt = paymentType.trim().toLowerCase();
-      if (pt === 'cash') paymentType = 'Cash';
-      else if (pt === 'upi' || pt === 'online') paymentType = 'UPI';
-      else if (pt === 'card') paymentType = 'Card';
-      else if (pt === 'credit') paymentType = 'Credit';
-      else if (pt === 'bank') paymentType = 'Bank';
-    }
-
-    const tx = await Transaction.create({
+    const sanitized = await recordOrderPaymentAtomic({
       shopId: req.user.shopId,
-      orderId: order._id,
-      amount: Number(amount),
-      paymentType: paymentType || 'Cash',
-      type: 'Payment',
-      idempotencyKey: idempotencyKey || null,
-      date: new Date().toISOString(),
+      orderId: req.params.id,
+      amount: req.body.amount,
+      paymentType: req.body.paymentType,
+      idempotencyKey,
+      recordedBy: req.user.name || 'Owner',
     });
-
-    const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
-
-    await dispatchNotification({
-      shopId: req.user.shopId,
-      customerId: order.customer,
-      orderId: order._id,
-      title: 'Payment Received',
-      message: `Payment of ₹${amount} received for order ${order.orderId}. New balance: ₹${payment.balanceAmount}.`,
-      type: 'payment',
-    });
-
-    const result = order.toJSON();
-    result.payment = payment;
-    result.delivery = await Delivery.findOne({ orderId: order._id });
-    result.transaction = tx;
-
-    const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
     res.json(sanitized);
   } catch (error) {
     console.error('Record payment error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 
-// @desc    Record an immutable refund/reversal against an order (PAY-03, P0-03)
+// @desc    Record an immutable refund/reversal against an order (atomic - Phase 3, 7.2)
 // @route   POST /api/orders/:id/refunds
 // @access  Private
 export const recordOrderRefund = async (req, res) => {
   try {
-    const order = await findOrderScoped(req.params.id, req.user.shopId);
-    if (!order) return res.status(404).json({ message: 'Order not found' });
-
-    let { amount, reason, paymentType } = req.body;
-    if (!amount || Number(amount) <= 0) {
-      return res.status(400).json({ message: 'Please provide a positive refund amount' });
-    }
-
-    if (!reason || typeof reason !== 'string' || !reason.trim()) {
-      return res.status(400).json({ message: 'A reason is required to record a refund or reversal' });
-    }
-
-    const currentPayment = await Payment.findOne({ orderId: order._id, shopId: req.user.shopId });
-    if (!currentPayment || (currentPayment.paidAmount || 0) <= 0) {
-      return res.status(400).json({ message: 'Cannot process refund: No payments have been recorded for this order' });
-    }
-
-    if (Number(amount) > Number(currentPayment.paidAmount)) {
-      return res.status(400).json({
-        message: `Refund amount (₹${amount}) exceeds total paid amount (₹${currentPayment.paidAmount})`,
-      });
-    }
-
     const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotencyKey || req.body.clientMutationId;
-    if (idempotencyKey) {
-      const existingTx = await Transaction.findOne({ shopId: req.user.shopId, idempotencyKey });
-      if (existingTx) {
-        const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
-        const result = order.toJSON();
-        result.payment = payment;
-        result.delivery = await Delivery.findOne({ orderId: order._id });
-        result.refundTransaction = existingTx;
-        const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
-        return res.json(sanitized);
-      }
-    }
-
-    if (paymentType && typeof paymentType === 'string') {
-      const pt = paymentType.trim().toLowerCase();
-      if (pt === 'cash') paymentType = 'Cash';
-      else if (pt === 'upi' || pt === 'online') paymentType = 'UPI';
-      else if (pt === 'card') paymentType = 'Card';
-      else if (pt === 'credit') paymentType = 'Credit';
-      else if (pt === 'bank') paymentType = 'Bank';
-    }
-
-    // Create immutable Refund transaction record (PAY-03)
-    const refundTx = await Transaction.create({
+    const sanitized = await recordOrderRefundAtomic({
       shopId: req.user.shopId,
-      orderId: order._id,
-      amount: Number(amount),
-      paymentType: paymentType || 'Cash',
-      type: 'Refund',
-      reason: reason.trim(),
+      orderId: req.params.id,
+      amount: req.body.amount,
+      reason: req.body.reason,
+      paymentType: req.body.paymentType,
+      idempotencyKey,
       processedBy: req.user.name || 'Owner',
-      idempotencyKey: idempotencyKey || null,
-      date: new Date().toISOString(),
     });
-
-    const payment = await syncPaymentFromTransactions(order._id, req.user.shopId);
-
-    await dispatchNotification({
-      shopId: req.user.shopId,
-      customerId: order.customer,
-      orderId: order._id,
-      title: 'Refund Processed',
-      message: `Refund of ₹${amount} recorded for order ${order.orderId}. Reason: ${reason.trim()}. Balance due: ₹${payment.balanceAmount}.`,
-      type: 'payment',
-    });
-
-    const result = order.toJSON();
-    result.payment = payment;
-    result.delivery = await Delivery.findOne({ orderId: order._id });
-    result.refundTransaction = refundTx;
-
-    const sanitized = sanitizeOrderForPartnerTailor(result, req.user.shopId);
     res.json(sanitized);
   } catch (error) {
     console.error('Record refund error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 
