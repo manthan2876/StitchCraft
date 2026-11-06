@@ -148,6 +148,24 @@ export const updateCustomerService = async (customerId, reqBody, shopId) => {
   const customer = await findCustomerScoped(customerId, shopId);
   if (!customer) return null;
 
+  // Optimistic concurrency check (Phase 2, 6.3)
+  const clientBaseVersion = reqBody.base_version !== undefined
+    ? Number(reqBody.base_version)
+    : (reqBody.baseVersion !== undefined ? Number(reqBody.baseVersion) : null);
+
+  if (clientBaseVersion !== null && !isNaN(clientBaseVersion)) {
+    const currentVersion = Number(customer.version || 1);
+    if (currentVersion !== clientBaseVersion) {
+      const conflictErr = new Error('Conflict: concurrent modification detected');
+      conflictErr.statusCode = 409;
+      conflictErr.serverVersion = currentVersion;
+      conflictErr.currentData = customer.toJSON ? customer.toJSON() : customer;
+      throw conflictErr;
+    }
+  }
+
+  customer.version = Number(customer.version || 1) + 1;
+
   const { name, phone, email, address, measurements } = reqBody;
 
   if (name) customer.name = name;

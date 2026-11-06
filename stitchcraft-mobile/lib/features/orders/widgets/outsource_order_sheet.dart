@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/repositories/order_repository.dart';
 import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/primary_button.dart';
 
@@ -197,7 +198,7 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
       };
 
       try {
-        await _localDb.updateRecord('orders', orderId, localUpdate);
+        await OrderRepository().updateOrder(orderId, localUpdate);
       } catch (e) {
         developer.log('Local delegate update error: $e');
       }
@@ -263,7 +264,7 @@ class _OutsourceOrderSheetState extends State<OutsourceOrderSheet> {
       };
 
       try {
-        await _localDb.updateRecord('orders', orderId, localUpdate);
+        await OrderRepository().updateOrder(orderId, localUpdate);
       } catch (_) {}
 
       final mergedOrder = Map<String, dynamic>.from(widget.order);

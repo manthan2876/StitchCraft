@@ -16,6 +16,7 @@ import {
   revokeDelegation,
 } from '../controllers/orderController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { enforceMutationIdempotency } from '../middleware/mutationMiddleware.js';
 import {
   validateObjectIdParam,
   validateShareTokenParam,
@@ -31,6 +32,7 @@ import {
 router.get('/public/:token', publicInvoiceLimiter, validateShareTokenParam('token'), getOrderByIdPublic);
 
 router.use(protect); // Secure remaining routes in this module
+router.use(enforceMutationIdempotency('orders'));
 
 router.route('/')
   .post(validateOrderCreateRequest, createOrder)

@@ -39,6 +39,7 @@ const List<String> createTableStatements = [
     loyalty_points INTEGER,
     ltv REAL DEFAULT 0.0,
     shop_id TEXT,
+    version INTEGER DEFAULT 1,
     sync_status INTEGER DEFAULT 1, -- 0: synced, 1: pending, 2: deleted_locally
     updated_at INTEGER NOT NULL
   )
@@ -94,6 +95,7 @@ const List<String> createTableStatements = [
     delegated_notes TEXT,
     delegated_cost REAL DEFAULT 0.0,
     shop_id TEXT,
+    version INTEGER DEFAULT 1,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
@@ -109,6 +111,7 @@ const List<String> createTableStatements = [
     date INTEGER NOT NULL,
     type TEXT DEFAULT 'expense',
     shop_id TEXT,
+    version INTEGER DEFAULT 1,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL
   )
@@ -123,6 +126,7 @@ const List<String> createTableStatements = [
     unit_price REAL NOT NULL,
     low_stock_threshold REAL,
     shop_id TEXT,
+    version INTEGER DEFAULT 1,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL
   )
@@ -196,29 +200,37 @@ const List<String> createTableStatements = [
     payment_method TEXT,
     date INTEGER NOT NULL,
     shop_id TEXT,
+    version INTEGER DEFAULT 1,
     sync_status INTEGER DEFAULT 1,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
   )
   ''',
-  // Mutation Outbox Table (P0-04)
+  // Mutation Outbox Table (Phase 2, 6.2)
   '''
   CREATE TABLE IF NOT EXISTS mutation_outbox (
     id TEXT PRIMARY KEY,
-    table_name TEXT NOT NULL,
-    record_id TEXT NOT NULL,
-    action TEXT NOT NULL,
+    shop_id TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
     payload TEXT NOT NULL,
-    idempotency_key TEXT NOT NULL,
+    base_version INTEGER DEFAULT 1,
+    client_mutation_id TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    -- Backward compatibility alias columns
+    table_name TEXT,
+    record_id TEXT,
+    action TEXT,
+    idempotency_key TEXT,
     attempts INTEGER DEFAULT 0,
     max_attempts INTEGER DEFAULT 5,
-    next_retry INTEGER NOT NULL,
-    last_error TEXT,
-    base_version INTEGER DEFAULT 1,
-    conflict_state TEXT DEFAULT 'none',
-    status TEXT DEFAULT 'pending',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+    next_retry INTEGER,
+    conflict_state TEXT DEFAULT 'none'
   )
   ''',
 ];

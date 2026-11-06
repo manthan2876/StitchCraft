@@ -6,6 +6,7 @@ import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
+import 'package:stitchcraft/core/repositories/order_repository.dart';
 import 'package:stitchcraft/core/utils/currency_utils.dart';
 import 'package:stitchcraft/core/widgets/state_views.dart';
 import 'package:stitchcraft/core/widgets/record_payment_sheet.dart';
@@ -266,13 +267,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       );
 
       if (response.statusCode == 200) {
-        // Also update local SQLite database status
-        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        // Also update local SQLite database status via OrderRepository
         try {
-          await _localDb.updateRecord('orders', orderId, {
-            'status': newStatus,
-            'updated_at': nowMs,
-          });
+          await OrderRepository().updateOrderStatus(
+            orderId,
+            newStatus,
+            allowCredit: creditReason != null,
+            creditReason: creditReason,
+          );
         } catch (localDbErr) {
           developer.log('Local status update sync note: $localDbErr');
         }
@@ -389,30 +391,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       }
 
       try {
-        final localOrder = await _localDb.getRecordById('orders', orderId);
-        if (localOrder != null) {
-          final prevAdvance = (localOrder['advance_amount'] as num?)?.toDouble() ?? 0.0;
-          final nowMs = DateTime.now().millisecondsSinceEpoch;
-          await _localDb.updateRecord('orders', orderId, {
-            'advance_amount': prevAdvance + result.amount,
-            'payment_method': normalizedMethod,
-            'sync_status': 3,
-            'updated_at': nowMs,
-          });
-
-          await _localDb.insertPayment({
-            'id': const Uuid().v4(),
-            'order_id': orderId,
-            'amount': result.amount,
-            'payment_method': normalizedMethod,
-            'date': nowMs,
-            'sync_status': 1,
-            'updated_at': nowMs,
-          });
-          DatabaseService.orderSignal.add(null);
-        }
+        await OrderRepository().recordPayment(orderId, result.amount, result.method);
       } catch (localErr) {
-        developer.log('Local payment sync note: $localErr');
+        developer.log('Payment recording note: $localErr');
       }
 
       if (mounted) {

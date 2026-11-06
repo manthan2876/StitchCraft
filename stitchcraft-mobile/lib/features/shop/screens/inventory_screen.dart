@@ -4,6 +4,7 @@ import 'package:stitchcraft/core/theme/app_theme.dart';
 import 'package:stitchcraft/core/widgets/neo_card.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/repositories/inventory_repository.dart';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
@@ -47,23 +48,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     });
 
     try {
-      await _localDb.updateRecord('inventory', id.toString(), {
-        'quantity': newQty,
-        'sync_status': 3,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      });
-
-      final token = await _authService.getToken();
-      if (token != null) {
-        http.put(
-          Uri.parse('${AuthService.baseUrl}/inventory/$id'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: json.encode({'quantity': newQty}),
-        );
-      }
+      await InventoryRepository().updateInventoryItem(id.toString(), {'quantity': newQty});
 
       if (mounted && !isUndo) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();

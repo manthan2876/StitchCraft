@@ -1,17 +1,17 @@
 /* lib/core/services/database/customer_db_extension.dart */
 import '../../models/customer_model.dart';
 import '../database_service.dart';
+import '../../repositories/customer_repository.dart';
 
 extension CustomerDbExtension on DatabaseService {
   Future<String> addCustomer(Customer customer) async {
     final id = customer.id.isEmpty ? uuid.v4() : customer.id;
-    final updatedCustomer = customer.copyWith(
-      id: id,
-      syncStatus: 1,
-      updatedAt: DateTime.now(),
+    await CustomerRepository().createCustomer(
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      customerId: id,
     );
-    await localDb.insertCustomer(updatedCustomer.toMap()..['id'] = id);
-    DatabaseService.customerSignal.add(null);
     return id;
   }
 
@@ -31,21 +31,17 @@ extension CustomerDbExtension on DatabaseService {
   }
 
   Future<void> updateCustomer(Customer customer) async {
-    final updatedCustomer = customer.copyWith(
-      syncStatus: 1,
-      updatedAt: DateTime.now(),
+    await CustomerRepository().updateCustomer(
+      customer.id,
+      customer.toMap(),
     );
-    await localDb.insertCustomer(updatedCustomer.toMap()..['id'] = customer.id);
-    DatabaseService.customerSignal.add(null);
   }
 
   Future<void> deleteCustomer(String id) async {
-    await localDb.updateSyncStatus('customers', id, 2);
-    DatabaseService.customerSignal.add(null);
+    await CustomerRepository().deleteCustomer(id);
   }
 
   Future<void> deleteCustomerAndRelatedData(String customerId) async {
     await deleteCustomer(customerId);
-    DatabaseService.customerSignal.add(null);
   }
 }

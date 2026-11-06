@@ -96,7 +96,12 @@ export const updateCustomer = async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Update customer error:', error);
-    res.status(500).json({ message: error.message });
+    res.status(error.statusCode || 500).json({
+      message: error.message,
+      error: error.message,
+      serverVersion: error.serverVersion,
+      currentData: error.currentData,
+    });
   }
 };
 

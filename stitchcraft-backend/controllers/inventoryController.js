@@ -110,6 +110,25 @@ export const updateInventoryItem = async (req, res) => {
       return res.status(404).json({ message: 'Inventory item not found' });
     }
 
+    // Optimistic concurrency check (Phase 2, 6.3)
+    const clientBaseVersion = req.body.base_version !== undefined
+      ? Number(req.body.base_version)
+      : (req.body.baseVersion !== undefined ? Number(req.body.baseVersion) : null);
+
+    if (clientBaseVersion !== null && !isNaN(clientBaseVersion)) {
+      const currentVersion = Number(item.version || 1);
+      if (currentVersion !== clientBaseVersion) {
+        return res.status(409).json({
+          message: 'Conflict: concurrent modification detected',
+          error: 'Conflict: concurrent modification detected',
+          serverVersion: currentVersion,
+          currentData: item.toJSON ? item.toJSON() : item,
+        });
+      }
+    }
+
+    item.version = Number(item.version || 1) + 1;
+
     const { itemName, itemType, quantity, unit, minQuantity, purchaseAmount, description, costPerUnit } = req.body;
 
     if (itemName) item.itemName = itemName;
@@ -196,6 +215,25 @@ export const adjustInventoryItem = async (req, res) => {
     if (!item) {
       return res.status(404).json({ message: 'Inventory item not found' });
     }
+
+    // Optimistic concurrency check (Phase 2, 6.3)
+    const clientBaseVersion = req.body.base_version !== undefined
+      ? Number(req.body.base_version)
+      : (req.body.baseVersion !== undefined ? Number(req.body.baseVersion) : null);
+
+    if (clientBaseVersion !== null && !isNaN(clientBaseVersion)) {
+      const currentVersion = Number(item.version || 1);
+      if (currentVersion !== clientBaseVersion) {
+        return res.status(409).json({
+          message: 'Conflict: concurrent modification detected',
+          error: 'Conflict: concurrent modification detected',
+          serverVersion: currentVersion,
+          currentData: item.toJSON ? item.toJSON() : item,
+        });
+      }
+    }
+
+    item.version = Number(item.version || 1) + 1;
 
     const { adjustmentQuantity, reason, type } = req.body;
 

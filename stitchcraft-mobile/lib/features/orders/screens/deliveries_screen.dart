@@ -12,6 +12,7 @@ import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 import 'package:stitchcraft/core/widgets/record_payment_sheet.dart';
 import 'package:stitchcraft/core/services/notification_service.dart';
 import 'package:stitchcraft/core/services/database_service.dart';
+import 'package:stitchcraft/core/repositories/order_repository.dart';
 import 'package:uuid/uuid.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -188,31 +189,14 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     }
 
     try {
-      // 1. Update SQLite
-      await _localDb.updateRecord('orders', orderId, {
-        'status': 'Delivered',
-        'sync_status': 3,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      });
+      // Route update through OrderRepository for durable outbox persistence
+      await OrderRepository().updateOrderStatus(
+        orderId,
+        'Delivered',
+        allowCredit: creditReason != null,
+        creditReason: creditReason,
+      );
       NotificationService().cancelOrderDueReminders(orderId);
-
-      // 2. Put to backend if online
-      final token = await _authService.getToken();
-      if (token != null) {
-        final Map<String, dynamic> deliveryPayload = {'status': 'Delivered'};
-        if (creditReason != null) {
-          deliveryPayload['allowCredit'] = true;
-          deliveryPayload['creditReason'] = creditReason;
-        }
-        http.put(
-          Uri.parse('${AuthService.baseUrl}/orders/$orderId'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: json.encode(deliveryPayload),
-        );
-      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -255,51 +239,14 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
     if (result == null || result.amount <= 0) return;
 
-    final normalizedMethod = result.method.toLowerCase() == 'online' || result.method.toLowerCase() == 'upi'
-        ? 'UPI'
-        : (result.method.toLowerCase() == 'cash' ? 'Cash' : result.method);
-
-    final currAdv = (order['advance_amount'] as num?)?.toDouble() ?? 0.0;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    await _localDb.updateRecord('orders', orderId, {
-      'advance_amount': currAdv + result.amount,
-      'payment_method': normalizedMethod,
-      'sync_status': 3,
-      'updated_at': nowMs,
-    });
-
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final shopId = prefs.getString('shopId');
-      await _localDb.insertPayment({
-        'id': const Uuid().v4(),
-        'order_id': orderId,
-        'amount': result.amount,
-        'payment_method': normalizedMethod,
-        'date': nowMs,
-        'shop_id': shopId,
-        'sync_status': 1,
-        'updated_at': nowMs,
-      });
-      DatabaseService.orderSignal.add(null);
+      await OrderRepository().recordPayment(
+        orderId,
+        result.amount,
+        result.method,
+      );
     } catch (e) {
-      developer.log('Deliveries payment record note: $e');
-    }
-
-    final token = await _authService.getToken();
-    if (token != null) {
-      try {
-        await http.post(
-          Uri.parse('${AuthService.baseUrl}/orders/$orderId/payments'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: json.encode({'amount': result.amount, 'paymentType': normalizedMethod}),
-        ).timeout(const Duration(seconds: 10));
-      } catch (netErr) {
-        developer.log('Deliveries payment network note (will sync): $netErr');
-      }
+      developer.log('Deliveries payment record error: $e');
     }
 
     if (mounted) {

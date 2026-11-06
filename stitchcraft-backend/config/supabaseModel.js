@@ -196,6 +196,11 @@ export const createDocumentModel = (collection) => {
     if (collection === 'orders' && !value.orderId) {
       value.orderId = `ORD-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     }
+    if (['orders', 'customers', 'inventory', 'ledger_entries', 'payments'].includes(collection)) {
+      if (value.version === undefined || value.version === null) {
+        value.version = 1;
+      }
+    }
     delete value._id;
     delete value.createdAt;
     delete value.updatedAt;
@@ -218,6 +223,9 @@ export const createDocumentModel = (collection) => {
 
   const hydrate = (row) => ({
     ...row.document,
+    ...((['orders', 'customers', 'inventory', 'ledger_entries', 'payments'].includes(collection) || row.document?.version !== undefined)
+      ? { version: row.document?.version ?? 1 }
+      : {}),
     _id: row.source_id,
     ...(row.document.customerId ? { id: row.document.customerId } : {}),
     ...(row.document.orderId ? { id: row.document.orderId } : {}),

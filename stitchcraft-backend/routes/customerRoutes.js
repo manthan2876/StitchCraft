@@ -10,8 +10,10 @@ import {
 } from '../controllers/customerController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateCustomerRequest } from '../middleware/validationMiddleware.js';
+import { enforceMutationIdempotency } from '../middleware/mutationMiddleware.js';
 
 router.use(protect); // Secure all routes in this module
+router.use(enforceMutationIdempotency('customers'));
 
 // Pending balances (Udhar) route must come before /:id param match
 router.get('/pending-balances', getPendingBalances);

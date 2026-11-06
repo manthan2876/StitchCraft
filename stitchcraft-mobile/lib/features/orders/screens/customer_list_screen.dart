@@ -8,6 +8,7 @@ import 'package:stitchcraft/core/widgets/primary_button.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/device_contacts_service.dart';
+import 'package:stitchcraft/core/repositories/customer_repository.dart';
 import 'package:stitchcraft/core/utils/phone_utils.dart';
 import 'package:http/http.dart' as http;
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
@@ -78,7 +79,10 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                 'sync_status': 0,
                 'updated_at': DateTime.now().millisecondsSinceEpoch,
               };
-              await _localDb.insertRecord('customers', sqliteRecord);
+              final hasPending = await _localDb.hasPendingMutation('customers', id);
+              if (!hasPending) {
+                await _localDb.insertRecord('customers', sqliteRecord, fromRepository: true);
+              }
             }
             list = await _localDb.getAllCustomers(shopId: shopId);
           }
@@ -332,21 +336,18 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                           );
                           if (existing.isNotEmpty && existing['id'] != null) {
                             customerId = existing['id'].toString();
-                            await _localDb.updateRecord('customers', customerId, {
+                            await CustomerRepository().updateCustomer(customerId, {
                               'name': name,
                               'email': email,
-                              'updated_at': DateTime.now().millisecondsSinceEpoch,
                             });
                           } else {
-                            await _localDb.insertRecord('customers', {
-                              'id': customerId,
-                              'name': name,
-                              'phone': phone,
-                              'email': email,
-                              'shop_id': shopId,
-                              'sync_status': 0,
-                              'updated_at': DateTime.now().millisecondsSinceEpoch,
-                            });
+                            final created = await CustomerRepository().createCustomer(
+                              name: name,
+                              phone: phone,
+                              email: email,
+                              customerId: customerId,
+                            );
+                            customerId = created['id']?.toString() ?? customerId;
                           }
 
                           // Automatically save to mobile phone directory if selected

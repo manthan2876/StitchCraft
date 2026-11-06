@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'dart:developer' as developer;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
+import 'package:stitchcraft/core/services/database_service.dart';
 
 class OrderRepository {
   final _authService = AuthService();
@@ -68,43 +71,205 @@ class OrderRepository {
     return await _localDb.getRecordById('orders', orderId);
   }
 
-  Future<Map<String, dynamic>> updateOrderStatus(String orderId, String newStatus) async {
-    final token = await _authService.getToken();
-    final response = await http.put(
-      Uri.parse('${AuthService.baseUrl}/orders/$orderId'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: json.encode({'status': newStatus}),
-    ).timeout(const Duration(seconds: 10));
+  /// Create order with durable local outbox write (Phase 2, 6.1 & 6.2)
+  Future<String> createOrder(Map<String, dynamic> orderData) async {
+    final prefs = await SharedPreferences.getInstance();
+    final shopId = prefs.getString('shopId') ?? orderData['shop_id']?.toString() ?? '';
+    final orderId = orderData['id']?.toString() ?? 'ord_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
+    final now = DateTime.now().millisecondsSinceEpoch;
 
-    if (response.statusCode == 200) {
-      await _localDb.updateRecord('orders', orderId, {
-        'status': newStatus,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      });
-      return json.decode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception(json.decode(response.body)['message'] ?? 'Failed to update order status');
+    final entityData = Map<String, dynamic>.from(orderData);
+    entityData['id'] = orderId;
+    entityData['shop_id'] = shopId;
+    entityData['version'] = 1;
+    entityData['sync_status'] = 1;
+    entityData['updated_at'] = now;
+
+    final payload = Map<String, dynamic>.from(orderData);
+    payload['id'] = orderId;
+    payload['shopId'] = shopId;
+    payload['idempotencyKey'] = 'order_$orderId';
+
+    final mutationId = await _localDb.executeAtomicMutation(
+      shopId: shopId,
+      entityType: 'orders',
+      entityId: orderId,
+      operation: 'create',
+      entityData: entityData,
+      payload: payload,
+      clientMutationId: 'order_$orderId',
+    );
+
+    DatabaseService.orderSignal.add(null);
+
+    // Opportunistic push if online
+    final token = await _authService.getToken();
+    if (token != null && token.isNotEmpty) {
+      try {
+        final response = await http.post(
+          Uri.parse('${AuthService.baseUrl}/orders'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+            'Idempotency-Key': 'order_$orderId',
+          },
+          body: json.encode(payload),
+        ).timeout(const Duration(seconds: 8));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          await _localDb.markMutationSuccess(mutationId);
+          await _localDb.updateSyncStatus('orders', orderId, 0);
+        }
+      } catch (e) {
+        developer.log('Order create offline, queued in outbox: $e', name: 'OrderRepository');
+      }
+    }
+
+    return orderId;
+  }
+
+  /// Update order with optimistic concurrency versioning (Phase 2, 6.3)
+  Future<void> updateOrder(
+    String orderId,
+    Map<String, dynamic> updates, {
+    int? baseVersion,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final shopId = prefs.getString('shopId') ?? '';
+    final existing = await _localDb.getRecordById('orders', orderId);
+    final currentVersion = baseVersion ?? (existing?['version'] as int?) ?? 1;
+
+    final entityData = Map<String, dynamic>.from(existing ?? {});
+    entityData.addAll(updates);
+    entityData['id'] = orderId;
+    entityData['version'] = currentVersion + 1;
+    entityData['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+
+    final payload = Map<String, dynamic>.from(updates);
+    payload['base_version'] = currentVersion;
+    payload['shopId'] = shopId;
+    final idemKey = 'mut_ord_upd_${orderId}_${DateTime.now().millisecondsSinceEpoch}';
+    payload['clientMutationId'] = idemKey;
+
+    final mutationId = await _localDb.executeAtomicMutation(
+      shopId: shopId,
+      entityType: 'orders',
+      entityId: orderId,
+      operation: 'update',
+      entityData: entityData,
+      payload: payload,
+      baseVersion: currentVersion,
+      clientMutationId: idemKey,
+    );
+
+    DatabaseService.orderSignal.add(null);
+
+    // Opportunistic push
+    final token = await _authService.getToken();
+    if (token != null && token.isNotEmpty) {
+      try {
+        final response = await http.put(
+          Uri.parse('${AuthService.baseUrl}/orders/$orderId'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+            'Idempotency-Key': idemKey,
+          },
+          body: json.encode(payload),
+        ).timeout(const Duration(seconds: 8));
+
+        if (response.statusCode == 200) {
+          await _localDb.markMutationSuccess(mutationId);
+          await _localDb.updateSyncStatus('orders', orderId, 0);
+        } else if (response.statusCode == 409) {
+          await _localDb.markMutationConflict(mutationId, 'Conflict: concurrent modification');
+        }
+      } catch (e) {
+        developer.log('Order update offline, queued in outbox: $e', name: 'OrderRepository');
+      }
     }
   }
 
-  Future<void> recordPayment(String orderId, double amount, String method) async {
-    final token = await _authService.getToken();
+  /// Update order status with delivery credit audit support (Phase 1, 5.3 & Phase 2, 6.3)
+  Future<Map<String, dynamic>> updateOrderStatus(
+    String orderId,
+    String newStatus, {
+    int? baseVersion,
+    bool allowCredit = false,
+    String? creditReason,
+  }) async {
+    final updates = <String, dynamic>{
+      'status': newStatus,
+      if (allowCredit) 'allowCredit': true,
+      if (creditReason != null && creditReason.isNotEmpty) 'creditReason': creditReason,
+    };
+
+    await updateOrder(orderId, updates, baseVersion: baseVersion);
+    final updated = await _localDb.getRecordById('orders', orderId);
+    return updated ?? {'id': orderId, 'status': newStatus};
+  }
+
+  /// Record order payment atomically into order_payments & mutation outbox
+  Future<void> recordPayment(
+    String orderId,
+    double amount,
+    String method, {
+    String? clientMutationId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final shopId = prefs.getString('shopId') ?? '';
     final normalizedMethod = method.toLowerCase() == 'online' || method.toLowerCase() == 'upi'
         ? 'UPI'
         : (method.toLowerCase() == 'cash' ? 'Cash' : method);
 
-    final String idemKey = 'pay_${orderId}_${DateTime.now().millisecondsSinceEpoch}';
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final idemKey = clientMutationId ?? 'pay_${orderId}_$now';
+
     final paymentPayload = {
       'amount': amount,
       'paymentType': normalizedMethod,
       'idempotencyKey': idemKey,
+      'shopId': shopId,
     };
 
-    bool syncedOnline = false;
+    final paymentEntity = {
+      'id': 'pay_loc_$now',
+      'order_id': orderId,
+      'amount': amount,
+      'payment_method': normalizedMethod,
+      'date': now,
+      'shop_id': shopId,
+      'sync_status': 1,
+      'updated_at': now,
+    };
 
+    // Atomic transaction: record payment and outbox row
+    final mutationId = await _localDb.executeAtomicMutation(
+      shopId: shopId,
+      entityType: 'orders',
+      entityId: orderId,
+      operation: 'payment',
+      entityData: paymentEntity,
+      payload: paymentPayload,
+      clientMutationId: idemKey,
+    );
+
+    // Update advance_amount on local order
+    final existingOrder = await _localDb.getRecordById('orders', orderId);
+    if (existingOrder != null) {
+      final currentPaid = (existingOrder['advance_amount'] as num?)?.toDouble() ?? 0.0;
+      await _localDb.updateRecord(
+        'orders',
+        orderId,
+        {'advance_amount': currentPaid + amount, 'updated_at': now},
+        fromRepository: true,
+      );
+    }
+
+    DatabaseService.orderSignal.add(null);
+
+    // Opportunistic push
+    final token = await _authService.getToken();
     if (token != null && token.isNotEmpty) {
       try {
         final response = await http.post(
@@ -115,48 +280,24 @@ class OrderRepository {
             'Idempotency-Key': idemKey,
           },
           body: json.encode(paymentPayload),
-        ).timeout(const Duration(seconds: 10));
+        ).timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-          syncedOnline = true;
-        } else if (response.statusCode >= 400 && response.statusCode < 500) {
-          throw Exception(json.decode(response.body)['message'] ?? 'Failed to record payment');
+          await _localDb.markMutationSuccess(mutationId);
+          await _localDb.updateSyncStatus('order_payments', paymentEntity['id'] as String, 0);
+        } else if (response.statusCode == 409) {
+          await _localDb.markMutationConflict(mutationId, 'Payment conflict: duplicate transaction');
         }
       } catch (e) {
-        if (e is Exception && !e.toString().contains('Failed to record payment')) {
-          developer.log('Network unavailable during payment, enqueuing offline mutation: $e', name: 'OrderRepository');
-        } else {
-          rethrow;
-        }
+        developer.log('Payment offline, queued in outbox: $e', name: 'OrderRepository');
       }
-    }
-
-    // Record locally in order_payments table
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await _localDb.insertRecord('order_payments', {
-      'id': 'pay_loc_$now',
-      'order_id': orderId,
-      'amount': amount,
-      'payment_method': normalizedMethod,
-      'date': now,
-      'sync_status': syncedOnline ? 0 : 1,
-      'updated_at': now,
-    });
-
-    // If offline, enqueue into durable mutation outbox (P0-04)
-    if (!syncedOnline) {
-      await _localDb.enqueueMutation(
-        tableName: 'orders',
-        recordId: orderId,
-        action: 'payment',
-        payload: paymentPayload,
-        idempotencyKey: idemKey,
-      );
     }
   }
 
   Future<void> addOrderNote(String orderId, String noteText) async {
     final token = await _authService.getToken();
+    if (token == null || token.isEmpty) return;
+
     final response = await http.post(
       Uri.parse('${AuthService.baseUrl}/orders/$orderId/notes'),
       headers: {
@@ -171,4 +312,3 @@ class OrderRepository {
     }
   }
 }
-

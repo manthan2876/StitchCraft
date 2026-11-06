@@ -117,7 +117,10 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 'sync_status': 0,
                 'updated_at': DateTime.now().millisecondsSinceEpoch,
               };
-              await _localDb.insertRecord('orders', sqliteRecord);
+              final hasPending = await _localDb.hasPendingMutation('orders', id);
+              if (!hasPending) {
+                await _localDb.insertRecord('orders', sqliteRecord, fromRepository: true);
+              }
             }
             list = await _localDb.getAllOrders();
           }

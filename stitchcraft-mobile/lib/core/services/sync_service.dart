@@ -133,20 +133,24 @@ class SyncService {
     }
   }
 
-  /// Process queued mutations with exponential backoff and idempotency (P0-04)
+  /// Process queued mutations with exponential backoff and idempotency (Phase 2, 6.4)
   Future<void> processMutationOutbox(String token) async {
     final pending = await _localDb.getPendingMutations();
     if (pending.isEmpty) return;
 
-    developer.log('Processing ${pending.length} outbox mutations...', name: 'SyncService');
+    developer.log('Processing ${pending.length} outbox mutations grouped by dependency...', name: 'SyncService');
 
     for (final mutation in pending) {
-      final mutationId = mutation['id'].toString();
-      final table = mutation['table_name'].toString();
-      final action = mutation['action'].toString();
-      final recordId = mutation['record_id'].toString();
-      final idempotencyKey = mutation['idempotency_key'].toString();
+      final mutationId = (mutation['client_mutation_id'] ?? mutation['id']).toString();
+      final table = (mutation['entity_type'] ?? mutation['table_name'] ?? '').toString();
+      final action = (mutation['operation'] ?? mutation['action'] ?? '').toString();
+      final recordId = (mutation['entity_id'] ?? mutation['record_id'] ?? '').toString();
+      final idempotencyKey = (mutation['client_mutation_id'] ?? mutation['idempotency_key'] ?? mutationId).toString();
       final Map<String, dynamic> payload = json.decode(mutation['payload'] as String);
+
+      if (mutation['base_version'] != null && payload['base_version'] == null) {
+        payload['base_version'] = mutation['base_version'];
+      }
 
       final endpoint = table == 'expenses' ? 'ledger/expenses' : table;
       final headers = {
@@ -154,6 +158,9 @@ class SyncService {
         'Authorization': 'Bearer $token',
         'Idempotency-Key': idempotencyKey,
       };
+
+      // Mark in-flight processing for restart-safety
+      await _localDb.markMutationProcessing(mutationId);
 
       try {
         if (action == 'payment') {
@@ -166,7 +173,7 @@ class SyncService {
           if (res.statusCode == 200 || res.statusCode == 201) {
             await _localDb.markMutationSuccess(mutationId);
           } else if (res.statusCode == 409) {
-            await _localDb.markMutationFailure(mutationId, 'Payment conflict: ${res.body}', conflict: true);
+            await _localDb.markMutationConflict(mutationId, 'Payment conflict: ${res.body}');
           } else if (res.statusCode >= 400 && res.statusCode < 500) {
             await _localDb.markMutationFailure(mutationId, 'Validation error: ${res.body}', terminal: true);
           } else {
@@ -180,6 +187,7 @@ class SyncService {
 
           if (res.statusCode == 200 || res.statusCode == 204 || res.statusCode == 404) {
             await _localDb.markMutationSuccess(mutationId);
+            await _localDb.deleteRecordPermanently(table, recordId);
           } else {
             await _localDb.markMutationFailure(mutationId, 'Delete failed: ${res.statusCode}');
           }
@@ -192,8 +200,9 @@ class SyncService {
 
           if (res.statusCode == 200) {
             await _localDb.markMutationSuccess(mutationId);
+            await _localDb.updateSyncStatus(table, recordId, 0);
           } else if (res.statusCode == 409) {
-            await _localDb.markMutationFailure(mutationId, 'Conflict: concurrent modification detected', conflict: true);
+            await _localDb.markMutationConflict(mutationId, 'Conflict: concurrent modification detected');
           } else if (res.statusCode >= 400 && res.statusCode < 500) {
             await _localDb.markMutationFailure(mutationId, 'Validation error: ${res.body}', terminal: true);
           } else {
@@ -209,8 +218,9 @@ class SyncService {
 
           if (res.statusCode == 200 || res.statusCode == 201) {
             await _localDb.markMutationSuccess(mutationId);
+            await _localDb.updateSyncStatus(table, recordId, 0);
           } else if (res.statusCode == 409) {
-            await _localDb.markMutationFailure(mutationId, 'Duplicate/conflict: record already exists', conflict: true);
+            await _localDb.markMutationConflict(mutationId, 'Duplicate/conflict: record already exists');
           } else if (res.statusCode >= 400 && res.statusCode < 500) {
             await _localDb.markMutationFailure(mutationId, 'Validation error: ${res.body}', terminal: true);
           } else {
@@ -236,7 +246,14 @@ class SyncService {
     }
     String token = initialToken;
 
-    // Process queued mutations in durable outbox first (P0-04)
+    // 1. Recover in-flight mutations from potential crash (restart-safe - Phase 2, 6.4)
+    try {
+      await _localDb.recoverInFlightMutations();
+    } catch (recoverErr) {
+      developer.log('Warning: error recovering in-flight mutations: $recoverErr', name: 'SyncService');
+    }
+
+    // 2. Process queued mutations in durable outbox first (Phase 2, 6.4)
     try {
       await processMutationOutbox(token);
     } catch (outboxErr) {
@@ -567,7 +584,27 @@ class SyncService {
           final String id = (remoteRecord['_id'] ?? remoteRecord['id'] ?? '').toString();
           if (id.isEmpty) continue;
 
-          final Map<String, dynamic> sqliteRecord = {'id': id, 'sync_status': 0};
+          // Safe pull rule (Phase 2, 6.4): Never overwrite a local record with pending mutations!
+          final hasPending = await _localDb.hasPendingMutation(table, id);
+          if (hasPending) {
+            developer.log('Preserving pending local mutation for $table $id; remote pull overwrite skipped.', name: 'SyncService');
+            continue;
+          }
+
+          final existingLocal = await _localDb.getRecordById(table, id);
+          if (existingLocal != null &&
+              (existingLocal['sync_status'] == 1 ||
+                  existingLocal['sync_status'] == 2 ||
+                  existingLocal['sync_status'] == 3)) {
+            developer.log('Preserving unsynced local record for $table $id; remote pull overwrite skipped.', name: 'SyncService');
+            continue;
+          }
+
+          final Map<String, dynamic> sqliteRecord = {
+            'id': id,
+            'sync_status': 0,
+            'version': (remoteRecord['version'] as num?)?.toInt() ?? 1,
+          };
 
           if (table == 'customers') {
             sqliteRecord['name'] = remoteRecord['name'] ?? 'Customer';
@@ -664,7 +701,7 @@ class SyncService {
             sqliteRecord['updated_at'] = DateTime.now().millisecondsSinceEpoch;
           }
 
-          await _localDb.insertRecord(table, sqliteRecord);
+          await _localDb.insertRecord(table, sqliteRecord, fromRepository: true);
           if (table == 'orders') DatabaseService.orderSignal.add(null);
           if (table == 'customers') DatabaseService.customerSignal.add(null);
           if (table == 'expenses') DatabaseService.expenseSignal.add(null);

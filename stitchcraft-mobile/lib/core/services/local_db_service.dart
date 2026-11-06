@@ -199,7 +199,7 @@ class LocalDatabaseService {
 
   Future<void> _ensureAllRequiredColumns(Database db) async {
     try {
-      // 1. Ensure order_payments and mutation_outbox tables exist (P0-04)
+      // 1. Ensure order_payments and mutation_outbox tables exist (Phase 2, 6.2)
       await db.execute('''
         CREATE TABLE IF NOT EXISTS order_payments (
           id TEXT PRIMARY KEY,
@@ -208,6 +208,7 @@ class LocalDatabaseService {
           payment_method TEXT,
           date INTEGER NOT NULL,
           shop_id TEXT,
+          version INTEGER DEFAULT 1,
           sync_status INTEGER DEFAULT 1,
           updated_at INTEGER NOT NULL
         )
@@ -216,22 +217,44 @@ class LocalDatabaseService {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS mutation_outbox (
           id TEXT PRIMARY KEY,
-          table_name TEXT NOT NULL,
-          record_id TEXT NOT NULL,
-          action TEXT NOT NULL,
+          shop_id TEXT NOT NULL,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          operation TEXT NOT NULL,
           payload TEXT NOT NULL,
-          idempotency_key TEXT NOT NULL,
+          base_version INTEGER DEFAULT 1,
+          client_mutation_id TEXT NOT NULL UNIQUE,
+          status TEXT NOT NULL DEFAULT 'pending',
+          retry_count INTEGER NOT NULL DEFAULT 0,
+          last_error TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          -- Backward compatibility aliases
+          table_name TEXT,
+          record_id TEXT,
+          action TEXT,
+          idempotency_key TEXT,
           attempts INTEGER DEFAULT 0,
           max_attempts INTEGER DEFAULT 5,
-          next_retry INTEGER NOT NULL,
-          last_error TEXT,
-          base_version INTEGER DEFAULT 1,
-          conflict_state TEXT DEFAULT 'none',
-          status TEXT DEFAULT 'pending',
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
+          next_retry INTEGER,
+          conflict_state TEXT DEFAULT 'none'
         )
       ''');
+
+      // Ensure versioning columns for optimistic concurrency (Phase 2, 6.3)
+      await _ensureColumnExists(db, 'customers', 'version', 'INTEGER DEFAULT 1');
+      await _ensureColumnExists(db, 'orders', 'version', 'INTEGER DEFAULT 1');
+      await _ensureColumnExists(db, 'inventory', 'version', 'INTEGER DEFAULT 1');
+      await _ensureColumnExists(db, 'expenses', 'version', 'INTEGER DEFAULT 1');
+      await _ensureColumnExists(db, 'order_payments', 'version', 'INTEGER DEFAULT 1');
+
+      // Ensure mutation_outbox schema columns
+      await _ensureColumnExists(db, 'mutation_outbox', 'shop_id', 'TEXT');
+      await _ensureColumnExists(db, 'mutation_outbox', 'entity_type', 'TEXT');
+      await _ensureColumnExists(db, 'mutation_outbox', 'entity_id', 'TEXT');
+      await _ensureColumnExists(db, 'mutation_outbox', 'operation', 'TEXT');
+      await _ensureColumnExists(db, 'mutation_outbox', 'client_mutation_id', 'TEXT');
+      await _ensureColumnExists(db, 'mutation_outbox', 'retry_count', 'INTEGER DEFAULT 0');
 
       // 2. Ensure shop_id on all tenant-isolated tables
       await _ensureColumnExists(db, 'orders', 'shop_id', 'TEXT');
@@ -329,8 +352,23 @@ class LocalDatabaseService {
     );
   }
 
+  static bool enforceRepositoryWritePath = false;
+
+  static void _reportWritePathViolation(String operation, String table) {
+    if (table != 'mutation_outbox' && table != 'shop_settings') {
+      developer.log(
+        '[WritePathInstrumentation] Direct $operation on table "$table" invoked outside repository write path.',
+        name: 'LocalDatabaseService',
+      );
+      if (enforceRepositoryWritePath) {
+        assert(false, 'Direct write to "$table" outside repository write path is disallowed.');
+      }
+    }
+  }
+
   // ============== GENERIC CRUD HELPERS ==============
-  Future<void> insertRecord(String table, Map<String, dynamic> data) async {
+  Future<void> insertRecord(String table, Map<String, dynamic> data, {bool fromRepository = false}) async {
+    if (!fromRepository) _reportWritePathViolation('insert', table);
     if (kIsWeb) {
       await _initWebDb();
       final list = _webDb[table]!;
@@ -359,7 +397,9 @@ class LocalDatabaseService {
     String id,
     Map<String, dynamic> data, {
     String idColumn = 'id',
+    bool fromRepository = false,
   }) async {
+    if (!fromRepository) _reportWritePathViolation('update', table);
     if (kIsWeb) {
       await _initWebDb();
       final list = _webDb[table]!;
@@ -894,37 +934,254 @@ class LocalDatabaseService {
   }
 
   // ---------------------------------------------------------
-  // Mutation Outbox & Durable Sync Methods (P0-04)
+  // Mutation Outbox & Durable Sync Methods (Phase 2, 6.2)
   // ---------------------------------------------------------
 
-  /// Enqueue an operation in the mutation outbox
+  /// Atomically write an entity mutation and its durable outbox entry in one SQLite transaction
+  Future<String> executeAtomicMutation({
+    required String shopId,
+    required String entityType,
+    required String entityId,
+    required String operation, // 'create', 'update', 'delete', 'payment'
+    required Map<String, dynamic> entityData,
+    required Map<String, dynamic> payload,
+    int? baseVersion,
+    String? clientMutationId,
+  }) async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    final mutationId = clientMutationId ?? 'mut_${nowMs}_${Random().nextInt(999999)}';
+
+    final effectiveBaseVersion = baseVersion ?? (entityData['version'] as int?) ?? 1;
+
+    final outboxData = {
+      'id': mutationId,
+      'shop_id': shopId,
+      'entity_type': entityType,
+      'entity_id': entityId,
+      'operation': operation,
+      'payload': json.encode(payload),
+      'base_version': effectiveBaseVersion,
+      'client_mutation_id': mutationId,
+      'status': 'pending',
+      'retry_count': 0,
+      'last_error': null,
+      'created_at': nowIso,
+      'updated_at': nowIso,
+      // Backward compatibility aliases
+      'table_name': entityType,
+      'record_id': entityId,
+      'action': operation,
+      'idempotency_key': mutationId,
+      'attempts': 0,
+      'max_attempts': 5,
+      'next_retry': nowMs,
+      'conflict_state': 'none',
+    };
+
+    if (kIsWeb) {
+      await _initWebDb();
+      _webDb.putIfAbsent(entityType, () => []);
+      final list = _webDb[entityType]!;
+
+      if (operation == 'delete') {
+        for (final item in list) {
+          if (item['id'] == entityId) {
+            item['sync_status'] = 2;
+            item['updated_at'] = nowMs;
+          }
+        }
+      } else if (operation == 'update') {
+        for (int i = 0; i < list.length; i++) {
+          if (list[i]['id'] == entityId) {
+            final updated = Map<String, dynamic>.from(list[i]);
+            updated.addAll(entityData);
+            updated['version'] = ((list[i]['version'] as int?) ?? 1) + 1;
+            updated['sync_status'] = 1;
+            updated['updated_at'] = nowMs;
+            list[i] = updated;
+            break;
+          }
+        }
+      } else {
+        list.removeWhere((item) => item['id'] == entityId);
+        final toInsert = Map<String, dynamic>.from(entityData);
+        toInsert['id'] = entityId;
+        toInsert['shop_id'] = shopId;
+        toInsert['version'] = toInsert['version'] ?? 1;
+        toInsert['sync_status'] = 1;
+        toInsert['updated_at'] = nowMs;
+        list.add(toInsert);
+      }
+
+      _webDb.putIfAbsent('mutation_outbox', () => []);
+      _webDb['mutation_outbox']!.add(outboxData);
+      return mutationId;
+    }
+
+    final db = await database;
+    if (db == null) throw StateError('Database not initialized');
+
+    // Execute atomic SQLite transaction
+    await db.transaction((txn) async {
+      if (operation == 'delete') {
+        await txn.update(
+          entityType,
+          {
+            'sync_status': 2,
+            'updated_at': nowMs,
+          },
+          where: 'id = ?',
+          whereArgs: [entityId],
+        );
+      } else if (operation == 'update') {
+        final currentVersion = (entityData['version'] as int?) ?? 1;
+        final toUpdate = Map<String, dynamic>.from(entityData);
+        toUpdate['version'] = currentVersion + 1;
+        toUpdate['sync_status'] = 1;
+        toUpdate['updated_at'] = nowMs;
+        await txn.update(
+          entityType,
+          toUpdate,
+          where: 'id = ?',
+          whereArgs: [entityId],
+        );
+      } else if (operation == 'payment') {
+        await txn.insert(
+          'order_payments',
+          entityData,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else {
+        final toInsert = Map<String, dynamic>.from(entityData);
+        toInsert['version'] = toInsert['version'] ?? 1;
+        toInsert['sync_status'] = 1;
+        toInsert['updated_at'] = nowMs;
+        await txn.insert(
+          entityType,
+          toInsert,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      // Outbox row insert within the same atomic transaction
+      await txn.insert(
+        'mutation_outbox',
+        outboxData,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+
+    return mutationId;
+  }
+
+  /// Check whether an entity has any unresolved local mutations
+  Future<bool> hasPendingMutation(String table, String recordId) async {
+    if (kIsWeb) {
+      return (_webDb['mutation_outbox'] ?? []).any((m) =>
+          ((m['table_name'] == table || m['entity_type'] == table) &&
+              (m['record_id'] == recordId || m['entity_id'] == recordId)) &&
+          (m['status'] == 'pending' ||
+              m['status'] == 'processing' ||
+              m['status'] == 'conflict' ||
+              m['status'] == 'failed'));
+    }
+    final db = await database;
+    if (db == null) return false;
+    final results = await db.query(
+      'mutation_outbox',
+      where:
+          '(table_name = ? OR entity_type = ?) AND (record_id = ? OR entity_id = ?) AND status IN (?, ?, ?, ?)',
+      whereArgs: [table, table, recordId, recordId, 'pending', 'processing', 'conflict', 'failed'],
+      limit: 1,
+    );
+    return results.isNotEmpty;
+  }
+
+  /// Recover in-flight mutations if app crashed or was killed during sync (restart-safe)
+  Future<void> recoverInFlightMutations() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (kIsWeb) {
+      final list = _webDb['mutation_outbox'] ?? [];
+      for (final m in list) {
+        if (m['status'] == 'processing') {
+          m['status'] = 'pending';
+          m['updated_at'] = now;
+        }
+      }
+      return;
+    }
+    final db = await database;
+    if (db != null) {
+      await db.update(
+        'mutation_outbox',
+        {'status': 'pending', 'updated_at': now},
+        where: 'status = ?',
+        whereArgs: ['processing'],
+      );
+    }
+  }
+
+  /// Mark mutation as currently in-flight processing
+  Future<void> markMutationProcessing(String mutationId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (kIsWeb) {
+      final list = _webDb['mutation_outbox'] ?? [];
+      for (final m in list) {
+        if (m['id'] == mutationId || m['client_mutation_id'] == mutationId) {
+          m['status'] = 'processing';
+          m['updated_at'] = now;
+        }
+      }
+      return;
+    }
+    final db = await database;
+    if (db != null) {
+      await db.update(
+        'mutation_outbox',
+        {'status': 'processing', 'updated_at': now},
+        where: 'id = ? OR client_mutation_id = ?',
+        whereArgs: [mutationId, mutationId],
+      );
+    }
+  }
+
+  /// Enqueue an operation in the mutation outbox (legacy helper)
   Future<String> enqueueMutation({
     required String tableName,
     required String recordId,
     required String action,
     required Map<String, dynamic> payload,
     String? idempotencyKey,
+    String? shopId,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
     final mutationId = 'mut_${Random().nextInt(99999999)}_$now';
     final effectiveIdemKey = idempotencyKey ?? 'idem_${mutationId}';
 
     final data = {
       'id': mutationId,
+      'shop_id': shopId ?? '',
+      'entity_type': tableName,
+      'entity_id': recordId,
+      'operation': action,
+      'payload': json.encode(payload),
+      'base_version': 1,
+      'client_mutation_id': effectiveIdemKey,
+      'status': 'pending',
+      'retry_count': 0,
+      'last_error': null,
+      'created_at': nowIso,
+      'updated_at': nowIso,
       'table_name': tableName,
       'record_id': recordId,
       'action': action,
-      'payload': json.encode(payload),
       'idempotency_key': effectiveIdemKey,
       'attempts': 0,
       'max_attempts': 5,
       'next_retry': now,
-      'last_error': null,
-      'base_version': 1,
       'conflict_state': 'none',
-      'status': 'pending',
-      'created_at': now,
-      'updated_at': now,
     };
 
     if (kIsWeb) {
@@ -940,33 +1197,63 @@ class LocalDatabaseService {
     return mutationId;
   }
 
-  /// Get pending mutations ready for retry
+  /// Get pending mutations grouped by dependency order (Phase 2, 6.4)
   Future<List<Map<String, dynamic>>> getPendingMutations() async {
     final now = DateTime.now().millisecondsSinceEpoch;
+    List<Map<String, dynamic>> pending;
+
     if (kIsWeb) {
-      return (_webDb['mutation_outbox'] ?? [])
-          .where((m) => m['status'] == 'pending' && ((m['next_retry'] as num?)?.toInt() ?? 0) <= now)
+      pending = (_webDb['mutation_outbox'] ?? [])
+          .where((m) =>
+              m['status'] == 'pending' &&
+              ((m['next_retry'] as num?)?.toInt() ?? 0) <= now)
           .toList();
+    } else {
+      final db = await database;
+      if (db == null) return [];
+      pending = await db.query(
+        'mutation_outbox',
+        where: 'status = ? AND (next_retry IS NULL OR next_retry <= ?)',
+        whereArgs: ['pending', now],
+        orderBy: 'created_at ASC',
+      );
     }
-    final db = await database;
-    if (db == null) return [];
-    return await db.query(
-      'mutation_outbox',
-      where: 'status = ? AND next_retry <= ?',
-      whereArgs: ['pending', now],
-      orderBy: 'created_at ASC',
-    );
+
+    // Sort by dependency priority: customers -> inventory -> orders -> payments -> expenses
+    int getPriority(Map<String, dynamic> m) {
+      final type = (m['entity_type'] ?? m['table_name'] ?? '').toString().toLowerCase();
+      final action = (m['operation'] ?? m['action'] ?? '').toString().toLowerCase();
+      if (action == 'payment') return 4;
+      if (type.contains('cust')) return 1;
+      if (type.contains('inv')) return 2;
+      if (type.contains('ord')) return 3;
+      if (type.contains('pay')) return 4;
+      if (type.contains('exp')) return 5;
+      return 6;
+    }
+
+    final sorted = List<Map<String, dynamic>>.from(pending);
+    sorted.sort((a, b) {
+      final prioA = getPriority(a);
+      final prioB = getPriority(b);
+      if (prioA != prioB) return prioA.compareTo(prioB);
+      final createdA = a['created_at']?.toString() ?? '';
+      final createdB = b['created_at']?.toString() ?? '';
+      return createdA.compareTo(createdB);
+    });
+
+    return sorted;
   }
 
   /// Mark mutation as completed successfully
   Future<void> markMutationSuccess(String mutationId) async {
-    final now = DateTime.now().millisecondsSinceEpoch;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
     if (kIsWeb) {
       final list = _webDb['mutation_outbox'] ?? [];
       for (final m in list) {
-        if (m['id'] == mutationId) {
-          m['status'] = 'completed';
-          m['updated_at'] = now;
+        if (m['id'] == mutationId || m['client_mutation_id'] == mutationId) {
+          m['status'] = 'synced';
+          m['updated_at'] = nowIso;
         }
       }
       return;
@@ -975,30 +1262,73 @@ class LocalDatabaseService {
     if (db != null) {
       await db.update(
         'mutation_outbox',
-        {'status': 'completed', 'updated_at': now},
-        where: 'id = ?',
-        whereArgs: [mutationId],
+        {'status': 'synced', 'updated_at': nowIso},
+        where: 'id = ? OR client_mutation_id = ?',
+        whereArgs: [mutationId, mutationId],
+      );
+    }
+  }
+
+  /// Mark mutation conflict (HTTP 409) preserving record for diagnosis and resolution
+  Future<void> markMutationConflict(
+    String mutationId,
+    String error, {
+    Map<String, dynamic>? serverData,
+  }) async {
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    if (kIsWeb) {
+      final list = _webDb['mutation_outbox'] ?? [];
+      for (final m in list) {
+        if (m['id'] == mutationId || m['client_mutation_id'] == mutationId) {
+          m['status'] = 'conflict';
+          m['conflict_state'] = 'conflict';
+          m['last_error'] = error;
+          m['updated_at'] = nowIso;
+        }
+      }
+      return;
+    }
+    final db = await database;
+    if (db != null) {
+      await db.update(
+        'mutation_outbox',
+        {
+          'status': 'conflict',
+          'conflict_state': 'conflict',
+          'last_error': error,
+          'updated_at': nowIso,
+        },
+        where: 'id = ? OR client_mutation_id = ?',
+        whereArgs: [mutationId, mutationId],
       );
     }
   }
 
   /// Mark mutation failure with exponential backoff and terminal state tracking
-  Future<void> markMutationFailure(String mutationId, String error, {bool conflict = false, bool terminal = false}) async {
+  Future<void> markMutationFailure(
+    String mutationId,
+    String error, {
+    bool conflict = false,
+    bool terminal = false,
+  }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
     if (kIsWeb) {
       final list = _webDb['mutation_outbox'] ?? [];
       for (final m in list) {
-        if (m['id'] == mutationId) {
-          final attempts = ((m['attempts'] as int?) ?? 0) + 1;
+        if (m['id'] == mutationId || m['client_mutation_id'] == mutationId) {
+          final attempts = ((m['attempts'] as int?) ?? (m['retry_count'] as int?) ?? 0) + 1;
           final maxAttempts = (m['max_attempts'] as int?) ?? 5;
           final isTerminal = terminal || attempts >= maxAttempts;
-          final delaySec = min(pow(3, attempts).toInt() * 5, 3600);
+          // Exponential backoff with jitter (Phase 2, 6.4)
+          final delaySec = min(pow(2, attempts).toInt() * 3 + Random().nextInt(3), 3600);
           m['attempts'] = attempts;
+          m['retry_count'] = attempts;
           m['last_error'] = error;
           m['conflict_state'] = conflict ? 'conflict' : (m['conflict_state'] ?? 'none');
-          m['status'] = isTerminal ? 'failed' : 'pending';
+          m['status'] = conflict ? 'conflict' : (isTerminal ? 'failed' : 'pending');
           m['next_retry'] = now + (delaySec * 1000);
-          m['updated_at'] = now;
+          m['updated_at'] = nowIso;
         }
       }
       return;
@@ -1007,27 +1337,32 @@ class LocalDatabaseService {
     final db = await database;
     if (db == null) return;
 
-    final records = await db.query('mutation_outbox', where: 'id = ?', whereArgs: [mutationId]);
+    final records = await db.query(
+      'mutation_outbox',
+      where: 'id = ? OR client_mutation_id = ?',
+      whereArgs: [mutationId, mutationId],
+    );
     if (records.isEmpty) return;
 
     final record = records.first;
-    final attempts = ((record['attempts'] as int?) ?? 0) + 1;
+    final attempts = ((record['attempts'] as int?) ?? (record['retry_count'] as int?) ?? 0) + 1;
     final maxAttempts = (record['max_attempts'] as int?) ?? 5;
     final isTerminal = terminal || attempts >= maxAttempts;
-    final delaySec = min(pow(3, attempts).toInt() * 5, 3600);
+    final delaySec = min(pow(2, attempts).toInt() * 3 + Random().nextInt(3), 3600);
 
     await db.update(
       'mutation_outbox',
       {
         'attempts': attempts,
+        'retry_count': attempts,
         'last_error': error,
         'conflict_state': conflict ? 'conflict' : (record['conflict_state'] ?? 'none'),
-        'status': isTerminal ? 'failed' : 'pending',
+        'status': conflict ? 'conflict' : (isTerminal ? 'failed' : 'pending'),
         'next_retry': now + (delaySec * 1000),
-        'updated_at': now,
+        'updated_at': nowIso,
       },
-      where: 'id = ?',
-      whereArgs: [mutationId],
+      where: 'id = ? OR client_mutation_id = ?',
+      whereArgs: [mutationId, mutationId],
     );
   }
 

@@ -8,6 +8,7 @@ import 'package:stitchcraft/core/widgets/custom_app_bar.dart';
 import 'package:stitchcraft/core/widgets/state_views.dart';
 import 'package:stitchcraft/core/services/local_db_service.dart';
 import 'package:stitchcraft/core/services/auth_service.dart';
+import 'package:stitchcraft/core/repositories/order_repository.dart';
 import 'package:stitchcraft/core/localization/app_localizations_extension.dart';
 
 class MyJobsScreen extends StatefulWidget {
@@ -147,26 +148,7 @@ class _MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSt
     }
 
     try {
-      await _localDb.updateRecord('orders', orderId, {
-        'status': nextStatus,
-        'sync_status': 3, // pending PUT update
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      });
-
-      // Best effort PUT to server
-      try {
-        final token = await _authService.getToken();
-        if (token != null) {
-          await http.put(
-            Uri.parse('${AuthService.baseUrl}/orders/$orderId'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: json.encode({'status': nextStatus}),
-          );
-        }
-      } catch (_) {}
+      await OrderRepository().updateOrderStatus(orderId, nextStatus);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -221,12 +203,11 @@ class _MyJobsScreenState extends State<MyJobsScreen> with SingleTickerProviderSt
         }
       }
 
-      // Also update local record
+      // Also update local record via OrderRepository
       try {
-        await _localDb.updateRecord('orders', orderId, {
+        await OrderRepository().updateOrder(orderId, {
           'status': nextStatus,
           'delegation_status': (nextStatus == 'Ready' || nextStatus == 'Delivered') ? 'completed' : 'in_progress',
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
         });
       } catch (_) {}
 

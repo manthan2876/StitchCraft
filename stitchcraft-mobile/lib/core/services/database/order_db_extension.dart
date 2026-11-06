@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import '../../models/order_model.dart' as order_model;
 import '../database_service.dart';
 import '../notification_service.dart';
+import '../../repositories/order_repository.dart';
 
 extension OrderDbExtension on DatabaseService {
   Future<String> addOrder(order_model.Order order) async {
@@ -32,11 +33,9 @@ extension OrderDbExtension on DatabaseService {
       'overhead_cost': updatedOrder.overheadCost,
       'fabric_photo_url': updatedOrder.fabricPhotoUrl,
       'style_attributes_json': jsonEncode(updatedOrder.styleAttributes),
-      'sync_status': updatedOrder.syncStatus,
-      'updated_at': updatedOrder.updatedAt.millisecondsSinceEpoch,
     };
     
-    await localDb.insertOrder(map);
+    await OrderRepository().createOrder(map);
     
     if (updatedOrder.dueDate != null) {
       try {
@@ -115,11 +114,9 @@ extension OrderDbExtension on DatabaseService {
       'overhead_cost': updatedOrder.overheadCost,
       'fabric_photo_url': updatedOrder.fabricPhotoUrl,
       'style_attributes_json': jsonEncode(updatedOrder.styleAttributes),
-      'sync_status': updatedOrder.syncStatus,
-      'updated_at': updatedOrder.updatedAt.millisecondsSinceEpoch,
     };
     
-    await localDb.insertOrder(map);
+    await OrderRepository().updateOrder(order.id, map);
 
     if (updatedOrder.dueDate != null && updatedOrder.status != 'Delivered' && updatedOrder.status != 'Cancelled') {
       try {

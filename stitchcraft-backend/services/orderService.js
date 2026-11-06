@@ -401,6 +401,24 @@ export const updateOrderService = async (orderId, reqBody, shopId, userName) => 
   const order = await findOrderScoped(orderId, shopId);
   if (!order) return null;
 
+  // Optimistic concurrency check (Phase 2, 6.3)
+  const clientBaseVersion = reqBody.base_version !== undefined
+    ? Number(reqBody.base_version)
+    : (reqBody.baseVersion !== undefined ? Number(reqBody.baseVersion) : null);
+
+  if (clientBaseVersion !== null && !isNaN(clientBaseVersion)) {
+    const currentVersion = Number(order.version || 1);
+    if (currentVersion !== clientBaseVersion) {
+      const conflictErr = new Error('Conflict: concurrent modification detected');
+      conflictErr.statusCode = 409;
+      conflictErr.serverVersion = currentVersion;
+      conflictErr.currentData = order.toJSON ? order.toJSON() : order;
+      throw conflictErr;
+    }
+  }
+
+  order.version = Number(order.version || 1) + 1;
+
   const {
     status,
     deliveryDate,

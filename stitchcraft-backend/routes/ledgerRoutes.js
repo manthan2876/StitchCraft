@@ -8,6 +8,7 @@ import {
 import {
   getExpenses,
   createExpense,
+  updateExpense,
   deleteExpense,
 } from '../controllers/expenseController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
@@ -20,6 +21,7 @@ router.get('/journal', getJournalEntries);
 router.get('/transactions', getTransactions);
 router.get('/expenses', getExpenses);
 router.post('/expenses', validateExpenseRequest, createExpense);
+router.put('/expenses/:id', updateExpense);
 router.delete('/expenses/:id', authorize('owner'), deleteExpense);
 
 export default router;

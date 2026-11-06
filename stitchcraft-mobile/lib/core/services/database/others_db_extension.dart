@@ -4,22 +4,19 @@ import '../../models/repair_job_model.dart' as repair_job_model;
 import '../../models/lining_item_model.dart' as lining_item_model;
 import '../../models/gallery_item_model.dart' as gallery_item_model;
 import '../database_service.dart';
+import '../../repositories/ledger_repository.dart';
 
 extension OthersDbExtension on DatabaseService {
   // ============== EXPENSE CRUD ==============
   Future<void> addExpense(String category, double amount, String description, DateTime date) async {
     final id = uuid.v4();
-    final map = {
-      'id': id,
-      'category': category,
-      'amount': amount,
-      'description': description,
-      'date': date.millisecondsSinceEpoch,
-      'sync_status': 1,
-      'updated_at': DateTime.now().millisecondsSinceEpoch,
-    };
-    await localDb.insertExpense(map);
-    DatabaseService.expenseSignal.add(null);
+    await LedgerRepository().addExpense(
+      category: category,
+      amount: amount,
+      description: description,
+      date: date,
+      expenseId: id,
+    );
   }
 
   Stream<List<Map<String, dynamic>>> getExpenses() async* {
@@ -32,8 +29,7 @@ extension OthersDbExtension on DatabaseService {
   }
 
   Future<void> deleteExpense(String id) async {
-    await localDb.deleteExpense(id);
-    DatabaseService.expenseSignal.add(null);
+    await LedgerRepository().deleteExpense(id);
   }
 
   // ============== PROFITABILITY ANALYTICS ==============
