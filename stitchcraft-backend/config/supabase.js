@@ -13,6 +13,24 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required');
 }
 
+const isServiceRoleKey = (key) => {
+  if (key.startsWith('sb_secret_')) return true;
+  if (!key.startsWith('eyJ')) return false;
+
+  try {
+    const payload = JSON.parse(Buffer.from(key.split('.')[1], 'base64url').toString('utf8'));
+    return payload.role === 'service_role';
+  } catch {
+    return false;
+  }
+};
+
+if (!isTest && !isServiceRoleKey(supabaseKey)) {
+  throw new Error(
+    'SUPABASE_SERVICE_ROLE_KEY must be a Supabase service-role/secret key; anon or publishable keys cannot write app_records',
+  );
+}
+
 export const supabase = createClient(
   supabaseUrl,
   supabaseKey,
