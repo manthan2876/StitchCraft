@@ -43,31 +43,21 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      // 1. Authenticate with Supabase Auth
-      const { data: sbData, error: sbError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (sbError) throw sbError;
-      const token = sbData.session.access_token;
-
-      // Provision/fetch the application profile through the backend.
       const API_URL = import.meta.env.VITE_API_URL;
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Verification with backend failed.');
+        throw new Error(data.message || 'Invalid email or password');
       }
 
-      const data = await res.json();
+      if (data.token) {
+        localStorage.setItem('stitchcraft_token', data.token);
+      }
       setUser(data);
       localStorage.setItem('stitchcraft_user', JSON.stringify(data));
       setLoading(false);
@@ -81,39 +71,26 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password, shopName, phone, address) => {
     setLoading(true);
     try {
-      // 1. Register with Supabase Auth
-      const { data: sbData, error: sbError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name, shopName, phone, address }
-        }
-      });
-
-      if (sbError) throw sbError;
-      const token = sbData.session?.access_token;
-
-      if (!token) {
-        throw new Error('Please check your email to verify your account before logging in.');
-      }
-
-      // Provision profile details through the backend.
       const API_URL = import.meta.env.VITE_API_URL;
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ name, email, shopName, phone, address })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: email.trim().toLowerCase(), password, shopName, phone, address }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Registration failed.');
+        throw new Error(data.message || 'Registration failed');
       }
 
-      const data = await res.json();
+      if (data.requiresVerification) {
+        setLoading(false);
+        throw new Error(data.message || 'Please verify your email before logging in');
+      }
+
+      if (data.token) {
+        localStorage.setItem('stitchcraft_token', data.token);
+      }
       setUser(data);
       localStorage.setItem('stitchcraft_user', JSON.stringify(data));
       setLoading(false);
