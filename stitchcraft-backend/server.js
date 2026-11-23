@@ -11,6 +11,9 @@ import { apiLimiter } from './middleware/securityMiddleware.js';
 dotenv.config();
 const app = express();
 
+// Render terminates the public proxy and forwards X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
