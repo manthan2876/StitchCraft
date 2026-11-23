@@ -48,6 +48,7 @@ export const AuthProvider = ({ children }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        cache: 'no-store',
       });
 
       const data = await res.json().catch(() => ({}));
@@ -76,6 +77,7 @@ export const AuthProvider = ({ children }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email: email.trim().toLowerCase(), password, shopName, phone, address }),
+        cache: 'no-store',
       });
 
       const data = await res.json().catch(() => ({}));

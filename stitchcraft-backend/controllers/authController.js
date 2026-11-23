@@ -123,7 +123,7 @@ export const loginUser = async (req, res) => {
         { supabaseId: supabaseUser.id },
         { email: supabaseUser.email.toLowerCase() }
       ]
-    }).populate('shopId');
+    });
 
     // Multi-role enablement: All valid active roles (owner, manager, karigar, staff) are admitted
     if (!user) {
@@ -159,14 +159,24 @@ export const loginUser = async (req, res) => {
       await user.save();
     }
 
+    let shop = null;
+    if (user.shopId) {
+      const shopId = typeof user.shopId === 'object'
+        ? (user.shopId._id || user.shopId.id)
+        : user.shopId;
+      if (shopId) {
+        shop = await Shop.findById(shopId);
+      }
+    }
+
     res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
       avatar: user.avatar,
-      shopId: user.shopId ? user.shopId._id : null,
-      shopName: user.shopId ? user.shopId.shopName : '',
+      shopId: shop ? (shop._id || shop.id) : (typeof user.shopId === 'object' ? (user.shopId._id || user.shopId.id) : user.shopId),
+      shopName: shop?.shopName || '',
       token: token,
     });
   } catch (error) {
